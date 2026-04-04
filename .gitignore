@@ -31,7 +31,6 @@ desktop.ini
 nul
 
 # Cache & Data
-announcements_cache.json
 *.log
 
 # Playwright
