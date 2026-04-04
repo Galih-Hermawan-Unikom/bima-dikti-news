@@ -2,10 +2,16 @@ import json
 import os
 import sys
 import requests
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
+
+WIB = timezone(timedelta(hours=7))
+
+
+def now_wib():
+    return datetime.now(WIB)
 
 
 class Notifier:
@@ -29,7 +35,7 @@ class Notifier:
 
     def _format_message(self, announcements):
         message = "📢 *PENGUMUMAN BARU BIMA KEMDIKTISAINTEK*\n\n"
-        message += f"📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
+        message += f"📅 {now_wib().strftime('%d/%m/%Y %H:%M WIB')}\n"
         message += f"🔢 Jumlah: {len(announcements)} pengumuman baru\n\n"
 
         for i, ann in enumerate(announcements, 1):
@@ -53,7 +59,7 @@ class Notifier:
         print("\n" + "=" * 60)
         print("PENGUMUMAN BARU BIMA KEMDIKTISAINTEK")
         print("=" * 60)
-        print(f"  {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+        print(f"  {now_wib().strftime('%d/%m/%Y %H:%M WIB')}")
         print(f"  Jumlah: {len(announcements)} pengumuman baru\n")
 
         for i, ann in enumerate(announcements, 1):
@@ -79,7 +85,7 @@ class Notifier:
 
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
 
-        header = f"📢 *PENGUMUMAN BARU BIMA KEMDIKTISAINTEK*\n\n📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}\n🔢 Jumlah: {len(announcements)} pengumuman baru\n\n"
+        header = f"📢 *PENGUMUMAN BARU BIMA KEMDIKTISAINTEK*\n\n📅 {now_wib().strftime('%d/%m/%Y %H:%M WIB')}\n🔢 Jumlah: {len(announcements)} pengumuman baru\n\n"
 
         chunks = []
         current = header
