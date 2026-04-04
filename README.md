@@ -104,7 +104,7 @@ git push -u origin main
 ```
 bima-dikti-news/
 ├── .github/workflows/
-│   └── bima-checker.yml       # GitHub Actions workflow
+│   └── main.yml               # GitHub Actions workflow
 ├── main.py                    # Entry point (lokal + scheduler)
 ├── scraper.py                 # Web scraper (cross-platform)
 ├── notifier.py                # Notifikasi Console + Telegram
@@ -152,7 +152,7 @@ bima-dikti-news/
 
 **Default saat ini: setiap 30 menit**
 
-Edit `.github/workflows/bima-checker.yml` bagian `cron`:
+Edit `.github/workflows/main.yml` bagian `cron`:
 
 ```yaml
 schedule:
@@ -178,20 +178,26 @@ schedule:
 ```
 📢 PENGUMUMAN BARU BIMA KEMDIKTISAINTEK
 
-📅 04/04/2026 10:30
+📅 04/04/2026 22:42 WIB
 🔢 Jumlah: 2 pengumuman baru
 
 1. Pengumuman Penerima Pendanaan Penelitian Program PHC - NUSANTARA 2026
-   📜 No. Surat: 203/DST/C2/PP.01.11/2026
+   📜 203/DST/C2/PP.01.11/2026
+   📆 01 April 2026
+   📎 Surat Pengumuman PHC-Nusantara 2026.pdf
    🔗 https://bima.kemdiktisaintek.go.id/pengumuman
 
 2. Pengumuman Pendanaan Program Penelitian Multitahun Lanjutan TA 2026
-   📜 No. Surat: 195/DST/C3/DT.05.00/2026
+   📜 195/DST/C3/DT.05.00/2026
+   📆 06 March 2026
+   📎 Pengumuman Pendanaan Program Penelitian Multitahun Lanjutan TA 2026.pdf
    🔗 https://bima.kemdiktisaintek.go.id/pengumuman
 
 ━━━━━━━━━━━━━━━━━━━━
 Bot Notifikasi BIMA
 ```
+
+> Semua waktu notifikasi menggunakan **WIB (UTC+7)**.
 
 ## Troubleshooting
 
@@ -199,8 +205,9 @@ Bot Notifikasi BIMA
 |---|---|
 | `Executable doesn't exist` | Jalankan `playwright install --with-deps chromium` |
 | Notifikasi Telegram tidak terkirim | Periksa `TELEGRAM_BOT_TOKEN` dan `TELEGRAM_CHAT_ID` di Secrets |
-| Workflow tidak jalan | Pastikan file ada di `.github/workflows/` dan branch `main` |
+| Workflow tidak jalan | Pastikan file ada di `.github/workflows/` dan branch `master` |
 | Timeout di GitHub Actions | Website BIMA lambat, timeout sudah diset 15 menit |
+| Cache tidak ter-commit | Pastikan `announcements_cache.json` tidak ada di `.gitignore` |
 
 ## Lisensi
 
