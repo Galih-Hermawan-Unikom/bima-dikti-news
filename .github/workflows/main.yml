@@ -17,6 +17,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: true
 
       - name: Set up Python
@@ -39,8 +40,13 @@ jobs:
 
       - name: Commit cache
         run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
           git add announcements_cache.json
-          git diff --cached --quiet || git commit -m "Update announcements cache"
-          git push || echo "No changes to push"
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: update announcements cache"
+            git push
+          fi
+        continue-on-error: true
