@@ -79,7 +79,7 @@ git init
 git add .
 git commit -m "Initial commit"
 git remote add origin https://github.com/USERNAME/REPO.git
-git push -u origin main
+git push -u origin <default-branch>
 ```
 
 **Langkah 2:** Buat Bot Telegram
@@ -88,11 +88,33 @@ git push -u origin main
 2. Kirim `/newbot`
 3. Ikuti instruksi sampai mendapat **token** (contoh: `123456:ABC-DEF...`)
 
-**Langkah 3:** Dapatkan Chat ID
+**Langkah 3:** Dapatkan Chat ID Tujuan
+
+Bot bisa mengirim notifikasi ke:
+- chat pribadi Telegram
+- channel Telegram
+
+**Untuk chat pribadi:**
 
 1. Buka [@userinfobot](https://t.me/userinfobot)
 2. Kirim pesan `/start`
 3. Catat **Id** Anda (contoh: `987654321`)
+
+**Untuk channel Telegram:**
+
+1. Buat channel Telegram
+2. Tambahkan bot sebagai **admin channel**
+3. Kirim minimal satu pesan ke channel
+4. Buka:
+
+```text
+https://api.telegram.org/bot<TOKEN_BOT_ANDA>/getUpdates
+```
+
+5. Cari nilai `chat.id` pada object `channel_post` atau `my_chat_member`
+6. Gunakan nilai tersebut sebagai `TELEGRAM_CHAT_ID` channel
+
+> Chat ID channel biasanya bernilai negatif, misalnya `-100xxxxxxxxxx`.
 
 **Langkah 4:** Setup Secrets di GitHub
 
@@ -102,7 +124,7 @@ git push -u origin main
 | Name | Value |
 |---|---|
 | `TELEGRAM_BOT_TOKEN` | Token dari BotFather |
-| `TELEGRAM_CHAT_ID` | Chat ID dari userinfobot |
+| `TELEGRAM_CHAT_ID` | Chat ID tujuan notifikasi, bisa chat pribadi atau channel |
 
 **Langkah 5:** Workflow Otomatis Jalan
 
@@ -163,7 +185,7 @@ CHECK_INTERVAL_MINUTES=30
 | Secret | Wajib | Keterangan |
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | Ya (untuk Telegram) | Token bot dari [@BotFather](https://t.me/botfather) |
-| `TELEGRAM_CHAT_ID` | Ya (untuk Telegram) | Chat ID dari [@userinfobot](https://t.me/userinfobot) |
+| `TELEGRAM_CHAT_ID` | Ya (untuk Telegram) | Chat ID tujuan notifikasi, bisa chat pribadi atau channel |
 
 ### GitHub Variables (Opsional)
 
