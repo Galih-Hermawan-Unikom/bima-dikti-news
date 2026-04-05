@@ -59,6 +59,16 @@ python main.py
 ```
 
 Bot akan mengecek pengumuman dan berjalan terus-menerus sesuai interval di `config.json`.
+Nilai ini bisa dioverride lewat `CHECK_INTERVAL_MINUTES` di `.env`.
+
+Untuk notifikasi Telegram lokal, isi `.env`:
+
+```env
+NOTIFICATION_METHOD=telegram
+TELEGRAM_BOT_TOKEN=isi_token_bot
+TELEGRAM_CHAT_ID=isi_chat_id
+CHECK_INTERVAL_MINUTES=30
+```
 
 ### Mode GitHub Actions (Hosting Gratis)
 
@@ -109,7 +119,8 @@ bima-dikti-news/
 ├── scraper.py                 # Web scraper (cross-platform)
 ├── notifier.py                # Notifikasi Console + Telegram
 ├── run_github.py              # Entry point GitHub Actions
-├── config.json                # Konfigurasi lokal
+├── config.json                # Konfigurasi non-secret
+├── .env                       # Secret lokal (tidak di-commit)
 ├── requirements.txt           # Python dependencies
 ├── announcements_cache.json   # Cache pengumuman (auto-generated)
 └── README.md
@@ -117,13 +128,11 @@ bima-dikti-news/
 
 ## Konfigurasi
 
-### config.json (Lokal)
+### config.json
 
 ```json
 {
-  "notification_method": "console",
-  "telegram_bot_token": "",
-  "telegram_chat_id": "",
+  "notification_method": "telegram",
   "check_interval_minutes": 30
 }
 ```
@@ -131,9 +140,23 @@ bima-dikti-news/
 | Key | Nilai | Keterangan |
 |---|---|---|
 | `notification_method` | `console`, `telegram`, `both` | Cara notifikasi |
-| `telegram_bot_token` | Token dari BotFather | Kosongkan jika tidak pakai Telegram |
-| `telegram_chat_id` | Chat ID Telegram | Kosongkan jika tidak pakai Telegram |
 | `check_interval_minutes` | Angka (menit) | Frekuensi pengecekan |
+
+### .env (Lokal)
+
+```env
+NOTIFICATION_METHOD=telegram
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
+CHECK_INTERVAL_MINUTES=30
+```
+
+| Key | Keterangan |
+|---|---|
+| `NOTIFICATION_METHOD` | Override metode notifikasi dari `config.json` |
+| `TELEGRAM_BOT_TOKEN` | Secret token bot Telegram |
+| `TELEGRAM_CHAT_ID` | Secret chat ID Telegram |
+| `CHECK_INTERVAL_MINUTES` | Override interval dari `config.json` |
 
 ### GitHub Secrets
 
@@ -147,6 +170,7 @@ bima-dikti-news/
 | Variable | Default | Keterangan |
 |---|---|---|
 | `NOTIFICATION_METHOD` | `telegram` | `telegram`, `console`, atau `both` |
+| `CHECK_INTERVAL_MINUTES` | `30` | Override interval konfigurasi |
 
 ## Jadwal Pengecekan
 
@@ -205,7 +229,7 @@ Bot Notifikasi BIMA
 |---|---|
 | `Executable doesn't exist` | Jalankan `playwright install --with-deps chromium` |
 | Notifikasi Telegram tidak terkirim | Periksa `TELEGRAM_BOT_TOKEN` dan `TELEGRAM_CHAT_ID` di Secrets |
-| Workflow tidak jalan | Pastikan file ada di `.github/workflows/` dan branch `master` |
+| Workflow tidak jalan | Pastikan file ada di `.github/workflows/` dan branch default repository sesuai workflow |
 | Timeout di GitHub Actions | Website BIMA lambat, timeout sudah diset 15 menit |
 | Cache tidak ter-commit | Pastikan `announcements_cache.json` tidak ada di `.gitignore` |
 

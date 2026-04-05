@@ -1,6 +1,5 @@
 import sys
-import os
-import json
+from app_config import load_config
 from scraper import BimaScraper
 from notifier import Notifier
 
@@ -8,37 +7,8 @@ if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
 
 
-def load_env_file(path=".env"):
-    if not os.path.exists(path):
-        return
-    with open(path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            key = key.strip()
-            value = value.strip().strip('"').strip("'")
-            if key and value and key not in os.environ:
-                os.environ[key] = value
-
-
 def main():
-    load_env_file()
-
-    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
-    notif_method = os.environ.get("NOTIFICATION_METHOD", "telegram")
-
-    if bot_token and chat_id:
-        config = {
-            "notification_method": notif_method,
-            "telegram_bot_token": bot_token,
-            "telegram_chat_id": chat_id,
-            "check_interval_minutes": 30,
-        }
-        with open("config.json", "w") as f:
-            json.dump(config, f, indent=2)
+    config = load_config()
 
     print("=" * 60)
     print("BIMA Pengumuman Checker - GitHub Actions")
@@ -46,7 +16,7 @@ def main():
 
     try:
         scraper = BimaScraper()
-        notifier = Notifier()
+        notifier = Notifier(config)
 
         new_announcements = scraper.check_new_announcements()
 

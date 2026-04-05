@@ -1,6 +1,4 @@
 {
   "notification_method": "telegram",
-  "telegram_bot_token": "7193933687:AAGt-eJFpqaXnfcPSYuaSzGQI6aPOrnH_bg",
-  "telegram_chat_id": "1685341733",
   "check_interval_minutes": 30
 }

@@ -1,8 +1,7 @@
-import json
-import os
 import sys
 import requests
 from datetime import datetime, timezone, timedelta
+from app_config import load_config
 
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
@@ -15,9 +14,8 @@ def now_wib():
 
 
 class Notifier:
-    def __init__(self, config_path="config.json"):
-        with open(config_path, "r", encoding="utf-8") as f:
-            self.config = json.load(f)
+    def __init__(self, config=None, config_path="config.json"):
+        self.config = config or load_config(config_path=config_path)
 
     def send_notification(self, announcements):
         if not announcements:

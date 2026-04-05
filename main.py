@@ -1,7 +1,7 @@
 import sys
-import json
 import schedule
 import time
+from app_config import load_config
 from scraper import BimaScraper
 from notifier import Notifier
 
@@ -9,17 +9,12 @@ if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
 
 
-def load_config(config_path="config.json"):
-    with open(config_path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
 def check_announcements():
     print("\n[Check] Mengecek pengumuman baru...")
 
     try:
         scraper = BimaScraper()
-        notifier = Notifier()
+        notifier = Notifier(load_config())
 
         new_announcements = scraper.check_new_announcements()
 
