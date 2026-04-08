@@ -5,7 +5,9 @@ Bot otomatis untuk mengecek dan mengirim notifikasi ketika ada pengumuman baru d
 ## Fitur
 
 - Scraping otomatis halaman pengumuman BIMA menggunakan Playwright + Chromium
+- Deteksi dokumen lampiran beserta URL unduhan file
 - Notifikasi via Telegram dan Console
+- Opsi kirim ringkasan saja atau ringkasan + file ke Telegram
 - Pengecekan berkala (default setiap 30 menit)
 - Cache untuk mendeteksi pengumuman baru
 - Bisa dijalankan lokal atau hosting gratis di GitHub Actions
@@ -19,18 +21,19 @@ Bot otomatis untuk mengecek dan mengirim notifikasi ketika ada pengumuman baru d
 [Playwright buka halaman BIMA]
         │
         ▼
-[Ekstrak daftar pengumuman]
+[Ekstrak daftar pengumuman + dokumen]
         │
         ▼
 [Bandingkan dengan cache]
         │
         ▼
-[Ada baru?] ──Ya──► [Kirim notifikasi Telegram]
+[Ada baru?] ──Ya──► [Kirim ringkasan Telegram]
+        │           [Unduh & unggah file jika aktif]
         │
        Tidak
         │
         ▼
-[Tunggu jadwal berikutnya]
+[Tidak ada aksi]
 ```
 
 ## Instalasi
@@ -65,7 +68,7 @@ Untuk notifikasi Telegram lokal, isi `.env`:
 
 ```env
 NOTIFICATION_METHOD=telegram
-TELEGRAM_SEND_FILES=false
+TELEGRAM_SEND_FILES=true
 TELEGRAM_BOT_TOKEN=isi_token_bot
 TELEGRAM_CHAT_ID=isi_chat_id
 CHECK_INTERVAL_MINUTES=30
@@ -75,6 +78,7 @@ Rekomendasi penggunaan:
 - Lokal / eksperimen: isi `TELEGRAM_BOT_TOKEN` dan `TELEGRAM_CHAT_ID` dengan bot pribadi
 - GitHub Actions / channel resmi: isi GitHub Secrets dengan token dan chat ID channel resmi
 - Kirim lampiran Telegram aktif jika `TELEGRAM_SEND_FILES=true`
+- Jika tidak ada pengumuman baru, bot tidak mengirim pesan dan tidak mengunggah file apa pun
 
 ### Mode GitHub Actions (Hosting Gratis)
 
@@ -132,6 +136,14 @@ https://api.telegram.org/bot<TOKEN_BOT_ANDA>/getUpdates
 | `TELEGRAM_BOT_TOKEN` | Token dari BotFather |
 | `TELEGRAM_CHAT_ID` | Chat ID tujuan notifikasi, bisa chat pribadi atau channel |
 
+Tambahkan juga Repository Variables bila diperlukan:
+
+| Name | Contoh Value |
+|---|---|
+| `NOTIFICATION_METHOD` | `telegram` |
+| `TELEGRAM_SEND_FILES` | `true` |
+| `CHECK_INTERVAL_MINUTES` | `30` |
+
 **Langkah 5:** Workflow Otomatis Jalan
 
 - Pengecekan otomatis setiap **30 menit**
@@ -176,7 +188,7 @@ bima-dikti-news/
 
 ```env
 NOTIFICATION_METHOD=telegram
-TELEGRAM_SEND_FILES=false
+TELEGRAM_SEND_FILES=true
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
 CHECK_INTERVAL_MINUTES=30
@@ -255,6 +267,8 @@ Bot Notifikasi BIMA
 ```
 
 > Semua waktu notifikasi menggunakan **WIB (UTC+7)**.
+> Jika `TELEGRAM_SEND_FILES=true`, setelah pesan utama bot akan mengunggah dokumen lampiran satu per satu.
+> Jika tidak ada pengumuman baru, bot hanya menulis log `[OK] No new announcements` tanpa mengirim pesan ke Telegram.
 
 ## Troubleshooting
 
@@ -262,6 +276,7 @@ Bot Notifikasi BIMA
 |---|---|
 | `Executable doesn't exist` | Jalankan `playwright install --with-deps chromium` |
 | Notifikasi Telegram tidak terkirim | Periksa `TELEGRAM_BOT_TOKEN` dan `TELEGRAM_CHAT_ID` di Secrets |
+| File lampiran tidak ikut terkirim | Pastikan `TELEGRAM_SEND_FILES=true` dan bot punya izin kirim dokumen ke chat/channel tujuan |
 | Workflow tidak jalan | Pastikan file ada di `.github/workflows/` dan branch default repository sesuai workflow |
 | Timeout di GitHub Actions | Website BIMA lambat, timeout sudah diset 15 menit |
 | Cache tidak ter-commit | Pastikan `announcements_cache.json` tidak ada di `.gitignore` |
