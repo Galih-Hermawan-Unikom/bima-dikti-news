@@ -65,10 +65,16 @@ Untuk notifikasi Telegram lokal, isi `.env`:
 
 ```env
 NOTIFICATION_METHOD=telegram
+TELEGRAM_SEND_FILES=false
 TELEGRAM_BOT_TOKEN=isi_token_bot
 TELEGRAM_CHAT_ID=isi_chat_id
 CHECK_INTERVAL_MINUTES=30
 ```
+
+Rekomendasi penggunaan:
+- Lokal / eksperimen: isi `TELEGRAM_BOT_TOKEN` dan `TELEGRAM_CHAT_ID` dengan bot pribadi
+- GitHub Actions / channel resmi: isi GitHub Secrets dengan token dan chat ID channel resmi
+- Kirim lampiran Telegram aktif jika `TELEGRAM_SEND_FILES=true`
 
 ### Mode GitHub Actions (Hosting Gratis)
 
@@ -155,7 +161,8 @@ bima-dikti-news/
 ```json
 {
   "notification_method": "telegram",
-  "check_interval_minutes": 30
+  "check_interval_minutes": 30,
+  "telegram_send_files": false
 }
 ```
 
@@ -163,11 +170,13 @@ bima-dikti-news/
 |---|---|---|
 | `notification_method` | `console`, `telegram`, `both` | Cara notifikasi |
 | `check_interval_minutes` | Angka (menit) | Frekuensi pengecekan |
+| `telegram_send_files` | `true`, `false` | Kirim lampiran dokumen ke Telegram |
 
 ### .env (Lokal)
 
 ```env
 NOTIFICATION_METHOD=telegram
+TELEGRAM_SEND_FILES=false
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
 CHECK_INTERVAL_MINUTES=30
@@ -176,6 +185,7 @@ CHECK_INTERVAL_MINUTES=30
 | Key | Keterangan |
 |---|---|
 | `NOTIFICATION_METHOD` | Override metode notifikasi dari `config.json` |
+| `TELEGRAM_SEND_FILES` | Override kirim lampiran Telegram |
 | `TELEGRAM_BOT_TOKEN` | Secret token bot Telegram |
 | `TELEGRAM_CHAT_ID` | Secret chat ID Telegram |
 | `CHECK_INTERVAL_MINUTES` | Override interval dari `config.json` |
@@ -192,6 +202,7 @@ CHECK_INTERVAL_MINUTES=30
 | Variable | Default | Keterangan |
 |---|---|---|
 | `NOTIFICATION_METHOD` | `telegram` | `telegram`, `console`, atau `both` |
+| `TELEGRAM_SEND_FILES` | `false` | `true` untuk kirim lampiran Telegram di workflow |
 | `CHECK_INTERVAL_MINUTES` | `30` | Override interval konfigurasi |
 
 ## Jadwal Pengecekan

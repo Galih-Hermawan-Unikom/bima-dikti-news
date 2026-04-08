@@ -4,102 +4,174 @@
     "surat": "286/DST/C3/HM.01.00/202607",
     "date": "07 April 2026",
     "documents": [
-      "Surat Pemberitahuan Hasil Akreditasi Baru Jurnal Ilmiah Peringkat 3 sampai 6 Periode II Tahun 2025.pdf"
+      {
+        "name": "Surat Pemberitahuan Hasil Akreditasi Baru Jurnal Ilmiah Peringkat 3 sampai 6 Periode II Tahun 2025.pdf",
+        "download_url": "https://storage.googleapis.com/sipp-be-files/document/news/Surat%20Pemberitahuan%20Hasil%20Akreditasi%20Baru%20Jurnal%20Ilmiah%20Peringkat%203%20sampai%206%20Periode%20II%20Tahun%202025.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130242Z&X-Goog-Expires=899&X-Goog-Signature=2d3e36231d4dfedc268704a6642f0ae06944ae079479f957c8f2337453b19eec4f2939f32496f268f156cfb92ccd4e0d2c782ab1f5d4e52520758bd9b292094092b1ec81f48f129e53985964129a2aceab3b9710d333dcc7dc4d76294907c4f4e7f0e84060409a5efc5f7cd8e19bedab70bfad4db4698233d2338362dfb891148035f01c839e582e757c13c5cd6f1eb70398524843d043a6e7b6d0b23fc12301638c9c5d0abd841934bd184bb78b89a698fbb025220e4dbc984c8305f7af0eb4c1627c26bcc9578e72a0ce26bda67da51b03947f2ee920dc119b44d037dc0a0f856335fdf674e9af98385304f3fe8b902c65b1fa1eeeaf6847388c3284407c52&X-Goog-SignedHeaders=host",
+        "url_type": "gcs",
+        "gcs_url": "https://storage.googleapis.com/sipp-be-files/document/news/Surat%20Pemberitahuan%20Hasil%20Akreditasi%20Baru%20Jurnal%20Ilmiah%20Peringkat%203%20sampai%206%20Periode%20II%20Tahun%202025.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130242Z&X-Goog-Expires=899&X-Goog-Signature=2d3e36231d4dfedc268704a6642f0ae06944ae079479f957c8f2337453b19eec4f2939f32496f268f156cfb92ccd4e0d2c782ab1f5d4e52520758bd9b292094092b1ec81f48f129e53985964129a2aceab3b9710d333dcc7dc4d76294907c4f4e7f0e84060409a5efc5f7cd8e19bedab70bfad4db4698233d2338362dfb891148035f01c839e582e757c13c5cd6f1eb70398524843d043a6e7b6d0b23fc12301638c9c5d0abd841934bd184bb78b89a698fbb025220e4dbc984c8305f7af0eb4c1627c26bcc9578e72a0ce26bda67da51b03947f2ee920dc119b44d037dc0a0f856335fdf674e9af98385304f3fe8b902c65b1fa1eeeaf6847388c3284407c52&X-Goog-SignedHeaders=host",
+        "api_url": ""
+      }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-04-08T06:04:01.830382"
+    "scraped_at": "2026-04-08T20:02:45.802255"
   },
   {
     "title": "Undangan Sosialisasi Program Penulisan Proposal Hibah Internasional",
     "surat": "203/DST/C2/PP.01.11/202601",
     "date": "01 April 2026",
     "documents": [
-      "Undangan Sosialisasi Program Penulisan Proposal Hibah Internasional.pdf"
+      {
+        "name": "Undangan Sosialisasi Program Penulisan Proposal Hibah Internasional.pdf",
+        "download_url": "https://storage.googleapis.com/sipp-be-files/document/news/Undangan%20Sosialisasi%20Program%20Penulisan%20Proposal%20Hibah%20Internasional.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130246Z&X-Goog-Expires=899&X-Goog-Signature=6a97292e581613205f9c4725399265dd8e3bcc56ac4f3f2c70c5bdb9ce2f742ee2c5a6e2bb20da7f8ce1f493362fb53f1f166c517a541bb980e6aa088ea0a243ff2953cab1acd49731d284d129b61f1ff7c51b6afd2c6bc1189a6cd3c16035ed164b17fd251a8cb6566da6c3352b9f5122b208afcb06e83ad7fc1f762ca8d68b0699b686d3287b5c821f89b4c501ffe5d640836e01d01fa7d77923fa55a8b5674ebd0cd224434eeb9d4981611ac0ce5c9376388763464938b2f95f7e437e78bb9de9211a7a4b7fbcf2443c1420906f68e2aa57c739212db78ef062c18f23189b40d021e3dfb11e17dafc02b82d1c26acf7764a14d949eac4fb69ecaa37507d78&X-Goog-SignedHeaders=host",
+        "url_type": "gcs",
+        "gcs_url": "https://storage.googleapis.com/sipp-be-files/document/news/Undangan%20Sosialisasi%20Program%20Penulisan%20Proposal%20Hibah%20Internasional.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130246Z&X-Goog-Expires=899&X-Goog-Signature=6a97292e581613205f9c4725399265dd8e3bcc56ac4f3f2c70c5bdb9ce2f742ee2c5a6e2bb20da7f8ce1f493362fb53f1f166c517a541bb980e6aa088ea0a243ff2953cab1acd49731d284d129b61f1ff7c51b6afd2c6bc1189a6cd3c16035ed164b17fd251a8cb6566da6c3352b9f5122b208afcb06e83ad7fc1f762ca8d68b0699b686d3287b5c821f89b4c501ffe5d640836e01d01fa7d77923fa55a8b5674ebd0cd224434eeb9d4981611ac0ce5c9376388763464938b2f95f7e437e78bb9de9211a7a4b7fbcf2443c1420906f68e2aa57c739212db78ef062c18f23189b40d021e3dfb11e17dafc02b82d1c26acf7764a14d949eac4fb69ecaa37507d78&X-Goog-SignedHeaders=host",
+        "api_url": ""
+      }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-04-08T06:04:01.830388"
+    "scraped_at": "2026-04-08T20:02:48.927669"
   },
   {
     "title": "Surat Pendaftaran Peserta Webinar \"Kiat Sukses Meniti Karier sebagai Peneliti Muda\"",
     "surat": "170/DST/C2/DT.05.00/202626",
     "date": "26 March 2026",
     "documents": [
-      "Surat Pendaftaran Peserta Webinar Kiat Sukses Meniti Karier sebagai Peneliti Muda.pdf"
+      {
+        "name": "Surat Pendaftaran Peserta Webinar Kiat Sukses Meniti Karier sebagai Peneliti Muda.pdf",
+        "download_url": "https://storage.googleapis.com/sipp-be-files/document/news/Surat%20Pendaftaran%20Peserta%20Webinar%20Kiat%20Sukses%20Meniti%20Karier%20sebagai%20Peneliti%20Muda.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130249Z&X-Goog-Expires=899&X-Goog-Signature=18bbb84edf236616a95f5e39d31df6dd1fbc2e4dc00ae8683ba9198fd4f23242eb6a3e563090312531b58e8f2e53635cc8c1e573d8b72e9c7b685bb9fd4598349367ce0d0c99caf75bab8d51cb22258617777c8440885054f1186443f8295ffa48a2d6b06f1723df64cb98172fa69097944a57a8b7ec651c828c358a43378449358e3797072575c626ea9a540fd47726a3edc46e87255fd718ee2d20e2989cb9a524cbf18838d674c1bce79ebaf98e98900b2a449102e7804cab1f08d2e9cdfba91bbe79f9b4f4d7d0e37809fb5532592567bcf879cc7f5c4a531eeccfe6c2fd49edff599b3cb00d75f97f09f63737d99bb46b1ea41132d8a9bd06bb76303693&X-Goog-SignedHeaders=host",
+        "url_type": "gcs",
+        "gcs_url": "https://storage.googleapis.com/sipp-be-files/document/news/Surat%20Pendaftaran%20Peserta%20Webinar%20Kiat%20Sukses%20Meniti%20Karier%20sebagai%20Peneliti%20Muda.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130249Z&X-Goog-Expires=899&X-Goog-Signature=18bbb84edf236616a95f5e39d31df6dd1fbc2e4dc00ae8683ba9198fd4f23242eb6a3e563090312531b58e8f2e53635cc8c1e573d8b72e9c7b685bb9fd4598349367ce0d0c99caf75bab8d51cb22258617777c8440885054f1186443f8295ffa48a2d6b06f1723df64cb98172fa69097944a57a8b7ec651c828c358a43378449358e3797072575c626ea9a540fd47726a3edc46e87255fd718ee2d20e2989cb9a524cbf18838d674c1bce79ebaf98e98900b2a449102e7804cab1f08d2e9cdfba91bbe79f9b4f4d7d0e37809fb5532592567bcf879cc7f5c4a531eeccfe6c2fd49edff599b3cb00d75f97f09f63737d99bb46b1ea41132d8a9bd06bb76303693&X-Goog-SignedHeaders=host",
+        "api_url": ""
+      }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-04-08T06:04:01.830390"
+    "scraped_at": "2026-04-08T20:02:52.075071"
   },
   {
     "title": "Pengumuman Penerima Pendanaan Penelitian Program PHC - NUSANTARA 2026",
     "surat": "244/DST/C3/DT.05.00/202631",
     "date": "31 March 2026",
     "documents": [
-      "Surat Pengumuman PHC-Nusantara 2026.pdf"
+      {
+        "name": "Surat Pengumuman PHC-Nusantara 2026.pdf",
+        "download_url": "https://storage.googleapis.com/sipp-be-files/document/news/Surat%20Pengumuman%20PHC-Nusantara%202026.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130252Z&X-Goog-Expires=899&X-Goog-Signature=c53040c6fa77d318b985ca5663eb5c42ab03d009edde75eecff46ad7de1157a1e1d92536b24044074cfea90a9e768efaa62f6aaa9421d9c25795b34398ccf921dd19c19507cd0df305f025320819c3741a3f46e68011c900274fa9bb8e48900a89c03437ea070f8272acf479519a75fd5bdf7748981b7c9b8db9b61f89d4cbcdc06cb3238d1d8cb30d4514dbc19de95000215df4d25e460b52cd8f7c146da6af20545133fc84716a3e9448149393823f4bcb0728cfec125e9ee9e9ff7b0725afea969320cab8130c2ecd1958ea6811a5aea135e27cff4757a74795cd7775e20a19ba3dc383cede3e30d8fce2646a0b16f78b1cc2dcaa4f5356b93c497f54bb4f&X-Goog-SignedHeaders=host",
+        "url_type": "gcs",
+        "gcs_url": "https://storage.googleapis.com/sipp-be-files/document/news/Surat%20Pengumuman%20PHC-Nusantara%202026.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130252Z&X-Goog-Expires=899&X-Goog-Signature=c53040c6fa77d318b985ca5663eb5c42ab03d009edde75eecff46ad7de1157a1e1d92536b24044074cfea90a9e768efaa62f6aaa9421d9c25795b34398ccf921dd19c19507cd0df305f025320819c3741a3f46e68011c900274fa9bb8e48900a89c03437ea070f8272acf479519a75fd5bdf7748981b7c9b8db9b61f89d4cbcdc06cb3238d1d8cb30d4514dbc19de95000215df4d25e460b52cd8f7c146da6af20545133fc84716a3e9448149393823f4bcb0728cfec125e9ee9e9ff7b0725afea969320cab8130c2ecd1958ea6811a5aea135e27cff4757a74795cd7775e20a19ba3dc383cede3e30d8fce2646a0b16f78b1cc2dcaa4f5356b93c497f54bb4f&X-Goog-SignedHeaders=host",
+        "api_url": ""
+      }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-04-08T06:04:01.830392"
+    "scraped_at": "2026-04-08T20:02:55.200653"
   },
   {
     "title": "Pemberitahuan Perpanjangan Unggah Laporan Akhir Program Mahasiswa Berdampak Pemulihan Bencana Tahun Anggaran 2026",
     "surat": "230/DST/C3/DT.06.01/202614",
     "date": "14 March 2026",
     "documents": [
-      "Pemberitahuan Perpanjangan Unggah Laporan Akhir Program Mahasiswa Berdampak Pemulihan Bencana Tahun Anggaran 2026.pdf"
+      {
+        "name": "Pemberitahuan Perpanjangan Unggah Laporan Akhir Program Mahasiswa Berdampak Pemulihan Bencana Tahun Anggaran 2026.pdf",
+        "download_url": "https://storage.googleapis.com/sipp-be-files/document/news/Pemberitahuan%20Perpanjangan%20Unggah%20Laporan%20Akhir%20Program%20Mahasiswa%20Berdampak%20Pemulihan%20Bencana%20Tahun%20Anggaran%202026.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130255Z&X-Goog-Expires=899&X-Goog-Signature=882bf172119b7268c5d3be21e2b666594af552965de8138ccf5b9c3a746c500759a1b2de1a9de56e6b3ce4dc261d2a0ae99112c110b9df620847625e5affa6c63355fd7e0ee1dc8f7de54ba964bc75fcc391cb7bc459bd7f2623cb936e567fa83a6e161d9f358b3493cac1a6fb88ad01eeda01c39fbd2b8bdaf83882e2c706d9690421d51cbcf7dba9255ab3b6d77c97813d0e0c7613cc91d9992844af2ff53d87012620c19fcfc4f9332a40224f8f5a71960c5b8ba0a9bfd71bd928ab0bc47764dc0678ea68b83d83b29e63de0489edab9618192bca554f57e55d6c3ab4e2478b045fdff4dc188f71a5237a467c849384ffd53fabc126bac376b3f6f3dcfc33&X-Goog-SignedHeaders=host",
+        "url_type": "gcs",
+        "gcs_url": "https://storage.googleapis.com/sipp-be-files/document/news/Pemberitahuan%20Perpanjangan%20Unggah%20Laporan%20Akhir%20Program%20Mahasiswa%20Berdampak%20Pemulihan%20Bencana%20Tahun%20Anggaran%202026.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130255Z&X-Goog-Expires=899&X-Goog-Signature=882bf172119b7268c5d3be21e2b666594af552965de8138ccf5b9c3a746c500759a1b2de1a9de56e6b3ce4dc261d2a0ae99112c110b9df620847625e5affa6c63355fd7e0ee1dc8f7de54ba964bc75fcc391cb7bc459bd7f2623cb936e567fa83a6e161d9f358b3493cac1a6fb88ad01eeda01c39fbd2b8bdaf83882e2c706d9690421d51cbcf7dba9255ab3b6d77c97813d0e0c7613cc91d9992844af2ff53d87012620c19fcfc4f9332a40224f8f5a71960c5b8ba0a9bfd71bd928ab0bc47764dc0678ea68b83d83b29e63de0489edab9618192bca554f57e55d6c3ab4e2478b045fdff4dc188f71a5237a467c849384ffd53fabc126bac376b3f6f3dcfc33&X-Goog-SignedHeaders=host",
+        "api_url": ""
+      }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-04-08T06:04:01.830393"
+    "scraped_at": "2026-04-08T20:02:58.344073"
   },
   {
     "title": "Pengumuman Penerima Pendanaan Program Hilirisasi Riset Prioritas -Pengujian Model Dan Prototipe Tahun 2026",
     "surat": "138/DST/C4/AL.04.00/202609",
     "date": "09 March 2026",
     "documents": [
-      "Pengumuman Penerima Pendanaan Program Hilirisasi Riset Prioritas -Pengujian Model Dan Prototipe Tahun 2026.pdf"
+      {
+        "name": "Pengumuman Penerima Pendanaan Program Hilirisasi Riset Prioritas -Pengujian Model Dan Prototipe Tahun 2026.pdf",
+        "download_url": "https://storage.googleapis.com/sipp-be-files/document/news/Pengumuman%20Penerima%20Pendanaan%20Program%20Hilirisasi%20Riset%20Prioritas%20-Pengujian%20Model%20Dan%20Prototipe%20Tahun%202026.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130258Z&X-Goog-Expires=899&X-Goog-Signature=a9b64264291b5340b15914e637c9b62d830c9237603fd2675ed2027def05077f37dc3a0eb5961dbad4119b8d01da21f193a45c41d8be096fd741dbdd6f216152765692cd5fae837ba150298cf921448dd41c11bf53fc640f3bc21bf40005a0a1505b6b62428644443d49e067b51600b26784ec7054f8030520d0b9219b117ed809ead5addb97b1ea579b475b7b64275a08c4558b95dda1b8b062e2a11ef42aaa87f0cdc23ab8216a6fa19ae021499e294615b0e9f044714c8d595c5f828e2272d6093406409a985f9a347cf9c269427fbfb3cbd8e4ad257de7c1f3ef1cad469ef3c3351911cdaeade0e0039b9dd92509442ae501504b751e167ea4854dc907db&X-Goog-SignedHeaders=host",
+        "url_type": "gcs",
+        "gcs_url": "https://storage.googleapis.com/sipp-be-files/document/news/Pengumuman%20Penerima%20Pendanaan%20Program%20Hilirisasi%20Riset%20Prioritas%20-Pengujian%20Model%20Dan%20Prototipe%20Tahun%202026.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130258Z&X-Goog-Expires=899&X-Goog-Signature=a9b64264291b5340b15914e637c9b62d830c9237603fd2675ed2027def05077f37dc3a0eb5961dbad4119b8d01da21f193a45c41d8be096fd741dbdd6f216152765692cd5fae837ba150298cf921448dd41c11bf53fc640f3bc21bf40005a0a1505b6b62428644443d49e067b51600b26784ec7054f8030520d0b9219b117ed809ead5addb97b1ea579b475b7b64275a08c4558b95dda1b8b062e2a11ef42aaa87f0cdc23ab8216a6fa19ae021499e294615b0e9f044714c8d595c5f828e2272d6093406409a985f9a347cf9c269427fbfb3cbd8e4ad257de7c1f3ef1cad469ef3c3351911cdaeade0e0039b9dd92509442ae501504b751e167ea4854dc907db&X-Goog-SignedHeaders=host",
+        "api_url": ""
+      }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-04-08T06:04:01.830394"
+    "scraped_at": "2026-04-08T20:03:01.469052"
   },
   {
-    "title": "Pemberitahuan Hasil Akreditasi Baru Jurnal Ilmiah Periode 2 Tahun 2025  Peringkat 1 dan 2",
+    "title": "Pemberitahuan Hasil Akreditasi Baru Jurnal Ilmiah Periode 2 Tahun 2025 Peringkat 1 dan 2",
     "surat": "0228/DTS/C3/DT.05.00/202606",
     "date": "06 March 2026",
     "documents": [
-      "Surat Kepdirjen Hasil Akreditasi Baru Jurnal Ilmiah Periode 2 Tahun 2025 Peringkat 1 dan 2.pdf"
+      {
+        "name": "Surat Kepdirjen Hasil Akreditasi Baru Jurnal Ilmiah Periode 2 Tahun 2025 Peringkat 1 dan 2.pdf",
+        "download_url": "https://storage.googleapis.com/sipp-be-files/document/news/Surat%20Kepdirjen%20Hasil%20Akreditasi%20Baru%20Jurnal%20Ilmiah%20Periode%202%20Tahun%202025%20Peringkat%201%20dan%202.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130301Z&X-Goog-Expires=899&X-Goog-Signature=a859f41a00c91a2354cad1f7c08c038653dbb0cf104eda83953d81ab31ab79d0cbfa2dd64ba477f100dc5700d995e409063ff7a2ed8b970b78d521bc0f3687f10d1d7dbc7de4ba1e48188eb9d21ba2af02d63f8e94f470ff5b5333e5d3a22fc66d3025a52a4a3cda2e092c8d7e7f097da2ef092c2fdadb0c589dd97bc8f334fd623e3529e228744b504d48ee19219e55bbbf789a202db8a2f03e989f2a164a78941f18c8c0e8605379f83eb0b2a6e852ab3d02b8d48c6d985a6d5285eee39a22ea933d75c288ac91e0728534a988de52afced15c7b254669c24ba4cd4875ff15e030a76e45fdf1177b9efab81b36e0393c3b79e43e6ebeb1abaf4b2e64506ce8&X-Goog-SignedHeaders=host",
+        "url_type": "gcs",
+        "gcs_url": "https://storage.googleapis.com/sipp-be-files/document/news/Surat%20Kepdirjen%20Hasil%20Akreditasi%20Baru%20Jurnal%20Ilmiah%20Periode%202%20Tahun%202025%20Peringkat%201%20dan%202.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130301Z&X-Goog-Expires=899&X-Goog-Signature=a859f41a00c91a2354cad1f7c08c038653dbb0cf104eda83953d81ab31ab79d0cbfa2dd64ba477f100dc5700d995e409063ff7a2ed8b970b78d521bc0f3687f10d1d7dbc7de4ba1e48188eb9d21ba2af02d63f8e94f470ff5b5333e5d3a22fc66d3025a52a4a3cda2e092c8d7e7f097da2ef092c2fdadb0c589dd97bc8f334fd623e3529e228744b504d48ee19219e55bbbf789a202db8a2f03e989f2a164a78941f18c8c0e8605379f83eb0b2a6e852ab3d02b8d48c6d985a6d5285eee39a22ea933d75c288ac91e0728534a988de52afced15c7b254669c24ba4cd4875ff15e030a76e45fdf1177b9efab81b36e0393c3b79e43e6ebeb1abaf4b2e64506ce8&X-Goog-SignedHeaders=host",
+        "api_url": ""
+      }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-04-08T06:04:01.830396"
+    "scraped_at": "2026-04-08T20:03:04.618025"
   },
   {
     "title": "Pengumuman Pendanaan Program Penelitian Multitahun Lanjutan Tahun Anggaran 2026",
     "surat": "195/DST/C3/DT.05.00/202606",
     "date": "06 March 2026",
     "documents": [
-      "Lampiran II Borang Isian Kontrak Program Penelitian Multitahun Lanjutan Tahun Anggaran 2026.docx",
-      "Lampiran I Penerima Pendanaan Program Penelitian Multitahun Lanjutan Tahun Anggaran 2026.pdf",
-      "Pengumuman Pendanaan Program Penelitian Multitahun Lanjutan Tahun Anggaran 2026.pdf"
+      {
+        "name": "Lampiran II Borang Isian Kontrak Program Penelitian Multitahun Lanjutan Tahun Anggaran 2026.docx",
+        "download_url": "https://storage.googleapis.com/sipp-be-files/document/news/Lampiran%20II%20Borang%20Isian%20Kontrak%20Program%20Penelitian%20Multitahun%20Lanjutan%20Tahun%20Anggaran%202026.docx?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130304Z&X-Goog-Expires=899&X-Goog-Signature=7e34206eef60a510166b817d65f0de44d3f35c830bcd7178941b78943e20a6e14ad232a05d210a2ed7342137fbb77893f2d0b545163f3f3a363030fa4ce3c65df4f9f6adc12ef3c73287064e4f4cdc453e0d12db3bf40480de54e86c85aff7fca7a7b3fa88d9728efd14ab388a354e04892931243a817253df39cdbb005026d2b04e2c3a0a591b19d637e14207d9ab9fb7290a79bedc192d5321e1f748861f31b2ed7f58e0d9f813537931c7de6a3b9195193b51363f040d694cc89339ed5c814af02f61f2ad7aa486f2ce57880bf2b53f0b27cb2fc0f1a2631147fb44b41e90610621052e61d208cfd67ca22696b43ed23ab8864571edb8b28933d5a7bf0f5c&X-Goog-SignedHeaders=host",
+        "url_type": "gcs",
+        "gcs_url": "https://storage.googleapis.com/sipp-be-files/document/news/Lampiran%20II%20Borang%20Isian%20Kontrak%20Program%20Penelitian%20Multitahun%20Lanjutan%20Tahun%20Anggaran%202026.docx?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130304Z&X-Goog-Expires=899&X-Goog-Signature=7e34206eef60a510166b817d65f0de44d3f35c830bcd7178941b78943e20a6e14ad232a05d210a2ed7342137fbb77893f2d0b545163f3f3a363030fa4ce3c65df4f9f6adc12ef3c73287064e4f4cdc453e0d12db3bf40480de54e86c85aff7fca7a7b3fa88d9728efd14ab388a354e04892931243a817253df39cdbb005026d2b04e2c3a0a591b19d637e14207d9ab9fb7290a79bedc192d5321e1f748861f31b2ed7f58e0d9f813537931c7de6a3b9195193b51363f040d694cc89339ed5c814af02f61f2ad7aa486f2ce57880bf2b53f0b27cb2fc0f1a2631147fb44b41e90610621052e61d208cfd67ca22696b43ed23ab8864571edb8b28933d5a7bf0f5c&X-Goog-SignedHeaders=host",
+        "api_url": ""
+      },
+      {
+        "name": "Lampiran I Penerima Pendanaan Program Penelitian Multitahun Lanjutan Tahun Anggaran 2026.pdf",
+        "download_url": "https://storage.googleapis.com/sipp-be-files/document/news/Lampiran%20I%20Penerima%20Pendanaan%20Program%20Penelitian%20Multitahun%20Lanjutan%20Tahun%20Anggaran%202026.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130307Z&X-Goog-Expires=899&X-Goog-Signature=4d7c27f350e5ae8842df2d6c01cacd6c960156bbf91ae25843ba09c7b8fac2840284ee0025956ebba4dc6bec0bcf26d6e9e4b57bd6a88efb48dfdcad6cc41e183049373b04cc7ee59e7b6c2aadc9a260914f06864aee9fc3bc5d56b3d604c9099f7358ca48993e52c8650060dc5e1480ac9449da72a042ace69fa637a97e659e5623f5ff4c700212d1f94ebe944261649b541725ef70bac78ea73df4066343137e2c31392111ed1c0147306fc5c8d8eb7d2af5bd47b26e53ab6fe59575ffe1f024f7e68769ae686957e3b9553635af729dc5f78e3bf22867180d32910c8b1e820b7382c34e66694d5d98e728428ae5101b4004b80f5b2f0ddc528f72067500e9&X-Goog-SignedHeaders=host",
+        "url_type": "gcs",
+        "gcs_url": "https://storage.googleapis.com/sipp-be-files/document/news/Lampiran%20I%20Penerima%20Pendanaan%20Program%20Penelitian%20Multitahun%20Lanjutan%20Tahun%20Anggaran%202026.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130307Z&X-Goog-Expires=899&X-Goog-Signature=4d7c27f350e5ae8842df2d6c01cacd6c960156bbf91ae25843ba09c7b8fac2840284ee0025956ebba4dc6bec0bcf26d6e9e4b57bd6a88efb48dfdcad6cc41e183049373b04cc7ee59e7b6c2aadc9a260914f06864aee9fc3bc5d56b3d604c9099f7358ca48993e52c8650060dc5e1480ac9449da72a042ace69fa637a97e659e5623f5ff4c700212d1f94ebe944261649b541725ef70bac78ea73df4066343137e2c31392111ed1c0147306fc5c8d8eb7d2af5bd47b26e53ab6fe59575ffe1f024f7e68769ae686957e3b9553635af729dc5f78e3bf22867180d32910c8b1e820b7382c34e66694d5d98e728428ae5101b4004b80f5b2f0ddc528f72067500e9&X-Goog-SignedHeaders=host",
+        "api_url": ""
+      },
+      {
+        "name": "Pengumuman Pendanaan Program Penelitian Multitahun Lanjutan Tahun Anggaran 2026.pdf",
+        "download_url": "https://storage.googleapis.com/sipp-be-files/document/news/Pengumuman%20Pendanaan%20Program%20Penelitian%20Multitahun%20Lanjutan%20Tahun%20Anggaran%202026.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130311Z&X-Goog-Expires=899&X-Goog-Signature=dea6f85c4063d116bb34cde11eedc2e762481a4690ab777233e6a1004f5dc7b99412cb0a51fdda18a922826e828f2f66764172593c184077c336c9fecff1f6e1cc26ed83961b522cee8213c2c3e3362e337e1bb8aecc1b79ee9a2e078730b88ea256d50646bee6778c92c6f24c621861245045ccc867f9862296c473ac507111d49dff3cb5d2362bf5f474ca97d1fec40dad3d9f6458f82e83a732dcc071a7fb3e04e8e969a711b60d7b8d8e5b3520d5eb82dd855865ccccee04f1af52af134181320c166394e47b84a3570548fd8b443df717afef5b9de894c002dbebfcb286946972563fa1171821e578bc74cb84c08d3c8ca0ed2bbc70174710b9dd7b4e9f&X-Goog-SignedHeaders=host",
+        "url_type": "gcs",
+        "gcs_url": "https://storage.googleapis.com/sipp-be-files/document/news/Pengumuman%20Pendanaan%20Program%20Penelitian%20Multitahun%20Lanjutan%20Tahun%20Anggaran%202026.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130311Z&X-Goog-Expires=899&X-Goog-Signature=dea6f85c4063d116bb34cde11eedc2e762481a4690ab777233e6a1004f5dc7b99412cb0a51fdda18a922826e828f2f66764172593c184077c336c9fecff1f6e1cc26ed83961b522cee8213c2c3e3362e337e1bb8aecc1b79ee9a2e078730b88ea256d50646bee6778c92c6f24c621861245045ccc867f9862296c473ac507111d49dff3cb5d2362bf5f474ca97d1fec40dad3d9f6458f82e83a732dcc071a7fb3e04e8e969a711b60d7b8d8e5b3520d5eb82dd855865ccccee04f1af52af134181320c166394e47b84a3570548fd8b443df717afef5b9de894c002dbebfcb286946972563fa1171821e578bc74cb84c08d3c8ca0ed2bbc70174710b9dd7b4e9f&X-Goog-SignedHeaders=host",
+        "api_url": ""
+      }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-04-08T06:04:01.830399"
+    "scraped_at": "2026-04-08T20:03:14.019992"
   },
   {
-    "title": "Pengumuman  Penerimaan  Proposal  Penelitian  Program  PMDSU Angkatan IX Tahun Anggaran 2026",
+    "title": "Pengumuman Penerimaan Proposal Penelitian Program PMDSU Angkatan IX Tahun Anggaran 2026",
     "surat": "182/DST/C3/DT.05.00/202605",
     "date": "05 March 2026",
     "documents": [
-      "Surat Penerimaan Proposal Penelitian PMDSU Batch IX TA 2026.pdf"
+      {
+        "name": "Surat Penerimaan Proposal Penelitian PMDSU Batch IX TA 2026.pdf",
+        "download_url": "https://storage.googleapis.com/sipp-be-files/document/news/Surat%20Penerimaan%20Proposal%20Penelitian%20PMDSU%20Batch%20IX%20TA%202026.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130314Z&X-Goog-Expires=899&X-Goog-Signature=327b685c03f5693b2ba130113a9420e378964745c5c0548e1c107f076d2400c5e60aa8bbf4dec9915d2d4baee956df011ab499da6a0393dd904a8ddce00a801115717da349c4ef01a107d2a96725b0d233a5a42723baf13dbcaa88486cdcd1d9a94e7bb7019686bed8766aeea089d11cdfafdcc47293124e26b3426397275ec6895202fa4e2c533f8a50a3ad80cc3ebc9172a8bfa97f63787eed030e3844601577047768d44508f327742e196c899a0cd1672ba0bd66342da83e8e8cb28f530702a4bc6feff90acc0fa27ab4e946251c319965e3fd6051ed486b2796a7dba82c8136d54a0178ce39a14c803858bc91d0048228790185d8e30593ae9816fe5f52&X-Goog-SignedHeaders=host",
+        "url_type": "gcs",
+        "gcs_url": "https://storage.googleapis.com/sipp-be-files/document/news/Surat%20Penerimaan%20Proposal%20Penelitian%20PMDSU%20Batch%20IX%20TA%202026.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130314Z&X-Goog-Expires=899&X-Goog-Signature=327b685c03f5693b2ba130113a9420e378964745c5c0548e1c107f076d2400c5e60aa8bbf4dec9915d2d4baee956df011ab499da6a0393dd904a8ddce00a801115717da349c4ef01a107d2a96725b0d233a5a42723baf13dbcaa88486cdcd1d9a94e7bb7019686bed8766aeea089d11cdfafdcc47293124e26b3426397275ec6895202fa4e2c533f8a50a3ad80cc3ebc9172a8bfa97f63787eed030e3844601577047768d44508f327742e196c899a0cd1672ba0bd66342da83e8e8cb28f530702a4bc6feff90acc0fa27ab4e946251c319965e3fd6051ed486b2796a7dba82c8136d54a0178ce39a14c803858bc91d0048228790185d8e30593ae9816fe5f52&X-Goog-SignedHeaders=host",
+        "api_url": ""
+      }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-04-08T06:04:01.830401"
+    "scraped_at": "2026-04-08T20:03:17.164449"
   },
   {
-    "title": "Pengumuman Pelaksanaan Site Visit Evaluasi Keberlanjutan Program Pengabdian  kepada Masyarakat (ongoing) Skema Pemberdayaan Berbasis Kewirausahaan dan Pemberdayaan  Berbasis Wilayah Usulan Tahun ke-2 dan ke-3 Tahun Anggaran 2026",
+    "title": "Pengumuman Pelaksanaan Site Visit Evaluasi Keberlanjutan Program Pengabdian kepada Masyarakat (ongoing) Skema Pemberdayaan Berbasis Kewirausahaan dan Pemberdayaan Berbasis Wilayah Usulan Tahun ke-2 dan ke-3 Tahun Anggaran 2026",
     "surat": "171/DST/C3/AL.04.01/202604",
     "date": "04 March 2026",
     "documents": [
-      "Pemberitahuan Pelaksanaan Site Visit Program Pengabdian kepada Masyarakat (Ongoing) Skema Pemberdayaan Berbasis Kewirausahaan dan Wilayah Usulan Tahun ke-2 dan ke-3 Tahun Anggaran  2026.pdf"
+      {
+        "name": "Pemberitahuan Pelaksanaan Site Visit Program Pengabdian kepada Masyarakat (Ongoing) Skema Pemberdayaan Berbasis Kewirausahaan dan Wilayah Usulan Tahun ke-2 dan ke-3 Tahun Anggaran 2026.pdf",
+        "download_url": "https://storage.googleapis.com/sipp-be-files/document/news/Pemberitahuan%20Pelaksanaan%20Site%20Visit%20Program%20Pengabdian%20kepada%20Masyarakat%20%28Ongoing%29%20Skema%20Pemberdayaan%20Berbasis%20Kewirausahaan%20dan%20Wilayah%20Usulan%20Tahun%20ke-2%20dan%20ke-3%20Tahun%20Anggaran%20%202026.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130317Z&X-Goog-Expires=899&X-Goog-Signature=af2b26cf2373d1ab00fa002567cb0679fc8dced3fc53b419310a98a1db5384480475020db3aad21d3f8deb4caefbe25e96019bb702d3b7ea782bab990657ef2ed6db66908c03e8cdb8734fee2afac5b2963c10e6e0936caa6a7f3b67d2ddd508c77d9ac8ef850d02ed34209134b8888f3c3989ce394b9053a2b72232124edd4013829770c0b2d5cdaddad44d1f9c4380f64f83715e03afea3ecce340f0ae90b581086fa27828024b4eb5f13e42f2189f393739907f9e4c5465bff6d8db6fd23ca57404c5fc42e4c1abac6d452285397cf88451a192b864387fe6a0f071cdabf0585453b1861ed876ce6143b4138f026c687c9e6ff48b4748063639b09fe5e73c&X-Goog-SignedHeaders=host",
+        "url_type": "gcs",
+        "gcs_url": "https://storage.googleapis.com/sipp-be-files/document/news/Pemberitahuan%20Pelaksanaan%20Site%20Visit%20Program%20Pengabdian%20kepada%20Masyarakat%20%28Ongoing%29%20Skema%20Pemberdayaan%20Berbasis%20Kewirausahaan%20dan%20Wilayah%20Usulan%20Tahun%20ke-2%20dan%20ke-3%20Tahun%20Anggaran%20%202026.pdf?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=617059781652-compute%40developer.gserviceaccount.com%2F20260408%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260408T130317Z&X-Goog-Expires=899&X-Goog-Signature=af2b26cf2373d1ab00fa002567cb0679fc8dced3fc53b419310a98a1db5384480475020db3aad21d3f8deb4caefbe25e96019bb702d3b7ea782bab990657ef2ed6db66908c03e8cdb8734fee2afac5b2963c10e6e0936caa6a7f3b67d2ddd508c77d9ac8ef850d02ed34209134b8888f3c3989ce394b9053a2b72232124edd4013829770c0b2d5cdaddad44d1f9c4380f64f83715e03afea3ecce340f0ae90b581086fa27828024b4eb5f13e42f2189f393739907f9e4c5465bff6d8db6fd23ca57404c5fc42e4c1abac6d452285397cf88451a192b864387fe6a0f071cdabf0585453b1861ed876ce6143b4138f026c687c9e6ff48b4748063639b09fe5e73c&X-Goog-SignedHeaders=host",
+        "api_url": ""
+      }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-04-08T06:04:01.830402"
+    "scraped_at": "2026-04-08T20:03:20.315944"
   },
   {
     "title": "Pemberitahuan Pelaksanaan Site Visit Program Pengabdian kepada Masyarakat Skema Pemberdayaan Berbasis Kewirausahaan dan Berbasis Wilayah Usulan Baru (Tahun Pertama) Tahun Anggaran 2026",

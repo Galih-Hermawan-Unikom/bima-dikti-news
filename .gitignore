@@ -38,3 +38,6 @@ nul
 
 # Ruff
 .ruff_cache/
+
+# Local experiments
+eksperimen/

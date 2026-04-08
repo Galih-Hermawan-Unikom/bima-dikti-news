@@ -1,4 +1,5 @@
 {
   "notification_method": "telegram",
-  "check_interval_minutes": 30
+  "check_interval_minutes": 30,
+  "telegram_send_files": false
 }

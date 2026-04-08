@@ -35,6 +35,20 @@ def _read_int(value, default):
         return default
 
 
+def _read_bool(value, default):
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
 def load_config(config_path="config.json", load_env=True):
     if load_env:
         load_env_file()
@@ -46,6 +60,9 @@ def load_config(config_path="config.json", load_env=True):
         "check_interval_minutes": _read_int(
             file_config.get("check_interval_minutes", 30), 30
         ),
+        "telegram_send_files": _read_bool(
+            file_config.get("telegram_send_files", False), False
+        ),
         "telegram_bot_token": os.environ.get("TELEGRAM_BOT_TOKEN", ""),
         "telegram_chat_id": os.environ.get("TELEGRAM_CHAT_ID", ""),
     }
@@ -56,6 +73,11 @@ def load_config(config_path="config.json", load_env=True):
     if os.environ.get("CHECK_INTERVAL_MINUTES"):
         config["check_interval_minutes"] = _read_int(
             os.environ["CHECK_INTERVAL_MINUTES"], config["check_interval_minutes"]
+        )
+
+    if os.environ.get("TELEGRAM_SEND_FILES"):
+        config["telegram_send_files"] = _read_bool(
+            os.environ["TELEGRAM_SEND_FILES"], config["telegram_send_files"]
         )
 
     return config
