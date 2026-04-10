@@ -2,6 +2,9 @@
 
 Bot otomatis untuk mengecek dan mengirim notifikasi ketika ada pengumuman baru di [BIMA Kemdiktisaintek](https://bima.kemdiktisaintek.go.id/pengumuman).
 
+Implementasi publik proyek ini dapat dilihat di channel Telegram **Dikti News**:
+[https://t.me/dikti_news](https://t.me/dikti_news)
+
 ## Fitur
 
 - Scraping otomatis halaman pengumuman BIMA menggunakan Playwright + Chromium
