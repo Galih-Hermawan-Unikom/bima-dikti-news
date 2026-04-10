@@ -8,7 +8,7 @@ Bot otomatis untuk mengecek dan mengirim notifikasi ketika ada pengumuman baru d
 - Deteksi dokumen lampiran beserta URL unduhan file
 - Notifikasi via Telegram dan Console
 - Opsi kirim ringkasan saja atau ringkasan + file ke Telegram
-- Pengecekan berkala (default setiap 30 menit)
+- Pengecekan berkala yang bisa disesuaikan: 30 menit saat masa kritis, 3 jam saat masa normal
 - Cache metadata untuk mendeteksi pengumuman baru
 - Bisa dijalankan lokal atau hosting gratis di GitHub Actions
 
@@ -149,7 +149,7 @@ https://api.telegram.org/bot<TOKEN_BOT_ANDA>/getUpdates
 
 **Langkah 5:** Workflow Otomatis Jalan
 
-- Pengecekan otomatis setiap **30 menit**
+- Pengecekan otomatis saat ini setiap **3 jam**
 - Bisa trigger manual: tab **Actions** → **BIMA Pengumuman Checker** → **Run workflow**
 
 ## Struktur File
@@ -222,14 +222,20 @@ CHECK_INTERVAL_MINUTES=30
 
 ## Jadwal Pengecekan
 
-**Default saat ini: setiap 30 menit**
+**Default saat ini: setiap 3 jam**
+
+Rekomendasi penggunaan:
+- Masa kritis, misalnya saat menunggu pengumuman hibah: setiap `30 menit`
+- Masa normal: setiap `3 jam`
 
 Edit `.github/workflows/main.yml` bagian `cron`:
 
 ```yaml
 schedule:
-  - cron: '*/30 * * * *'   # Setiap 30 menit (default)
+  - cron: '0 */3 * * *'    # Setiap 3 jam (default saat ini)
+  - cron: '*/30 * * * *'   # Setiap 30 menit (masa kritis)
   - cron: '0 * * * *'      # Setiap 1 jam
+  - cron: '0 */6 * * *'    # Setiap 6 jam
   - cron: '0 8 * * *'      # Sekali sehari jam 8 pagi
   - cron: '0 8,12,16 * * *' # Jam 8, 12, 16 setiap hari
 ```
@@ -240,6 +246,7 @@ schedule:
 > | Jadwal | Pemakaian/Bulan |
 > |---|---|
 > | Setiap 30 menit | ~1.440 menit |
+> | Setiap 3 jam | ~240 menit |
 > | Setiap 1 jam | ~720 menit |
 > | Sekali sehari | ~30 menit |
 >
