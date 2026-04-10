@@ -129,20 +129,23 @@ https://api.telegram.org/bot<TOKEN_BOT_ANDA>/getUpdates
 **Langkah 4:** Setup Secrets di GitHub
 
 1. Buka repository → **Settings** → **Secrets and variables** → **Actions**
-2. Klik **New repository secret**, tambahkan:
+2. Di tab **Secrets**, tambahkan:
 
 | Name | Value |
 |---|---|
 | `TELEGRAM_BOT_TOKEN` | Token dari BotFather |
 | `TELEGRAM_CHAT_ID` | Chat ID tujuan notifikasi, bisa chat pribadi atau channel |
 
-Tambahkan juga Repository Variables bila diperlukan:
+3. Di tab **Variables**, tambahkan:
 
 | Name | Contoh Value |
 |---|---|
 | `NOTIFICATION_METHOD` | `telegram` |
 | `TELEGRAM_SEND_FILES` | `true` |
 | `CHECK_INTERVAL_MINUTES` | `30` |
+
+> Gunakan **Secrets** untuk data sensitif seperti token dan chat ID.
+> Gunakan **Variables** untuk pengaturan workflow seperti mode notifikasi dan kirim lampiran.
 
 **Langkah 5:** Workflow Otomatis Jalan
 
