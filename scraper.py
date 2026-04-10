@@ -134,6 +134,32 @@ class BimaScraper:
         self.data_file = "announcements_cache.json"
         self.browser_path = get_browser_path()
 
+    def _sanitize_document_for_cache(self, document):
+        if isinstance(document, str):
+            return {"name": normalize_text(document)}
+
+        return {
+            "name": normalize_text(document.get("name", "")),
+        }
+
+    def _sanitize_announcement_for_cache(self, announcement):
+        documents = announcement.get("documents", []) if isinstance(announcement, dict) else []
+
+        return {
+            "title": normalize_text(announcement.get("title", "")),
+            "surat": normalize_surat(announcement.get("surat", "")),
+            "date": normalize_text(announcement.get("date", "")),
+            "documents": [
+                doc
+                for doc in (
+                    self._sanitize_document_for_cache(document) for document in documents
+                )
+                if doc.get("name")
+            ],
+            "url": normalize_text(announcement.get("url", self.url)) or self.url,
+            "scraped_at": announcement.get("scraped_at", ""),
+        }
+
     def _collect_cards(self, page):
         return page.evaluate(
             """() => {
@@ -299,13 +325,37 @@ class BimaScraper:
 
     def load_cache(self):
         if os.path.exists(self.data_file):
-            with open(self.data_file, "r", encoding="utf-8") as file:
-                return json.load(file)
+            try:
+                with open(self.data_file, "r", encoding="utf-8") as file:
+                    raw_cache = json.load(file)
+            except (json.JSONDecodeError, OSError):
+                return []
+
+            if not isinstance(raw_cache, list):
+                return []
+
+            return [
+                item
+                for item in (
+                    self._sanitize_announcement_for_cache(announcement)
+                    for announcement in raw_cache
+                )
+                if announcement_identity(item)
+            ]
         return []
 
     def save_cache(self, announcements):
+        sanitized = [
+            item
+            for item in (
+                self._sanitize_announcement_for_cache(announcement)
+                for announcement in announcements
+            )
+            if announcement_identity(item)
+        ]
+
         with open(self.data_file, "w", encoding="utf-8") as file:
-            json.dump(announcements, file, ensure_ascii=False, indent=2)
+            json.dump(sanitized, file, ensure_ascii=False, indent=2)
 
     def check_new_announcements(self):
         print("  [Web] Mengambil data dari BIMA...")

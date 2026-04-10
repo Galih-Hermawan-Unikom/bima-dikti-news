@@ -9,7 +9,7 @@ Bot otomatis untuk mengecek dan mengirim notifikasi ketika ada pengumuman baru d
 - Notifikasi via Telegram dan Console
 - Opsi kirim ringkasan saja atau ringkasan + file ke Telegram
 - Pengecekan berkala (default setiap 30 menit)
-- Cache untuk mendeteksi pengumuman baru
+- Cache metadata untuk mendeteksi pengumuman baru
 - Bisa dijalankan lokal atau hosting gratis di GitHub Actions
 
 ## Cara Kerja
@@ -165,7 +165,7 @@ bima-dikti-news/
 ├── config.json                # Konfigurasi non-secret
 ├── .env                       # Secret lokal (tidak di-commit)
 ├── requirements.txt           # Python dependencies
-├── announcements_cache.json   # Cache pengumuman (auto-generated)
+├── announcements_cache.json   # Cache metadata pengumuman (auto-generated)
 └── README.md
 ```
 
@@ -272,6 +272,7 @@ Bot Notifikasi BIMA
 > Semua waktu notifikasi menggunakan **WIB (UTC+7)**.
 > Jika `TELEGRAM_SEND_FILES=true`, setelah pesan utama bot akan mengunggah dokumen lampiran satu per satu.
 > Jika tidak ada pengumuman baru, bot hanya menulis log `[OK] No new announcements` tanpa mengirim pesan ke Telegram.
+> File cache yang ter-commit hanya menyimpan metadata stabil dan nama dokumen, bukan signed URL unduhan.
 
 ## Troubleshooting
 
@@ -282,7 +283,7 @@ Bot Notifikasi BIMA
 | File lampiran tidak ikut terkirim | Pastikan `TELEGRAM_SEND_FILES=true` dan bot punya izin kirim dokumen ke chat/channel tujuan |
 | Workflow tidak jalan | Pastikan file ada di `.github/workflows/` dan branch default repository sesuai workflow |
 | Timeout di GitHub Actions | Website BIMA lambat, timeout sudah diset 15 menit |
-| Cache tidak ter-commit | Pastikan `announcements_cache.json` tidak ada di `.gitignore` |
+| Cache ter-reset atau rusak | Hapus `announcements_cache.json`, lalu jalankan ulang agar cache metadata dibuat ulang |
 
 ## Pengembang
 
