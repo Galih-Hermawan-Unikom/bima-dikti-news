@@ -284,6 +284,16 @@ Bot Notifikasi BIMA
 | Timeout di GitHub Actions | Website BIMA lambat, timeout sudah diset 15 menit |
 | Cache tidak ter-commit | Pastikan `announcements_cache.json` tidak ada di `.gitignore` |
 
+## Pengembang
+
+**Galih Hermawan**  
+Program Studi Teknik Informatika  
+Universitas Komputer Indonesia  
+
+- Website: [https://galih.eu](https://galih.eu)
+- Email: [galih.hermawan@gmail.com](mailto:galih.hermawan@gmail.com)
+- Threads: [https://www.threads.com/@galihhermawan](https://www.threads.com/@galihhermawan)
+
 ## Lisensi
 
 MIT
