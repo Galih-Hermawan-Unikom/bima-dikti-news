@@ -1,5 +1,35 @@
 [
   {
+    "title": "Pengumuman Penerima Bantuan Pendanaan Program PUI-PT Lanjutan TA 2026",
+    "surat": "197/DST/C3/DT.05.00/202606",
+    "date": "06 March 2026",
+    "documents": [
+      {
+        "name": "197_Surat Pengumuman Penerima Bantuan Pendanaan Program PUI-PT Lanjutan TA 2026.pdf"
+      }
+    ],
+    "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+    "scraped_at": "2026-04-13T03:28:01.761406"
+  },
+  {
+    "title": "Pengumuman Pembukaan Pendaftaran Peserta Workshop Inclusive Publication Camp (In-Camp) Tahun 2026",
+    "surat": "241/DST/C2/PP.01.07/202611",
+    "date": "11 April 2026",
+    "documents": [
+      {
+        "name": "Surat Pengumuman Pendaftaran Peserta Workshop In-Camp Tahun 2026.pdf"
+      },
+      {
+        "name": "Panduan Workshop In-Camp Tahun 2026 (SHARE).pdf"
+      },
+      {
+        "name": "PAKTA INTEGRITAS WORKSHOP IN-CAMP 2026.pdf"
+      }
+    ],
+    "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+    "scraped_at": "2026-04-13T03:28:11.108833"
+  },
+  {
     "title": "Tindak Lanjut Pengumuman Penerima Pendanaan Program Penelitian, Pengabdian kepada Masyarakat, RIKUB, dan Inovasi Seni Nusantara Tahun Anggaran 2026 (Form Isian Kontrak)",
     "surat": "293/DST/C3/AL.04.02/202609",
     "date": "09 April 2026",
@@ -9,7 +39,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-04-10T09:25:42.838233"
+    "scraped_at": "2026-04-13T03:28:14.225532"
   },
   {
     "title": "Pengumuman Penerima Pendanaan Program Penelitian, Pengabdian kepada Masyarakat, Hilirisasi Riset Prioritas, Riset Konsorsium Unggulan Berdampak, dan Inovasi Seni Nusantara Tahun Anggaran 2026",
@@ -21,7 +51,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-04-10T09:25:45.938733"
+    "scraped_at": "2026-04-13T03:28:17.326918"
   },
   {
     "title": "Pemberitahuan Hasil Akreditasi Baru Peringkat 3,4,5, dan 6, Jurnal Ilmiah Periode 2 Tahun 2025",
@@ -33,7 +63,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-04-10T09:25:49.067068"
+    "scraped_at": "2026-04-13T03:28:20.440887"
   },
   {
     "title": "Undangan Sosialisasi Program Penulisan Proposal Hibah Internasional",
@@ -45,7 +75,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-04-10T09:25:52.168092"
+    "scraped_at": "2026-04-13T03:28:23.541853"
   },
   {
     "title": "Surat Pendaftaran Peserta Webinar \"Kiat Sukses Meniti Karier sebagai Peneliti Muda\"",
@@ -57,7 +87,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-04-10T09:25:55.284377"
+    "scraped_at": "2026-04-13T03:28:26.657885"
   },
   {
     "title": "Pengumuman Penerima Pendanaan Penelitian Program PHC - NUSANTARA 2026",
@@ -69,7 +99,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-04-10T09:25:58.386930"
+    "scraped_at": "2026-04-13T03:28:29.774528"
   },
   {
     "title": "Pemberitahuan Perpanjangan Unggah Laporan Akhir Program Mahasiswa Berdampak Pemulihan Bencana Tahun Anggaran 2026",
@@ -81,7 +111,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-04-10T09:26:01.485136"
+    "scraped_at": "2026-04-13T03:28:32.891871"
   },
   {
     "title": "Pengumuman Penerima Pendanaan Program Hilirisasi Riset Prioritas -Pengujian Model Dan Prototipe Tahun 2026",
@@ -93,7 +123,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-04-10T09:26:04.600917"
+    "scraped_at": "2026-04-13T03:28:36.007474"
   },
   {
     "title": "Pemberitahuan Hasil Akreditasi Baru Jurnal Ilmiah Periode 2 Tahun 2025 Peringkat 1 dan 2",
