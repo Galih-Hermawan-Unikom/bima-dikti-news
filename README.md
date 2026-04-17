@@ -7,6 +7,10 @@ Bot otomatis untuk mengecek dan mengirim notifikasi ketika ada update baru dari:
 Implementasi publik proyek ini dapat dilihat di channel Telegram **Dikti News**:
 [https://t.me/dikti_news](https://t.me/dikti_news)
 
+## Diagram Arsitektur
+
+![Arsitektur Sistem Bot Monitoring BIMA dan YouTube Kemdiktisaintek](arsitektur.png)
+
 ## Fitur
 
 - Scraping otomatis halaman pengumuman BIMA menggunakan Playwright + Chromium
