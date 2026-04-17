@@ -1,5 +1,8 @@
 {
   "notification_method": "telegram",
   "check_interval_minutes": 30,
+  "youtube_monitor_enabled": true,
+  "youtube_channel_url": "https://www.youtube.com/@kemdiktisaintek",
+  "youtube_channel_id": "UCGo_6l_6kp8H8OHcKcSIeDw",
   "telegram_send_files": false
 }

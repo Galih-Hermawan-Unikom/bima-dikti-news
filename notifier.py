@@ -22,19 +22,23 @@ class Notifier:
     def __init__(self, config=None, config_path="config.json"):
         self.config = config or load_config(config_path=config_path)
 
-    def send_notification(self, announcements):
-        if not announcements:
+    def send_notification(self, items):
+        if not items:
             return
 
         method = self.config.get("notification_method", "console")
 
         if method == "telegram":
-            self._send_telegram(announcements)
+            self._send_telegram(items)
         elif method == "console":
-            self._send_console(announcements)
+            self._send_console(items)
         elif method == "both":
-            self._send_console(announcements)
-            self._send_telegram(announcements)
+            self._send_console(items)
+            self._send_telegram(items)
+
+    def _item_source(self, item):
+        source = (item or {}).get("source", "bima")
+        return source if source in {"bima", "youtube"} else "bima"
 
     def _document_name(self, doc):
         if isinstance(doc, dict):
@@ -60,6 +64,18 @@ class Notifier:
         ]
 
     def _format_html_item(self, index, ann):
+        source = self._item_source(ann)
+        if source == "youtube":
+            channel_title = ann.get("channel_title", "Kemdiktisaintek")
+            message = f"<b>{index}. ▶️ {escape(ann['title'])}</b>\n"
+            message += f"   📺 {escape(channel_title)}\n"
+            if ann.get("published"):
+                message += f"   📆 {escape(ann['published'])}\n"
+            if ann.get("description"):
+                message += f"   📝 {escape(ann['description'][:300])}\n"
+            message += f"   🔗 {escape(ann.get('url', 'https://www.youtube.com/@kemdiktisaintek'))}\n\n"
+            return message
+
         message = f"<b>{index}. {escape(ann['title'])}</b>\n"
         if ann.get("surat"):
             message += f"   📜 {escape(ann['surat'])}\n"
@@ -75,16 +91,31 @@ class Notifier:
         message += f"   🔗 {escape(ann.get('url', 'https://bima.kemdiktisaintek.go.id/pengumuman'))}\n\n"
         return message
 
-    def _build_summary_chunks(self, announcements):
-        header = "<b>📢 PENGUMUMAN BARU BIMA KEMDIKTISAINTEK</b>\n\n"
+    def _build_summary_chunks(self, items):
+        bima_count = sum(1 for item in items if self._item_source(item) == "bima")
+        youtube_count = sum(1 for item in items if self._item_source(item) == "youtube")
+
+        if bima_count and youtube_count:
+            title = "📢 UPDATE BARU BIMA + YOUTUBE KEMDIKTISAINTEK"
+        elif youtube_count:
+            title = "▶️ VIDEO BARU YOUTUBE KEMDIKTISAINTEK"
+        else:
+            title = "📢 PENGUMUMAN BARU BIMA KEMDIKTISAINTEK"
+
+        header = f"<b>{title}</b>\n\n"
         header += f"📅 {escape(now_wib().strftime('%d/%m/%Y %H:%M WIB'))}\n"
-        header += f"🔢 Jumlah: {len(announcements)} pengumuman baru\n\n"
+        header += f"🔢 Jumlah: {len(items)} item baru\n"
+        if bima_count:
+            header += f"🏛️ BIMA: {bima_count}\n"
+        if youtube_count:
+            header += f"📺 YouTube: {youtube_count}\n"
+        header += "\n"
         footer = "━━━━━━━━━━━━━━━━━━━━\n<i>Bot Notifikasi BIMA</i>"
 
         chunks = []
         current = header
 
-        for index, ann in enumerate(announcements, 1):
+        for index, ann in enumerate(items, 1):
             item = self._format_html_item(index, ann)
             if len(current) + len(item) + len(footer) > 4000:
                 chunks.append(current)
@@ -97,15 +128,41 @@ class Notifier:
 
         return chunks
 
-    def _send_console(self, announcements):
+    def _send_console(self, items):
+        bima_count = sum(1 for item in items if self._item_source(item) == "bima")
+        youtube_count = sum(1 for item in items if self._item_source(item) == "youtube")
+
         print("\n" + "=" * 60)
-        print("PENGUMUMAN BARU BIMA KEMDIKTISAINTEK")
+        if bima_count and youtube_count:
+            print("UPDATE BARU BIMA + YOUTUBE KEMDIKTISAINTEK")
+        elif youtube_count:
+            print("VIDEO BARU YOUTUBE KEMDIKTISAINTEK")
+        else:
+            print("PENGUMUMAN BARU BIMA KEMDIKTISAINTEK")
         print("=" * 60)
         print(f"  {now_wib().strftime('%d/%m/%Y %H:%M WIB')}")
-        print(f"  Jumlah: {len(announcements)} pengumuman baru\n")
+        print(f"  Jumlah: {len(items)} item baru")
+        if bima_count:
+            print(f"  BIMA: {bima_count}")
+        if youtube_count:
+            print(f"  YouTube: {youtube_count}")
+        print()
 
-        for i, ann in enumerate(announcements, 1):
-            print(f"  {i}. {ann['title']}")
+        for i, ann in enumerate(items, 1):
+            source = self._item_source(ann)
+            prefix = "[YT] " if source == "youtube" else ""
+            print(f"  {i}. {prefix}{ann['title']}")
+            if source == "youtube":
+                if ann.get("channel_title"):
+                    print(f"     📺 {ann['channel_title']}")
+                if ann.get("published"):
+                    print(f"     📆 {ann['published']}")
+                if ann.get("description"):
+                    print(f"     📝 {ann['description'][:300]}")
+                print(f"     🔗 {ann.get('url', 'https://www.youtube.com/@kemdiktisaintek')}")
+                print()
+                continue
+
             if ann.get("surat"):
                 print(f"     📜 {ann['surat']}")
             if ann.get("date"):
@@ -159,11 +216,11 @@ class Notifier:
             print(f"  Error download file: {e}")
             return None
 
-    def _send_summary_message(self, bot_token, chat_id, announcements):
+    def _send_summary_message(self, bot_token, chat_id, items):
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
         success = True
 
-        for index, text in enumerate(self._build_summary_chunks(announcements), 1):
+        for index, text in enumerate(self._build_summary_chunks(items), 1):
             payload = {
                 "chat_id": chat_id,
                 "text": text,
@@ -221,7 +278,7 @@ class Notifier:
                     except OSError:
                         pass
 
-    def _send_telegram(self, announcements):
+    def _send_telegram(self, items):
         bot_token = self.config.get("telegram_bot_token", "")
         chat_id = self.config.get("telegram_chat_id", "")
         send_files = self.config.get("telegram_send_files", False)
@@ -230,10 +287,14 @@ class Notifier:
             print("  Telegram bot_token atau chat_id belum dikonfigurasi")
             return
 
-        self._send_summary_message(bot_token, chat_id, announcements)
+        self._send_summary_message(bot_token, chat_id, items)
 
         if send_files:
             print("  Mode Telegram: ringkasan + lampiran")
-            self._send_telegram_documents(bot_token, chat_id, announcements)
+            self._send_telegram_documents(
+                bot_token,
+                chat_id,
+                [item for item in items if self._item_source(item) == "bima"],
+            )
         else:
             print("  Mode Telegram: ringkasan saja")

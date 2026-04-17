@@ -11,6 +11,7 @@ Implementasi publik proyek ini dapat dilihat di channel Telegram **Dikti News**:
 - Deteksi dokumen lampiran beserta URL unduhan file
 - Notifikasi via Telegram dan Console
 - Opsi kirim ringkasan saja atau ringkasan + file ke Telegram
+- Monitoring kanal YouTube Kemdiktisaintek via RSS feed
 - Pengecekan berkala yang bisa disesuaikan: 30 menit saat masa kritis, 3 jam saat masa normal
 - Cache metadata untuk mendeteksi pengumuman baru
 - Bisa dijalankan lokal atau hosting gratis di GitHub Actions
@@ -26,8 +27,10 @@ Implementasi publik proyek ini dapat dilihat di channel Telegram **Dikti News**:
         ▼
 [Ekstrak daftar pengumuman + dokumen]
         │
+        ├──────────────► [Ambil RSS YouTube Kemdiktisaintek]
+        │
         ▼
-[Bandingkan dengan cache]
+[Bandingkan dengan cache BIMA + YouTube]
         │
         ▼
 [Ada baru?] ──Ya──► [Kirim ringkasan Telegram]
@@ -169,6 +172,7 @@ bima-dikti-news/
 ├── .env                       # Secret lokal (tidak di-commit)
 ├── requirements.txt           # Python dependencies
 ├── announcements_cache.json   # Cache metadata pengumuman (auto-generated)
+├── youtube_cache.json         # Cache metadata video YouTube (auto-generated)
 └── README.md
 ```
 
@@ -180,6 +184,9 @@ bima-dikti-news/
 {
   "notification_method": "telegram",
   "check_interval_minutes": 30,
+  "youtube_monitor_enabled": true,
+  "youtube_channel_url": "https://www.youtube.com/@kemdiktisaintek",
+  "youtube_channel_id": "UCGo_6l_6kp8H8OHcKcSIeDw",
   "telegram_send_files": false
 }
 ```
@@ -188,6 +195,9 @@ bima-dikti-news/
 |---|---|---|
 | `notification_method` | `console`, `telegram`, `both` | Cara notifikasi |
 | `check_interval_minutes` | Angka (menit) | Frekuensi pengecekan |
+| `youtube_monitor_enabled` | `true`, `false` | Aktifkan monitoring YouTube |
+| `youtube_channel_url` | URL channel | URL kanal YouTube target |
+| `youtube_channel_id` | Channel ID | ID kanal YouTube untuk RSS |
 | `telegram_send_files` | `true`, `false` | Kirim lampiran dokumen ke Telegram |
 
 ### .env (Lokal)

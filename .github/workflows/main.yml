@@ -36,6 +36,9 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           NOTIFICATION_METHOD: ${{ vars.NOTIFICATION_METHOD || 'telegram' }}
           TELEGRAM_SEND_FILES: ${{ vars.TELEGRAM_SEND_FILES || 'false' }}
+          YOUTUBE_MONITOR_ENABLED: ${{ vars.YOUTUBE_MONITOR_ENABLED || 'true' }}
+          YOUTUBE_CHANNEL_URL: ${{ vars.YOUTUBE_CHANNEL_URL || 'https://www.youtube.com/@kemdiktisaintek' }}
+          YOUTUBE_CHANNEL_ID: ${{ vars.YOUTUBE_CHANNEL_ID || 'UCGo_6l_6kp8H8OHcKcSIeDw' }}
         run: |
           python run_github.py
 
@@ -44,10 +47,13 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
           git add announcements_cache.json
+          if [ -f youtube_cache.json ]; then
+            git add youtube_cache.json
+          fi
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "chore: update announcements cache"
+            git commit -m "chore: update monitoring cache"
             git push
           fi
         continue-on-error: true

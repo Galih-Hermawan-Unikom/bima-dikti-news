@@ -60,6 +60,15 @@ def load_config(config_path="config.json", load_env=True):
         "check_interval_minutes": _read_int(
             file_config.get("check_interval_minutes", 30), 30
         ),
+        "youtube_monitor_enabled": _read_bool(
+            file_config.get("youtube_monitor_enabled", True), True
+        ),
+        "youtube_channel_url": file_config.get(
+            "youtube_channel_url", "https://www.youtube.com/@kemdiktisaintek"
+        ),
+        "youtube_channel_id": file_config.get(
+            "youtube_channel_id", "UCGo_6l_6kp8H8OHcKcSIeDw"
+        ),
         "telegram_send_files": _read_bool(
             file_config.get("telegram_send_files", False), False
         ),
@@ -74,6 +83,17 @@ def load_config(config_path="config.json", load_env=True):
         config["check_interval_minutes"] = _read_int(
             os.environ["CHECK_INTERVAL_MINUTES"], config["check_interval_minutes"]
         )
+
+    if os.environ.get("YOUTUBE_MONITOR_ENABLED"):
+        config["youtube_monitor_enabled"] = _read_bool(
+            os.environ["YOUTUBE_MONITOR_ENABLED"], config["youtube_monitor_enabled"]
+        )
+
+    if os.environ.get("YOUTUBE_CHANNEL_URL"):
+        config["youtube_channel_url"] = os.environ["YOUTUBE_CHANNEL_URL"]
+
+    if os.environ.get("YOUTUBE_CHANNEL_ID"):
+        config["youtube_channel_id"] = os.environ["YOUTUBE_CHANNEL_ID"]
 
     if os.environ.get("TELEGRAM_SEND_FILES"):
         config["telegram_send_files"] = _read_bool(

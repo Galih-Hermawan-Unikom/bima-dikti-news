@@ -4,6 +4,7 @@ import time
 from app_config import load_config
 from scraper import BimaScraper
 from notifier import Notifier
+from youtube_monitor import YouTubeMonitor
 
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
@@ -13,16 +14,27 @@ def check_announcements():
     print("\n[Check] Mengecek pengumuman baru...")
 
     try:
+        config = load_config()
         scraper = BimaScraper()
-        notifier = Notifier(load_config())
+        notifier = Notifier(config)
 
         new_announcements = scraper.check_new_announcements()
+        new_youtube_items = []
 
-        if new_announcements:
-            print(f"\n[NEW] Ditemukan {len(new_announcements)} pengumuman baru!")
-            notifier.send_notification(new_announcements)
+        if config.get("youtube_monitor_enabled", True):
+            monitor = YouTubeMonitor(
+                channel_id=config.get("youtube_channel_id", ""),
+                channel_url=config.get("youtube_channel_url", ""),
+            )
+            new_youtube_items = monitor.check_new_videos()
+
+        new_items = new_announcements + new_youtube_items
+
+        if new_items:
+            print(f"\n[NEW] Ditemukan {len(new_items)} item baru!")
+            notifier.send_notification(new_items)
         else:
-            print("[OK] Tidak ada pengumuman baru")
+            print("[OK] Tidak ada item baru")
     except Exception as e:
         print(f"[ERROR] Error saat mengecek: {e}")
 
