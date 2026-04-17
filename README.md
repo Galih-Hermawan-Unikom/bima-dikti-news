@@ -1,6 +1,8 @@
-# Bot Notifikasi Pengumuman BIMA Kemdiktisaintek
+# Bot Monitoring BIMA + YouTube Kemdiktisaintek
 
-Bot otomatis untuk mengecek dan mengirim notifikasi ketika ada pengumuman baru di [BIMA Kemdiktisaintek](https://bima.kemdiktisaintek.go.id/pengumuman).
+Bot otomatis untuk mengecek dan mengirim notifikasi ketika ada update baru dari:
+- halaman [BIMA Kemdiktisaintek](https://bima.kemdiktisaintek.go.id/pengumuman)
+- kanal YouTube Kemdiktisaintek melalui RSS feed
 
 Implementasi publik proyek ini dapat dilihat di channel Telegram **Dikti News**:
 [https://t.me/dikti_news](https://t.me/dikti_news)
@@ -9,11 +11,12 @@ Implementasi publik proyek ini dapat dilihat di channel Telegram **Dikti News**:
 
 - Scraping otomatis halaman pengumuman BIMA menggunakan Playwright + Chromium
 - Deteksi dokumen lampiran beserta URL unduhan file
+- Monitoring kanal YouTube Kemdiktisaintek via RSS feed
 - Notifikasi via Telegram dan Console
 - Opsi kirim ringkasan saja atau ringkasan + file ke Telegram
-- Monitoring kanal YouTube Kemdiktisaintek via RSS feed
+- Notifikasi gabungan BIMA + YouTube dalam satu ringkasan
 - Pengecekan berkala yang bisa disesuaikan: 30 menit saat masa kritis, 3 jam saat masa normal
-- Cache metadata untuk mendeteksi pengumuman baru
+- Cache metadata terpisah untuk BIMA dan YouTube
 - Bisa dijalankan lokal atau hosting gratis di GitHub Actions
 
 ## Cara Kerja
@@ -30,11 +33,13 @@ Implementasi publik proyek ini dapat dilihat di channel Telegram **Dikti News**:
         ├──────────────► [Ambil RSS YouTube Kemdiktisaintek]
         │
         ▼
-[Bandingkan dengan cache BIMA + YouTube]
+[Bandingkan cache:
+ announcements_cache.json
+ youtube_cache.json]
         │
         ▼
 [Ada baru?] ──Ya──► [Kirim ringkasan Telegram]
-        │           [Unduh & unggah file jika aktif]
+        │           [Unggah lampiran BIMA jika aktif]
         │
        Tidak
         │
@@ -78,13 +83,17 @@ TELEGRAM_SEND_FILES=true
 TELEGRAM_BOT_TOKEN=isi_token_bot
 TELEGRAM_CHAT_ID=isi_chat_id
 CHECK_INTERVAL_MINUTES=30
+YOUTUBE_MONITOR_ENABLED=true
+YOUTUBE_CHANNEL_URL=https://www.youtube.com/@kemdiktisaintek
+YOUTUBE_CHANNEL_ID=UCGo_6l_6kp8H8OHcKcSIeDw
 ```
 
 Rekomendasi penggunaan:
 - Lokal / eksperimen: isi `TELEGRAM_BOT_TOKEN` dan `TELEGRAM_CHAT_ID` dengan bot pribadi
 - GitHub Actions / channel resmi: isi GitHub Secrets dengan token dan chat ID channel resmi
+- Monitor YouTube bisa dimatikan dengan `YOUTUBE_MONITOR_ENABLED=false`
 - Kirim lampiran Telegram aktif jika `TELEGRAM_SEND_FILES=true`
-- Jika tidak ada pengumuman baru, bot tidak mengirim pesan dan tidak mengunggah file apa pun
+- Jika tidak ada item baru, bot tidak mengirim pesan dan tidak mengunggah file apa pun
 
 ### Mode GitHub Actions (Hosting Gratis)
 
@@ -149,9 +158,12 @@ https://api.telegram.org/bot<TOKEN_BOT_ANDA>/getUpdates
 | `NOTIFICATION_METHOD` | `telegram` |
 | `TELEGRAM_SEND_FILES` | `true` |
 | `CHECK_INTERVAL_MINUTES` | `30` |
+| `YOUTUBE_MONITOR_ENABLED` | `true` |
+| `YOUTUBE_CHANNEL_URL` | `https://www.youtube.com/@kemdiktisaintek` |
+| `YOUTUBE_CHANNEL_ID` | `UCGo_6l_6kp8H8OHcKcSIeDw` |
 
 > Gunakan **Secrets** untuk data sensitif seperti token dan chat ID.
-> Gunakan **Variables** untuk pengaturan workflow seperti mode notifikasi dan kirim lampiran.
+> Gunakan **Variables** untuk pengaturan workflow seperti mode notifikasi, monitoring YouTube, dan kirim lampiran.
 
 **Langkah 5:** Workflow Otomatis Jalan
 
@@ -168,6 +180,7 @@ bima-dikti-news/
 ├── scraper.py                 # Web scraper (cross-platform)
 ├── notifier.py                # Notifikasi Console + Telegram
 ├── run_github.py              # Entry point GitHub Actions
+├── youtube_monitor.py         # Monitor RSS YouTube + cache video
 ├── config.json                # Konfigurasi non-secret
 ├── .env                       # Secret lokal (tidak di-commit)
 ├── requirements.txt           # Python dependencies
@@ -208,6 +221,9 @@ TELEGRAM_SEND_FILES=true
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
 CHECK_INTERVAL_MINUTES=30
+YOUTUBE_MONITOR_ENABLED=true
+YOUTUBE_CHANNEL_URL=https://www.youtube.com/@kemdiktisaintek
+YOUTUBE_CHANNEL_ID=UCGo_6l_6kp8H8OHcKcSIeDw
 ```
 
 | Key | Keterangan |
@@ -217,6 +233,9 @@ CHECK_INTERVAL_MINUTES=30
 | `TELEGRAM_BOT_TOKEN` | Secret token bot Telegram |
 | `TELEGRAM_CHAT_ID` | Secret chat ID Telegram |
 | `CHECK_INTERVAL_MINUTES` | Override interval dari `config.json` |
+| `YOUTUBE_MONITOR_ENABLED` | Override aktivasi monitor YouTube |
+| `YOUTUBE_CHANNEL_URL` | Override URL channel YouTube |
+| `YOUTUBE_CHANNEL_ID` | Override channel ID YouTube |
 
 ### GitHub Secrets
 
@@ -232,6 +251,9 @@ CHECK_INTERVAL_MINUTES=30
 | `NOTIFICATION_METHOD` | `telegram` | `telegram`, `console`, atau `both` |
 | `TELEGRAM_SEND_FILES` | `false` | `true` untuk kirim lampiran Telegram di workflow |
 | `CHECK_INTERVAL_MINUTES` | `30` | Override interval konfigurasi |
+| `YOUTUBE_MONITOR_ENABLED` | `true` | `false` untuk menonaktifkan monitor YouTube |
+| `YOUTUBE_CHANNEL_URL` | `https://www.youtube.com/@kemdiktisaintek` | URL kanal YouTube target |
+| `YOUTUBE_CHANNEL_ID` | `UCGo_6l_6kp8H8OHcKcSIeDw` | Channel ID untuk RSS YouTube |
 
 ## Jadwal Pengecekan
 
@@ -268,10 +290,12 @@ schedule:
 ## Contoh Notifikasi Telegram
 
 ```
-📢 PENGUMUMAN BARU BIMA KEMDIKTISAINTEK
+📢 UPDATE BARU BIMA + YOUTUBE KEMDIKTISAINTEK
 
-📅 04/04/2026 22:42 WIB
-🔢 Jumlah: 2 pengumuman baru
+📅 17/04/2026 18:57 WIB
+🔢 Jumlah: 3 item baru
+🏛️ BIMA: 2
+📺 YouTube: 1
 
 1. Pengumuman Penerima Pendanaan Penelitian Program PHC - NUSANTARA 2026
    📜 203/DST/C2/PP.01.11/2026
@@ -285,13 +309,20 @@ schedule:
    📎 Pengumuman Pendanaan Program Penelitian Multitahun Lanjutan TA 2026.pdf
    🔗 https://bima.kemdiktisaintek.go.id/pengumuman
 
+3. ▶️ Sosialisasi Peraturan tentang Petunjuk Teknis PEKERTI AA
+   📺 Kementerian Pendidikan Tinggi, Sains dan Teknologi
+   📆 2026-04-16T04:05:14+00:00
+   📝 Sosialisasi Peraturan tentang Petunjuk Teknis PEKERTI AA (Pimpinan PT dan Kepala LLDIKTI)
+   🔗 https://www.youtube.com/watch?v=pSgfm5BB-aI
+
 ━━━━━━━━━━━━━━━━━━━━
 Bot Notifikasi BIMA
 ```
 
 > Semua waktu notifikasi menggunakan **WIB (UTC+7)**.
-> Jika `TELEGRAM_SEND_FILES=true`, setelah pesan utama bot akan mengunggah dokumen lampiran satu per satu.
-> Jika tidak ada pengumuman baru, bot hanya menulis log `[OK] No new announcements` tanpa mengirim pesan ke Telegram.
+> Jika `TELEGRAM_SEND_FILES=true`, setelah pesan utama bot akan mengunggah dokumen lampiran satu per satu untuk item **BIMA saja**.
+> Item YouTube hanya mengirim ringkasan teks dan tautan video, tanpa lampiran.
+> Jika tidak ada item baru, bot hanya menulis log `[OK] No new items` tanpa mengirim pesan ke Telegram.
 > File cache yang ter-commit hanya menyimpan metadata stabil dan nama dokumen, bukan signed URL unduhan.
 
 ## Troubleshooting
@@ -301,9 +332,10 @@ Bot Notifikasi BIMA
 | `Executable doesn't exist` | Jalankan `playwright install --with-deps chromium` |
 | Notifikasi Telegram tidak terkirim | Periksa `TELEGRAM_BOT_TOKEN` dan `TELEGRAM_CHAT_ID` di Secrets |
 | File lampiran tidak ikut terkirim | Pastikan `TELEGRAM_SEND_FILES=true` dan bot punya izin kirim dokumen ke chat/channel tujuan |
+| Video YouTube tidak muncul | Periksa `YOUTUBE_MONITOR_ENABLED`, `YOUTUBE_CHANNEL_URL`, dan `YOUTUBE_CHANNEL_ID` |
 | Workflow tidak jalan | Pastikan file ada di `.github/workflows/` dan branch default repository sesuai workflow |
 | Timeout di GitHub Actions | Website BIMA lambat, timeout sudah diset 15 menit |
-| Cache ter-reset atau rusak | Hapus `announcements_cache.json`, lalu jalankan ulang agar cache metadata dibuat ulang |
+| Cache ter-reset atau rusak | Hapus `announcements_cache.json` atau `youtube_cache.json`, lalu jalankan ulang agar cache metadata dibuat ulang |
 
 ## Pengembang
 
