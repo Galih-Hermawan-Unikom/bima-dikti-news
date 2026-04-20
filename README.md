@@ -15,12 +15,14 @@ Implementasi publik proyek ini dapat dilihat di channel Telegram **Dikti News**:
 
 - Scraping otomatis halaman pengumuman BIMA menggunakan Playwright + Chromium
 - Deteksi dokumen lampiran beserta URL unduhan file
-- Monitoring kanal YouTube Kemdiktisaintek via RSS feed
+- Monitoring kanal YouTube Kemdiktisaintek via RSS feed dengan fitur **Deep Inspection**
+- Deteksi status video YouTube: **LIVE**, **UPCOMING**, atau **VOD** (Video on Demand) secara akurat
+- Notifikasi pembaruan status video (misal: dari *Upcoming* menjadi *Live* atau *VOD*)
 - Notifikasi via Telegram dan Console
 - Opsi kirim ringkasan saja atau ringkasan + file ke Telegram
 - Notifikasi gabungan BIMA + YouTube dalam satu ringkasan
 - Pengecekan berkala yang bisa disesuaikan: 30 menit saat masa kritis, 3 jam saat masa normal
-- Cache metadata terpisah untuk BIMA dan YouTube
+- Cache metadata terpisah untuk BIMA dan YouTube dengan optimasi inspeksi
 - Bisa dijalankan lokal atau hosting gratis di GitHub Actions
 
 ## Cara Kerja
@@ -42,8 +44,8 @@ Implementasi publik proyek ini dapat dilihat di channel Telegram **Dikti News**:
  youtube_cache.json]
         │
         ▼
-[Ada baru?] ──Ya──► [Kirim ringkasan Telegram]
-        │           [Unggah lampiran BIMA jika aktif]
+[Ada baru atau status berubah?] ──Ya──► [Kirim ringkasan Telegram]
+        │                           [Unggah lampiran BIMA jika aktif]
         │
        Tidak
         │
@@ -315,9 +317,16 @@ schedule:
 
 3. ▶️ Sosialisasi Peraturan tentang Petunjuk Teknis PEKERTI AA
    📺 Kementerian Pendidikan Tinggi, Sains dan Teknologi
+   🔴 STATUS: LIVE SEKARANG
    📆 2026-04-16T04:05:14+00:00
    📝 Sosialisasi Peraturan tentang Petunjuk Teknis PEKERTI AA (Pimpinan PT dan Kepala LLDIKTI)
    🔗 https://www.youtube.com/watch?v=pSgfm5BB-aI
+
+4. ▶️ Webinar Pemanfaatan AI untuk Riset
+   📺 Kementerian Pendidikan Tinggi, Sains dan Teknologi
+   ⏳ STATUS: UPCOMING (Rencana Tayang)
+   📅 Jadwal: 22 April 2026, 13:00 WIB
+   🔗 https://www.youtube.com/watch?v=Y22Dc0MdmU8
 
 ━━━━━━━━━━━━━━━━━━━━
 Bot Notifikasi BIMA
