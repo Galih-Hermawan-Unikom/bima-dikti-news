@@ -66,13 +66,32 @@ class Notifier:
     def _format_html_item(self, index, ann):
         source = self._item_source(ann)
         if source == "youtube":
+            status = ann.get("status", "VOD")
+            if status == "LIVE":
+                icon = "🔴 [LIVE SEDANG TAYANG]"
+            elif status == "UPCOMING":
+                icon = "⏰ [RENCANA TAYANG]"
+            else:
+                icon = "▶️ [VIDEO BARU]"
+            
+            if ann.get("is_status_update"):
+                icon = f"🔄 {icon}"
+
             channel_title = ann.get("channel_title", "Kemdiktisaintek")
-            message = f"<b>{index}. ▶️ {escape(ann['title'])}</b>\n"
+            message = f"<b>{index}. {icon} {escape(ann['title'])}</b>\n"
             message += f"   📺 {escape(channel_title)}\n"
-            if ann.get("published"):
-                message += f"   📆 {escape(ann['published'])}\n"
+            
+            if status == "UPCOMING" and ann.get("scheduled_start"):
+                try:
+                    start_dt = datetime.fromisoformat(ann["scheduled_start"].replace("Z", "+00:00")).astimezone(WIB)
+                    message += f"   📅 Jadwal: {escape(start_dt.strftime('%d/%m/%Y %H:%M WIB'))}\n"
+                except:
+                    pass
+            elif ann.get("published"):
+                message += f"   📆 Rilis: {escape(ann['published'])}\n"
+                
             if ann.get("description"):
-                message += f"   📝 {escape(ann['description'][:300])}\n"
+                message += f"   📝 {escape(ann['description'][:300])}...\n"
             message += f"   🔗 {escape(ann.get('url', 'https://www.youtube.com/@kemdiktisaintek'))}\n\n"
             return message
 
@@ -150,15 +169,33 @@ class Notifier:
 
         for i, ann in enumerate(items, 1):
             source = self._item_source(ann)
-            prefix = "[YT] " if source == "youtube" else ""
-            print(f"  {i}. {prefix}{ann['title']}")
             if source == "youtube":
+                status = ann.get("status", "VOD")
+                if status == "LIVE":
+                    prefix = "🔴 [LIVE] "
+                elif status == "UPCOMING":
+                    prefix = "⏰ [UPCOMING] "
+                else:
+                    prefix = "▶️ [VOD] "
+                    
+                if ann.get("is_status_update"):
+                    prefix = f"🔄 {prefix}"
+                    
+                print(f"  {i}. {prefix}{ann['title']}")
                 if ann.get("channel_title"):
                     print(f"     📺 {ann['channel_title']}")
-                if ann.get("published"):
-                    print(f"     📆 {ann['published']}")
+                
+                if status == "UPCOMING" and ann.get("scheduled_start"):
+                    try:
+                        start_dt = datetime.fromisoformat(ann["scheduled_start"].replace("Z", "+00:00")).astimezone(WIB)
+                        print(f"     📅 Jadwal: {start_dt.strftime('%d/%m/%Y %H:%M WIB')}")
+                    except:
+                        pass
+                elif ann.get("published"):
+                    print(f"     📆 Rilis: {ann['published']}")
+                    
                 if ann.get("description"):
-                    print(f"     📝 {ann['description'][:300]}")
+                    print(f"     📝 {ann['description'][:300]}...")
                 print(f"     🔗 {ann.get('url', 'https://www.youtube.com/@kemdiktisaintek')}")
                 print()
                 continue

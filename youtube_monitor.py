@@ -2,7 +2,7 @@ import json
 import os
 import re
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timezone
 
 import requests
 
@@ -60,6 +60,9 @@ class YouTubeMonitor:
             "thumbnail": normalize_text(item.get("thumbnail", "")),
             "url": normalize_text(item.get("url", "")),
             "scraped_at": normalize_text(item.get("scraped_at", "")),
+            "status": normalize_text(item.get("status", "")),
+            "scheduled_start": normalize_text(item.get("scheduled_start", "")),
+            "actual_end": normalize_text(item.get("actual_end", "")),
         }
 
     def load_cache(self):
@@ -118,6 +121,54 @@ class YouTubeMonitor:
 
         return ""
 
+    def _analyze_video_type(self, video_id):
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        try:
+            response = self.session.get(url, timeout=15)
+            response.raise_for_status()
+            html = response.text
+            match = re.search(r"ytInitialPlayerResponse\s*=\s*({.+?});", html)
+            if not match:
+                return {"status": "VOD"}
+
+            data = json.loads(match.group(1))
+            video_details = data.get("videoDetails", {})
+            is_live_content = video_details.get("isLiveContent", False)
+            
+            microformat = data.get("microformat", {}).get("playerMicroformatRenderer", {})
+            live_details = microformat.get("liveBroadcastDetails", {})
+            
+            is_live_now = live_details.get("isLiveNow", False)
+            start_timestamp = live_details.get("startTimestamp")
+            end_timestamp = live_details.get("endTimestamp")
+
+            now = datetime.now(timezone.utc)
+
+            if is_live_content:
+                if is_live_now:
+                    status = "LIVE"
+                elif end_timestamp:
+                    status = "VOD"
+                elif start_timestamp:
+                    start_dt = datetime.fromisoformat(start_timestamp.replace("Z", "+00:00"))
+                    if start_dt > now:
+                        status = "UPCOMING"
+                    else:
+                        status = "VOD"
+                else:
+                    status = "VOD"
+            else:
+                status = "VOD"
+
+            return {
+                "status": status,
+                "scheduled_start": start_timestamp,
+                "actual_end": end_timestamp
+            }
+        except Exception as e:
+            print(f"  [YouTube] Gagal memproses status video {video_id}: {e}")
+            return {"status": "VOD"}
+
     def fetch_videos(self):
         channel_id = self._resolve_channel_id()
         if not channel_id:
@@ -171,6 +222,9 @@ class YouTubeMonitor:
                 entry.findtext("atom:published", default="", namespaces=ns)
             )
 
+            # Catatan: status video TIDAK diambil di sini.
+            # _analyze_video_type hanya dipanggil di check_new_videos untuk
+            # video baru atau yang masih berstatus UPCOMING di cache.
             items.append(
                 {
                     "source": "youtube",
@@ -187,6 +241,9 @@ class YouTubeMonitor:
                     "url": link or f"https://www.youtube.com/watch?v={video_id}",
                     "documents": [],
                     "scraped_at": datetime.now().isoformat(),
+                    "status": "",
+                    "scheduled_start": "",
+                    "actual_end": "",
                 }
             )
 
@@ -203,13 +260,125 @@ class YouTubeMonitor:
             print("  [YouTube] Menggunakan cache terakhir karena feed kosong")
             return []
 
-        cached_keys = {youtube_identity(item) for item in cached}
-        new_items = [
-            item for item in current if youtube_identity(item) not in cached_keys
-        ]
+        cached_dict = {youtube_identity(item): item for item in cached}
+        new_items = []
 
-        if new_items or not cached:
-            all_items = current + cached
+        # Status yang perlu dicek ulang tiap siklus (selama masih di RSS feed):
+        # - UPCOMING : bisa berubah ke LIVE atau VOD -> kirim notifikasi jika berubah
+        # - LIVE     : bisa berubah ke VOD setelah selesai -> update cache, tanpa notifikasi baru
+        # - ""       : data lama tanpa status -> isi sekali, tanpa notifikasi baru
+        RECHECK_STATUSES = {"UPCOMING", "LIVE", ""}
+        current_ids = {item["video_id"] for item in current}
+        ids_to_inspect = set()
+
+        for item in current:
+            key = youtube_identity(item)
+            if key not in cached_dict:
+                # Video baru
+                ids_to_inspect.add(item["video_id"])
+            elif cached_dict[key].get("status", "") in RECHECK_STATUSES:
+                # Video lama yang masih perlu dicek ulang
+                ids_to_inspect.add(item["video_id"])
+
+        if ids_to_inspect:
+            print(f"  [YouTube] Deep inspection pada {len(ids_to_inspect)} video...")
+
+        analysis_cache = {}
+        for video_id in ids_to_inspect:
+            print(f"  [YouTube] Mengecek status: {video_id}")
+            analysis_cache[video_id] = self._analyze_video_type(video_id)
+
+        for item in current:
+            key = youtube_identity(item)
+            video_id = item["video_id"]
+
+            if key not in cached_dict:
+                # --- Video BARU ---
+                analysis = analysis_cache.get(video_id, {"status": "VOD"})
+                item["status"] = analysis.get("status", "VOD")
+                item["scheduled_start"] = analysis.get("scheduled_start") or ""
+                item["actual_end"] = analysis.get("actual_end") or ""
+                new_items.append(item)
+
+            else:
+                cached_item = cached_dict[key]
+                cached_status = cached_item.get("status", "")
+
+                if cached_status == "UPCOMING":
+                    # --- Video UPCOMING: cek apakah status berubah ---
+                    analysis = analysis_cache.get(video_id, {"status": "UPCOMING"})
+                    new_status = analysis.get("status", "UPCOMING")
+                    item["scheduled_start"] = analysis.get("scheduled_start") or cached_item.get("scheduled_start", "")
+                    item["actual_end"] = analysis.get("actual_end") or ""
+                    if new_status != "UPCOMING":
+                        print(f"  [YouTube] Status berubah (UPCOMING -> {new_status}): {item['title']}")
+                        item["status"] = new_status
+                        item["is_status_update"] = True
+                        new_items.append(item)
+                    else:
+                        item["status"] = "UPCOMING"
+
+                elif cached_status == "LIVE":
+                    # --- Video LIVE: cek apakah sudah selesai (VOD) ---
+                    analysis = analysis_cache.get(video_id, {"status": "LIVE"})
+                    new_status = analysis.get("status", "LIVE")
+                    item["scheduled_start"] = analysis.get("scheduled_start") or cached_item.get("scheduled_start", "")
+                    item["actual_end"] = analysis.get("actual_end") or ""
+                    item["status"] = new_status
+                    if new_status != "LIVE":
+                        print(f"  [YouTube] Status berubah (LIVE -> {new_status}): {item['title']}")
+                    # Tidak kirim notifikasi baru — sudah pernah dikirim saat pertama terdeteksi
+
+                elif cached_status == "":
+                    # --- Video tanpa status (data lama): isi sekali, tanpa notifikasi baru ---
+                    if video_id in analysis_cache:
+                        analysis = analysis_cache[video_id]
+                        item["status"] = analysis.get("status", "VOD")
+                        item["scheduled_start"] = analysis.get("scheduled_start") or ""
+                        item["actual_end"] = analysis.get("actual_end") or ""
+                        print(f"  [YouTube] Mengisi status lama: {item['title']} -> {item['status']}")
+                    else:
+                        item["status"] = cached_item.get("status", "")
+                        item["scheduled_start"] = cached_item.get("scheduled_start", "")
+                        item["actual_end"] = cached_item.get("actual_end", "")
+
+                else:
+                    # --- VOD biasa: pertahankan dari cache ---
+                    item["status"] = cached_item.get("status", "VOD")
+                    item["scheduled_start"] = cached_item.get("scheduled_start", "")
+                    item["actual_end"] = cached_item.get("actual_end", "")
+
+        # Terapkan juga ke cached_dict untuk video yang tidak ada di current (old_cache_only)
+        for video_id, analysis in analysis_cache.items():
+            key = f"video:{video_id}"
+            if key in cached_dict and cached_dict[key].get("status", "") in RECHECK_STATUSES:
+                cached_dict[key]["status"] = analysis.get("status", "VOD")
+                cached_dict[key]["scheduled_start"] = analysis.get("scheduled_start") or ""
+                cached_dict[key]["actual_end"] = analysis.get("actual_end") or ""
+
+        # Simpan cache jika:
+        # - ada item baru, atau
+        # - cache belum ada, atau
+        # - ada video yang statusnya baru saja diinspeksi
+        status_filled = bool(ids_to_inspect)
+        if new_items or not cached or status_filled:
+            # Untuk setiap item di current yang statusnya masih kosong,
+            # pertahankan status dari cached_dict (data lebih kaya dari sebelumnya)
+            for item in current:
+                if not item.get("status"):
+                    key = youtube_identity(item)
+                    cached_item = cached_dict.get(key, {})
+                    if cached_item.get("status"):
+                        item["status"] = cached_item["status"]
+                        item["scheduled_start"] = cached_item.get("scheduled_start", "")
+                        item["actual_end"] = cached_item.get("actual_end", "")
+
+            # Gabungkan current (sudah diupdate) + sisa cache yang tidak ada di feed
+            current_keys = {youtube_identity(i) for i in current}
+            old_cache_only = [cached_dict[youtube_identity(i)] for i in cached
+                              if youtube_identity(i) not in current_keys
+                              and youtube_identity(i) in cached_dict]
+            all_items = current + old_cache_only
             unique = []
             seen = set()
             for item in all_items:

@@ -10,7 +10,10 @@
     "description": "",
     "thumbnail": "https://i4.ytimg.com/vi/wkyDJRbWZeU/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=wkyDJRbWZeU",
-    "scraped_at": "2026-04-20T10:54:35.186427"
+    "scraped_at": "2026-04-20T19:40:35.431305",
+    "status": "VOD",
+    "scheduled_start": "",
+    "actual_end": ""
   },
   {
     "source": "youtube",
@@ -23,7 +26,10 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/Y22Dc0MdmU8/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=Y22Dc0MdmU8",
-    "scraped_at": "2026-04-20T10:54:35.186458"
+    "scraped_at": "2026-04-20T19:40:35.431305",
+    "status": "UPCOMING",
+    "scheduled_start": "2026-04-22T06:00:00+00:00",
+    "actual_end": ""
   },
   {
     "source": "youtube",
@@ -36,7 +42,10 @@
     "description": "",
     "thumbnail": "https://i1.ytimg.com/vi/HsDmHpa1KPY/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=HsDmHpa1KPY",
-    "scraped_at": "2026-04-20T10:54:35.186480"
+    "scraped_at": "2026-04-20T19:40:35.431305",
+    "status": "LIVE",
+    "scheduled_start": "2026-04-20T05:51:52+00:00",
+    "actual_end": ""
   },
   {
     "source": "youtube",
@@ -49,7 +58,10 @@
     "description": "Sosialisasi Peraturan tentang Petunjuk Teknis PEKERTI AA (Pimpinan PT dan Kepala LLDIKTI)",
     "thumbnail": "https://i1.ytimg.com/vi/pSgfm5BB-aI/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=pSgfm5BB-aI",
-    "scraped_at": "2026-04-20T10:54:35.186503"
+    "scraped_at": "2026-04-20T19:40:35.431305",
+    "status": "VOD",
+    "scheduled_start": "2026-04-17T01:31:17+00:00",
+    "actual_end": "2026-04-17T03:41:11+00:00"
   },
   {
     "source": "youtube",
@@ -62,7 +74,10 @@
     "description": "Pelantikan Kepala Sekolah SMA Unggul Garuda di Lingkungan Kementerian Pendidikan Tinggi, Sains, dan Teknologi.",
     "thumbnail": "https://i1.ytimg.com/vi/xO-Kx5Fuh7w/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=xO-Kx5Fuh7w",
-    "scraped_at": "2026-04-20T10:54:35.186535"
+    "scraped_at": "2026-04-20T19:40:35.431305",
+    "status": "VOD",
+    "scheduled_start": "2026-04-16T05:44:42+00:00",
+    "actual_end": "2026-04-16T07:07:31+00:00"
   },
   {
     "source": "youtube",
@@ -75,7 +90,10 @@
     "description": "Halo #InsanDiktisaintek\n\nKemdiktisaintek resmi melantik kepala sekolah SMA Unggul Garuda sebagai langkah memperluas akses pendidikan berkualitas di berbagai daerah.\n\nMendiktisaintek Brian Yuliarto menegaskan bahwa SMA Unggul Garuda menjadi strategi menyiapkan talenta terbaik bangsa secara merata menuju Indonesia Emas 2045.\n\nKepala sekolah diharapkan membangun budaya disiplin, integritas, dan kepemimpinan sejak awal, agar sekolah ini melahirkan generasi unggul yang siap bersaing di tingkat global.\n\n#Kemdiktisaintek\n#DiktisaintekBerdampak\n#SMAUnggulGaruda",
     "thumbnail": "https://i3.ytimg.com/vi/fwSIgo0Hp9Q/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=fwSIgo0Hp9Q",
-    "scraped_at": "2026-04-20T10:54:35.186558"
+    "scraped_at": "2026-04-20T19:40:35.431305",
+    "status": "VOD",
+    "scheduled_start": "",
+    "actual_end": ""
   },
   {
     "source": "youtube",
@@ -88,7 +106,10 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/IN8aLW1lzwQ/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=IN8aLW1lzwQ",
-    "scraped_at": "2026-04-20T10:54:35.186584"
+    "scraped_at": "2026-04-20T19:40:35.431305",
+    "status": "VOD",
+    "scheduled_start": "2026-04-14T08:00:27+00:00",
+    "actual_end": "2026-04-14T09:17:07+00:00"
   },
   {
     "source": "youtube",
@@ -101,7 +122,10 @@
     "description": "Sosialisasi Program Bantuan Inovasi Pembelajaran Digital",
     "thumbnail": "https://i4.ytimg.com/vi/GIO2fYgxDVc/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=GIO2fYgxDVc",
-    "scraped_at": "2026-04-20T10:54:35.186601"
+    "scraped_at": "2026-04-20T19:40:35.431305",
+    "status": "VOD",
+    "scheduled_start": "2026-04-14T05:51:52+00:00",
+    "actual_end": "2026-04-14T08:38:59+00:00"
   },
   {
     "source": "youtube",
@@ -114,45 +138,9 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/aMaonac4wtQ/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=aMaonac4wtQ",
-    "scraped_at": "2026-04-20T10:54:35.186619"
-  },
-  {
-    "source": "youtube",
-    "kind": "video",
-    "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
-    "title": "Program Penguatan Perguruan Tinggi Swasta (PP-PTS) Tahun 2025",
-    "video_id": "YGpqmmSgsGs",
-    "date": "2026-04-13T07:02:52+00:00",
-    "published": "2026-04-13T07:02:52+00:00",
-    "description": "",
-    "thumbnail": "https://i2.ytimg.com/vi/YGpqmmSgsGs/hqdefault.jpg",
-    "url": "https://www.youtube.com/watch?v=YGpqmmSgsGs",
-    "scraped_at": "2026-04-17T12:52:24.410281"
-  },
-  {
-    "source": "youtube",
-    "kind": "video",
-    "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
-    "title": "Peluncuran Program Penguatan Perguruan Tinggi Swasta (PP-PTS) Tahun 2026",
-    "video_id": "ihee3ychYD0",
-    "date": "2026-04-13T05:12:05+00:00",
-    "published": "2026-04-13T05:12:05+00:00",
-    "description": "Peluncuran Program Penguatan Perguruan Tinggi Swasta (PP-PTS) Tahun 2026",
-    "thumbnail": "https://i2.ytimg.com/vi/ihee3ychYD0/hqdefault.jpg",
-    "url": "https://www.youtube.com/watch?v=ihee3ychYD0",
-    "scraped_at": "2026-04-17T12:52:24.410300"
-  },
-  {
-    "source": "youtube",
-    "kind": "video",
-    "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
-    "title": "Kiat Sukses Meniti Karier sebagai Peneliti Muda",
-    "video_id": "vNe5nzW-V7s",
-    "date": "2026-04-08T20:26:11+00:00",
-    "published": "2026-04-08T20:26:11+00:00",
-    "description": "",
-    "thumbnail": "https://i3.ytimg.com/vi/vNe5nzW-V7s/hqdefault.jpg",
-    "url": "https://www.youtube.com/watch?v=vNe5nzW-V7s",
-    "scraped_at": "2026-04-17T12:52:24.410317"
+    "scraped_at": "2026-04-20T19:40:35.431305",
+    "status": "VOD",
+    "scheduled_start": "",
+    "actual_end": ""
   }
 ]
