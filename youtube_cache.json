@@ -3,22 +3,6 @@
     "source": "youtube",
     "kind": "video",
     "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
-    "title": "Sosialisasi Permendiktisaintek No. 4 Tahun 2026",
-    "video_id": "9YMAdJpZiVQ",
-    "date": "2026-04-28T04:37:38+00:00",
-    "published": "2026-04-28T04:37:38+00:00",
-    "description": "",
-    "thumbnail": "https://i2.ytimg.com/vi/9YMAdJpZiVQ/hqdefault.jpg",
-    "url": "https://www.youtube.com/watch?v=9YMAdJpZiVQ",
-    "scraped_at": "2026-04-28T22:04:11.849374",
-    "status": "UPCOMING",
-    "scheduled_start": "2026-04-30T06:30:00+00:00",
-    "actual_end": ""
-  },
-  {
-    "source": "youtube",
-    "kind": "video",
-    "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
     "title": "Workshop dan Asistensi Pelaporan Data PDDikti Semester 2025/2026 Ganjil",
     "video_id": "O1T-uA-Jq80",
     "date": "2026-04-25T07:06:29+00:00",
@@ -26,9 +10,25 @@
     "description": "",
     "thumbnail": "https://i4.ytimg.com/vi/O1T-uA-Jq80/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=O1T-uA-Jq80",
-    "scraped_at": "2026-04-28T22:04:11.849402",
+    "scraped_at": "2026-04-29T08:27:18.230406",
     "status": "VOD",
     "scheduled_start": "2026-04-29T01:00:00+00:00",
+    "actual_end": ""
+  },
+  {
+    "source": "youtube",
+    "kind": "video",
+    "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
+    "title": "Sosialisasi Permendiktisaintek No. 4 Tahun 2026",
+    "video_id": "9YMAdJpZiVQ",
+    "date": "2026-04-28T04:37:38+00:00",
+    "published": "2026-04-28T04:37:38+00:00",
+    "description": "",
+    "thumbnail": "https://i2.ytimg.com/vi/9YMAdJpZiVQ/hqdefault.jpg",
+    "url": "https://www.youtube.com/watch?v=9YMAdJpZiVQ",
+    "scraped_at": "2026-04-29T08:27:18.230449",
+    "status": "UPCOMING",
+    "scheduled_start": "2026-04-30T06:30:00+00:00",
     "actual_end": ""
   },
   {
@@ -42,7 +42,7 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/Y22Dc0MdmU8/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=Y22Dc0MdmU8",
-    "scraped_at": "2026-04-28T22:04:11.849418",
+    "scraped_at": "2026-04-29T08:27:18.230466",
     "status": "VOD",
     "scheduled_start": "2026-04-22T06:00:00+00:00",
     "actual_end": ""
@@ -58,7 +58,7 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/5JZLZB4CJcA/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=5JZLZB4CJcA",
-    "scraped_at": "2026-04-28T22:04:11.849432",
+    "scraped_at": "2026-04-29T08:27:18.230480",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -74,7 +74,7 @@
     "description": "",
     "thumbnail": "https://i1.ytimg.com/vi/PRpePEXbDE4/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=PRpePEXbDE4",
-    "scraped_at": "2026-04-28T22:04:11.849446",
+    "scraped_at": "2026-04-29T08:27:18.230495",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -90,7 +90,7 @@
     "description": "Konferensi Pers Hari Pertama Pelaksanaan UTBK 2026\nPelaksanaan UTBK terkait Kecurangan yang terjadi pada sesi 1",
     "thumbnail": "https://i1.ytimg.com/vi/pcvguh_QqZc/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=pcvguh_QqZc",
-    "scraped_at": "2026-04-28T22:04:11.849461",
+    "scraped_at": "2026-04-29T08:27:18.230512",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -106,7 +106,7 @@
     "description": "",
     "thumbnail": "https://i1.ytimg.com/vi/HsDmHpa1KPY/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=HsDmHpa1KPY",
-    "scraped_at": "2026-04-28T22:04:11.849475",
+    "scraped_at": "2026-04-29T08:27:18.230526",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -122,7 +122,7 @@
     "description": "",
     "thumbnail": "https://i4.ytimg.com/vi/wkyDJRbWZeU/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=wkyDJRbWZeU",
-    "scraped_at": "2026-04-28T22:04:11.849493",
+    "scraped_at": "2026-04-29T08:27:18.230544",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -138,7 +138,7 @@
     "description": "Sosialisasi Peraturan tentang Petunjuk Teknis PEKERTI AA (Pimpinan PT dan Kepala LLDIKTI)",
     "thumbnail": "https://i1.ytimg.com/vi/pSgfm5BB-aI/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=pSgfm5BB-aI",
-    "scraped_at": "2026-04-28T22:04:11.849511",
+    "scraped_at": "2026-04-29T08:27:18.230562",
     "status": "VOD",
     "scheduled_start": "2026-04-17T01:31:17+00:00",
     "actual_end": "2026-04-17T03:41:11+00:00"
@@ -154,7 +154,7 @@
     "description": "Pelantikan Kepala Sekolah SMA Unggul Garuda di Lingkungan Kementerian Pendidikan Tinggi, Sains, dan Teknologi.",
     "thumbnail": "https://i1.ytimg.com/vi/xO-Kx5Fuh7w/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=xO-Kx5Fuh7w",
-    "scraped_at": "2026-04-28T22:04:11.849529",
+    "scraped_at": "2026-04-29T08:27:18.230581",
     "status": "VOD",
     "scheduled_start": "2026-04-16T05:44:42+00:00",
     "actual_end": "2026-04-16T07:07:31+00:00"
@@ -170,7 +170,7 @@
     "description": "Halo #InsanDiktisaintek\n\nKemdiktisaintek resmi melantik kepala sekolah SMA Unggul Garuda sebagai langkah memperluas akses pendidikan berkualitas di berbagai daerah.\n\nMendiktisaintek Brian Yuliarto menegaskan bahwa SMA Unggul Garuda menjadi strategi menyiapkan talenta terbaik bangsa secara merata menuju Indonesia Emas 2045.\n\nKepala sekolah diharapkan membangun budaya disiplin, integritas, dan kepemimpinan sejak awal, agar sekolah ini melahirkan generasi unggul yang siap bersaing di tingkat global.\n\n#Kemdiktisaintek\n#DiktisaintekBerdampak\n#SMAUnggulGaruda",
     "thumbnail": "https://i3.ytimg.com/vi/fwSIgo0Hp9Q/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=fwSIgo0Hp9Q",
-    "scraped_at": "2026-04-28T22:04:11.849543",
+    "scraped_at": "2026-04-29T08:27:18.230598",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
