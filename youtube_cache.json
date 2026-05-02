@@ -3,6 +3,22 @@
     "source": "youtube",
     "kind": "video",
     "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
+    "title": "Mendiktisaintek Pimpin Upacara Peringatan Hari Pendidikan Nasional Tahun 2026",
+    "video_id": "Dn70v2E8FPU",
+    "date": "2026-05-02T09:00:07+00:00",
+    "published": "2026-05-02T09:00:07+00:00",
+    "description": "",
+    "thumbnail": "https://i1.ytimg.com/vi/Dn70v2E8FPU/hqdefault.jpg",
+    "url": "https://www.youtube.com/watch?v=Dn70v2E8FPU",
+    "scraped_at": "2026-05-02T10:02:32.919281",
+    "status": "VOD",
+    "scheduled_start": "",
+    "actual_end": ""
+  },
+  {
+    "source": "youtube",
+    "kind": "video",
+    "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
     "title": "Statistika Ria dan Festival Sains Data (SATRIA DATA) 2026",
     "video_id": "CVsE4tR2OSU",
     "date": "2026-04-30T04:10:15+00:00",
@@ -10,7 +26,7 @@
     "description": "",
     "thumbnail": "https://i4.ytimg.com/vi/CVsE4tR2OSU/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=CVsE4tR2OSU",
-    "scraped_at": "2026-05-02T07:52:22.607667",
+    "scraped_at": "2026-05-02T10:02:32.919313",
     "status": "VOD",
     "scheduled_start": "2026-05-02T05:45:00+00:00",
     "actual_end": ""
@@ -26,7 +42,7 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/5VDalsBPuP4/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=5VDalsBPuP4",
-    "scraped_at": "2026-05-02T07:52:22.607701",
+    "scraped_at": "2026-05-02T10:02:32.919336",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -42,7 +58,7 @@
     "description": "",
     "thumbnail": "https://i3.ytimg.com/vi/jhRhcCKMDbw/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=jhRhcCKMDbw",
-    "scraped_at": "2026-05-02T07:52:22.607723",
+    "scraped_at": "2026-05-02T10:02:32.919355",
     "status": "VOD",
     "scheduled_start": "2026-05-02T00:00:00+00:00",
     "actual_end": ""
@@ -58,7 +74,7 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/9YMAdJpZiVQ/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=9YMAdJpZiVQ",
-    "scraped_at": "2026-05-02T07:52:22.607742",
+    "scraped_at": "2026-05-02T10:02:32.919374",
     "status": "VOD",
     "scheduled_start": "2026-04-30T06:30:00+00:00",
     "actual_end": ""
@@ -74,7 +90,7 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/QVXQUf4DNt8/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=QVXQUf4DNt8",
-    "scraped_at": "2026-05-02T07:52:22.607760",
+    "scraped_at": "2026-05-02T10:02:32.919393",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
