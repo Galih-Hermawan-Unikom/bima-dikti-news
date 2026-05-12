@@ -10,7 +10,7 @@
     "description": "",
     "thumbnail": "https://i1.ytimg.com/vi/DQl56xKdWGo/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=DQl56xKdWGo",
-    "scraped_at": "2026-05-12T11:25:48.215045",
+    "scraped_at": "2026-05-12T14:36:19.586378",
     "status": "VOD",
     "scheduled_start": "2026-05-12T02:00:00+00:00",
     "actual_end": ""
@@ -26,25 +26,9 @@
     "description": "",
     "thumbnail": "https://i3.ytimg.com/vi/NSgnKAtHzEA/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=NSgnKAtHzEA",
-    "scraped_at": "2026-05-12T11:25:48.215092",
+    "scraped_at": "2026-05-12T14:36:19.586416",
     "status": "UPCOMING",
     "scheduled_start": "2026-05-13T06:00:00+00:00",
-    "actual_end": ""
-  },
-  {
-    "source": "youtube",
-    "kind": "video",
-    "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
-    "title": "Sosialisasi Program Bantuan Pembekalan Magang Mahasiswa Vokasi ke Luar Negeri Tahun 2026",
-    "video_id": "qA6-lh6XyKA",
-    "date": "2026-05-06T06:59:31+00:00",
-    "published": "2026-05-06T06:59:31+00:00",
-    "description": "",
-    "thumbnail": "https://i2.ytimg.com/vi/qA6-lh6XyKA/hqdefault.jpg",
-    "url": "https://www.youtube.com/watch?v=qA6-lh6XyKA",
-    "scraped_at": "2026-05-12T11:25:48.215122",
-    "status": "VOD",
-    "scheduled_start": "2026-05-12T06:30:00+00:00",
     "actual_end": ""
   },
   {
@@ -58,9 +42,25 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/-wc5cuxTEsQ/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=-wc5cuxTEsQ",
-    "scraped_at": "2026-05-12T11:25:48.215148",
+    "scraped_at": "2026-05-12T14:36:19.586437",
     "status": "VOD",
     "scheduled_start": "2026-05-12T06:00:00+00:00",
+    "actual_end": ""
+  },
+  {
+    "source": "youtube",
+    "kind": "video",
+    "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
+    "title": "Sosialisasi Program Bantuan Pembekalan Magang Mahasiswa Vokasi ke Luar Negeri Tahun 2026",
+    "video_id": "qA6-lh6XyKA",
+    "date": "2026-05-06T06:59:31+00:00",
+    "published": "2026-05-06T06:59:31+00:00",
+    "description": "",
+    "thumbnail": "https://i2.ytimg.com/vi/qA6-lh6XyKA/hqdefault.jpg",
+    "url": "https://www.youtube.com/watch?v=qA6-lh6XyKA",
+    "scraped_at": "2026-05-12T14:36:19.586457",
+    "status": "VOD",
+    "scheduled_start": "2026-05-12T06:30:00+00:00",
     "actual_end": ""
   },
   {
@@ -74,7 +74,7 @@
     "description": "Peluncuran Pedoman Implementasi SPMI Perguruan Tinggi Akademik dan Vokasi Tahun 2026",
     "thumbnail": "https://i2.ytimg.com/vi/i7Jihf3klN8/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=i7Jihf3klN8",
-    "scraped_at": "2026-05-12T11:25:48.215174",
+    "scraped_at": "2026-05-12T14:36:19.586476",
     "status": "VOD",
     "scheduled_start": "2026-05-12T01:30:00+00:00",
     "actual_end": ""
@@ -90,7 +90,7 @@
     "description": "Sosialisasi Program Bantuan Program Studi pada Pendidikan Tinggi Vokasi yang Menerapkan Kurikulum Link and Match dengan DUDIKA Tahun 2026",
     "thumbnail": "https://i4.ytimg.com/vi/WXRB7mj9g30/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=WXRB7mj9g30",
-    "scraped_at": "2026-05-12T11:25:48.215206",
+    "scraped_at": "2026-05-12T14:36:19.586499",
     "status": "VOD",
     "scheduled_start": "2026-05-12T01:30:00+00:00",
     "actual_end": ""
@@ -106,7 +106,7 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/U3iU1eEI7YQ/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=U3iU1eEI7YQ",
-    "scraped_at": "2026-05-12T11:25:48.215233",
+    "scraped_at": "2026-05-12T14:36:19.586522",
     "status": "VOD",
     "scheduled_start": "2026-05-12T01:00:00+00:00",
     "actual_end": ""
@@ -122,7 +122,7 @@
     "description": "Pelantikan Pejabat Administrator dan Fungsional di Lingkungan Kementerian Pendidikan Tinggi, Sains, Dan Teknologi.",
     "thumbnail": "https://i3.ytimg.com/vi/ZghhI7UWRYQ/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=ZghhI7UWRYQ",
-    "scraped_at": "2026-05-12T11:25:48.215259",
+    "scraped_at": "2026-05-12T14:36:19.586541",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -138,7 +138,7 @@
     "description": "Webinar Kiat Sukses Penulisan Artikel Ilmiah \"Meningkatkan Kualitas Naskah untuk Publikasi Nasional dan Internasional\"",
     "thumbnail": "https://i3.ytimg.com/vi/6HVqJC4DeXg/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=6HVqJC4DeXg",
-    "scraped_at": "2026-05-12T11:25:48.215288",
+    "scraped_at": "2026-05-12T14:36:19.586562",
     "status": "UPCOMING",
     "scheduled_start": "2026-05-13T06:00:00+00:00",
     "actual_end": ""
@@ -154,7 +154,7 @@
     "description": "",
     "thumbnail": "https://i4.ytimg.com/vi/Wpppdk_TkyU/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=Wpppdk_TkyU",
-    "scraped_at": "2026-05-12T11:25:48.215314",
+    "scraped_at": "2026-05-12T14:36:19.586580",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -170,7 +170,7 @@
     "description": "",
     "thumbnail": "https://i3.ytimg.com/vi/RrrEjYoyAmY/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=RrrEjYoyAmY",
-    "scraped_at": "2026-05-12T11:25:48.215338",
+    "scraped_at": "2026-05-12T14:36:19.586598",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -186,7 +186,7 @@
     "description": "",
     "thumbnail": "https://i3.ytimg.com/vi/2GgIPPGvKCM/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=2GgIPPGvKCM",
-    "scraped_at": "2026-05-12T11:25:48.215356",
+    "scraped_at": "2026-05-12T14:36:19.586616",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -202,7 +202,7 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/yAtdnCJBIrQ/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=yAtdnCJBIrQ",
-    "scraped_at": "2026-05-12T11:25:48.215374",
+    "scraped_at": "2026-05-12T14:36:19.586634",
     "status": "VOD",
     "scheduled_start": "2026-05-12T01:00:00+00:00",
     "actual_end": ""
