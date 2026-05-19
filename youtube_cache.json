@@ -3,6 +3,22 @@
     "source": "youtube",
     "kind": "video",
     "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
+    "title": "Pelantikan Pemimpin Perguruan Tinggi Negeri di Lingkungan Kemdiktisaintek",
+    "video_id": "NSgnKAtHzEA",
+    "date": "2026-05-19T13:15:29+00:00",
+    "published": "2026-05-19T13:15:29+00:00",
+    "description": "",
+    "thumbnail": "https://i3.ytimg.com/vi/NSgnKAtHzEA/hqdefault.jpg",
+    "url": "https://www.youtube.com/watch?v=NSgnKAtHzEA",
+    "scraped_at": "2026-05-19T15:36:33.204246",
+    "status": "VOD",
+    "scheduled_start": "2026-05-13T06:00:00+00:00",
+    "actual_end": ""
+  },
+  {
+    "source": "youtube",
+    "kind": "video",
+    "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
     "title": "Sosialisasi Lomba Inovasi Digital Mahasiswa (LIDM) Tahun 2026",
     "video_id": "1yzqdIQC-vw",
     "date": "2026-05-17T13:55:50+00:00",
@@ -10,25 +26,9 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/1yzqdIQC-vw/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=1yzqdIQC-vw",
-    "scraped_at": "2026-05-19T09:56:26.365124",
+    "scraped_at": "2026-05-19T15:36:33.204279",
     "status": "VOD",
     "scheduled_start": "2026-05-19T07:00:00+00:00",
-    "actual_end": ""
-  },
-  {
-    "source": "youtube",
-    "kind": "video",
-    "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
-    "title": "Pelantikan Pemimpin Perguruan Tinggi Negeri di Lingkungan Kemdiktisaintek",
-    "video_id": "NSgnKAtHzEA",
-    "date": "2026-05-12T08:43:01+00:00",
-    "published": "2026-05-12T08:43:01+00:00",
-    "description": "",
-    "thumbnail": "https://i3.ytimg.com/vi/NSgnKAtHzEA/hqdefault.jpg",
-    "url": "https://www.youtube.com/watch?v=NSgnKAtHzEA",
-    "scraped_at": "2026-05-19T09:56:26.365154",
-    "status": "VOD",
-    "scheduled_start": "2026-05-13T06:00:00+00:00",
     "actual_end": ""
   },
   {
@@ -42,7 +42,7 @@
     "description": "",
     "thumbnail": "https://i3.ytimg.com/vi/ZXePB8TiGYA/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=ZXePB8TiGYA",
-    "scraped_at": "2026-05-19T09:56:26.365176",
+    "scraped_at": "2026-05-19T15:36:33.204300",
     "status": "VOD",
     "scheduled_start": "2026-05-18T03:00:00+00:00",
     "actual_end": ""
@@ -58,7 +58,7 @@
     "description": "",
     "thumbnail": "https://i4.ytimg.com/vi/383o5XShcss/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=383o5XShcss",
-    "scraped_at": "2026-05-19T09:56:26.365201",
+    "scraped_at": "2026-05-19T15:36:33.204323",
     "status": "UPCOMING",
     "scheduled_start": "2026-05-20T01:30:00+00:00",
     "actual_end": ""
@@ -74,7 +74,7 @@
     "description": "Webinar Kiat Sukses Penulisan Artikel Ilmiah \"Meningkatkan Kualitas Naskah untuk Publikasi Nasional dan Internasional\"",
     "thumbnail": "https://i3.ytimg.com/vi/6HVqJC4DeXg/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=6HVqJC4DeXg",
-    "scraped_at": "2026-05-19T09:56:26.365221",
+    "scraped_at": "2026-05-19T15:36:33.204342",
     "status": "VOD",
     "scheduled_start": "2026-05-13T06:00:00+00:00",
     "actual_end": ""
@@ -90,7 +90,7 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/qA6-lh6XyKA/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=qA6-lh6XyKA",
-    "scraped_at": "2026-05-19T09:56:26.365246",
+    "scraped_at": "2026-05-19T15:36:33.204367",
     "status": "VOD",
     "scheduled_start": "2026-05-12T06:30:00+00:00",
     "actual_end": ""
@@ -106,7 +106,7 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/-wc5cuxTEsQ/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=-wc5cuxTEsQ",
-    "scraped_at": "2026-05-19T09:56:26.365267",
+    "scraped_at": "2026-05-19T15:36:33.204387",
     "status": "VOD",
     "scheduled_start": "2026-05-12T06:00:00+00:00",
     "actual_end": ""
@@ -122,7 +122,7 @@
     "description": "Sosialisasi Program Bantuan Program Studi pada Pendidikan Tinggi Vokasi yang Menerapkan Kurikulum Link and Match dengan DUDIKA Tahun 2026",
     "thumbnail": "https://i4.ytimg.com/vi/WXRB7mj9g30/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=WXRB7mj9g30",
-    "scraped_at": "2026-05-19T09:56:26.365287",
+    "scraped_at": "2026-05-19T15:36:33.204405",
     "status": "VOD",
     "scheduled_start": "2026-05-12T01:30:00+00:00",
     "actual_end": ""
@@ -138,7 +138,7 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/U3iU1eEI7YQ/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=U3iU1eEI7YQ",
-    "scraped_at": "2026-05-19T09:56:26.365306",
+    "scraped_at": "2026-05-19T15:36:33.204423",
     "status": "VOD",
     "scheduled_start": "2026-05-12T01:00:00+00:00",
     "actual_end": ""
@@ -154,7 +154,7 @@
     "description": "",
     "thumbnail": "https://i1.ytimg.com/vi/DQl56xKdWGo/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=DQl56xKdWGo",
-    "scraped_at": "2026-05-19T09:56:26.365329",
+    "scraped_at": "2026-05-19T15:36:33.204445",
     "status": "VOD",
     "scheduled_start": "2026-05-12T02:00:00+00:00",
     "actual_end": ""
@@ -170,7 +170,7 @@
     "description": "Peluncuran Pedoman Implementasi SPMI Perguruan Tinggi Akademik dan Vokasi Tahun 2026",
     "thumbnail": "https://i2.ytimg.com/vi/i7Jihf3klN8/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=i7Jihf3klN8",
-    "scraped_at": "2026-05-19T09:56:26.365353",
+    "scraped_at": "2026-05-19T15:36:33.204468",
     "status": "VOD",
     "scheduled_start": "2026-05-12T01:30:00+00:00",
     "actual_end": ""
