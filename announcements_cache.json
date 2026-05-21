@@ -1,5 +1,17 @@
 [
   {
+    "title": "Pengumuman Pendaftaran Program Diaspora Berdampak Tahun 2026",
+    "surat": "387/DST/C2/DT.05.00/202621",
+    "date": "21 May 2026",
+    "documents": [
+      {
+        "name": "Surat Pengumuman Pendaftaran Program Diaspora Berdampak V1.2.pdf"
+      }
+    ],
+    "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+    "scraped_at": "2026-05-21T09:51:57.507975"
+  },
+  {
     "title": "Pengumuman Hasil Seleksi Peserta Workshop Inclusive Publication Camp 2026",
     "surat": "342/DST/C2/KL.01.00/202611",
     "date": "11 May 2026",
@@ -9,7 +21,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-05-11T09:51:13.112805"
+    "scraped_at": "2026-05-21T09:52:00.606198"
   },
   {
     "title": "Pengumuman Webinar Kiat Sukses Penulisan Artikel Ilmiah",
@@ -21,7 +33,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-05-11T09:51:16.230939"
+    "scraped_at": "2026-05-21T09:52:03.705367"
   },
   {
     "title": "Pemberitahuan Revisi Proposal dan RAB Program Penelitian, Pengabdian kepada Masyarakat, RIKUB, dan Inovasi Seni Nusantara Tahun 2026",
@@ -42,7 +54,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-05-11T09:51:28.643994"
+    "scraped_at": "2026-05-21T09:52:16.022692"
   },
   {
     "title": "Undangan dan Pengumuman Peserta Workshop Penulisan Proposal Hibah Internasional",
@@ -54,7 +66,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-05-11T09:51:31.761202"
+    "scraped_at": "2026-05-21T09:52:19.138750"
   },
   {
     "title": "Pengumuman Penerima Pendanaan Program Penelitian PMDSU Batch IX Tahun 2026",
@@ -66,7 +78,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-05-11T09:51:34.877150"
+    "scraped_at": "2026-05-21T09:52:22.220865"
   },
   {
     "title": "Pemberitahuan Revisi Proposal dan RAB serta Penyesuaian Ketentuan Pelaksanaan Program Hilirisasi Riset Prioritas – Pengujian Model dan Prototipe Tahun 2026",
@@ -78,7 +90,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-05-11T09:51:38.000645"
+    "scraped_at": "2026-05-21T09:52:25.305860"
   },
   {
     "title": "Perpanjangan batas waktu penerimaan proposal program Workshop Penulisan Proposal Hibah Internasional",
@@ -90,7 +102,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-05-11T09:51:41.110045"
+    "scraped_at": "2026-05-21T09:52:28.403445"
   },
   {
     "title": "Undangan Penandatanganan Kontrak Program Pendanaan Riset dan Pengembangan Tahun Anggaran 2026",
@@ -102,7 +114,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-05-11T09:51:44.226534"
+    "scraped_at": "2026-05-21T09:52:31.486970"
   },
   {
     "title": "Pemberitahuan Hasil Verifikasi Pernyataan Minat Pengusulan Pendanaan Riset Pusat Unggulan IPTEK Perguruan Tinggi (PUI-PT)",
@@ -114,7 +126,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-05-11T09:51:47.342578"
+    "scraped_at": "2026-05-21T09:52:34.570643"
   },
   {
     "title": "Pengumuman Penerima Bantuan Pendanaan Program PUI-PT Lanjutan TA 2026",
