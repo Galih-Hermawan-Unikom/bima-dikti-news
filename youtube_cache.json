@@ -3,6 +3,22 @@
     "source": "youtube",
     "kind": "video",
     "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
+    "title": "Lanjutan Sosialisasi Petunjuk Teknis Sertifikasi Pendidik untuk Dosen Tahun 2026",
+    "video_id": "jhXRIeqqKqI",
+    "date": "2026-06-04T05:18:45+00:00",
+    "published": "2026-06-04T05:18:45+00:00",
+    "description": "",
+    "thumbnail": "https://i3.ytimg.com/vi/jhXRIeqqKqI/hqdefault.jpg",
+    "url": "https://www.youtube.com/watch?v=jhXRIeqqKqI",
+    "scraped_at": "2026-06-04T10:03:59.823153",
+    "status": "UPCOMING",
+    "scheduled_start": "2026-06-05T01:00:00+00:00",
+    "actual_end": ""
+  },
+  {
+    "source": "youtube",
+    "kind": "video",
+    "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
     "title": "Sosialisasi Diaspora Berdampak 2026",
     "video_id": "hKPASe9BZ2w",
     "date": "2026-06-02T04:28:55+00:00",
@@ -10,7 +26,7 @@
     "description": "",
     "thumbnail": "https://i1.ytimg.com/vi/hKPASe9BZ2w/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=hKPASe9BZ2w",
-    "scraped_at": "2026-06-02T10:45:27.968139",
+    "scraped_at": "2026-06-04T10:03:59.823183",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -26,7 +42,7 @@
     "description": "Pancasila Pemersatu Bangsa, Fondasi Perdamaian Dunia",
     "thumbnail": "https://i2.ytimg.com/vi/AyAgESRyBig/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=AyAgESRyBig",
-    "scraped_at": "2026-06-02T10:45:27.968172",
+    "scraped_at": "2026-06-04T10:03:59.823202",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -42,7 +58,7 @@
     "description": "Sosialisasi Petunjuk Teknis Sertifikasi Pendidik untuk Dosen Tahun 2026",
     "thumbnail": "https://i4.ytimg.com/vi/oMAdoIa-dbE/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=oMAdoIa-dbE",
-    "scraped_at": "2026-06-02T10:45:27.968193",
+    "scraped_at": "2026-06-04T10:03:59.823220",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -58,7 +74,7 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/YS155G0WhPA/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=YS155G0WhPA",
-    "scraped_at": "2026-06-02T10:45:27.968231",
+    "scraped_at": "2026-06-04T10:03:59.823254",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -74,7 +90,7 @@
     "description": "Sosialisasi Mekanisme Pendataan Dosen Tetap Dokdiknis",
     "thumbnail": "https://i1.ytimg.com/vi/pHNTB9KITgA/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=pHNTB9KITgA",
-    "scraped_at": "2026-06-02T10:45:27.968255",
+    "scraped_at": "2026-06-04T10:03:59.823276",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -90,7 +106,7 @@
     "description": "Sosialisasi Kontes Robot Terbang Indonesia (KRTI) Tahun 2026",
     "thumbnail": "https://i4.ytimg.com/vi/383o5XShcss/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=383o5XShcss",
-    "scraped_at": "2026-06-02T10:45:27.968274",
+    "scraped_at": "2026-06-04T10:03:59.823293",
     "status": "VOD",
     "scheduled_start": "2026-05-20T01:30:00+00:00",
     "actual_end": ""
