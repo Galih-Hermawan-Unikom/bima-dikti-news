@@ -3,6 +3,22 @@
     "source": "youtube",
     "kind": "video",
     "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
+    "title": "Presiden RI Buka Rangkaian Sarasehan Kebangsaan KSTI 2026",
+    "video_id": "tpSMO5p1bTw",
+    "date": "2026-06-28T08:47:23+00:00",
+    "published": "2026-06-28T08:47:23+00:00",
+    "description": "",
+    "thumbnail": "https://i1.ytimg.com/vi/tpSMO5p1bTw/hqdefault.jpg",
+    "url": "https://www.youtube.com/watch?v=tpSMO5p1bTw",
+    "scraped_at": "2026-06-28T09:18:21.461784",
+    "status": "VOD",
+    "scheduled_start": "",
+    "actual_end": ""
+  },
+  {
+    "source": "youtube",
+    "kind": "video",
+    "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
     "title": "Live Penutupan Sarasehan Kebangsaan",
     "video_id": "6hIkTK0204k",
     "date": "2026-06-14T03:44:08+00:00",
@@ -10,7 +26,7 @@
     "description": "Sarasehan Kebangsaan, 2.600 Rektor/Dekan/Dosen PTN & PTS Seluruh Indonesia",
     "thumbnail": "https://i3.ytimg.com/vi/6hIkTK0204k/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=6hIkTK0204k",
-    "scraped_at": "2026-06-28T04:16:32.219415",
+    "scraped_at": "2026-06-28T09:18:21.461818",
     "status": "VOD",
     "scheduled_start": "2026-06-15T02:00:00+00:00",
     "actual_end": ""
@@ -26,7 +42,7 @@
     "description": "Pembukaan Sarasehan Kebangsaan, 2.600 Rektor/Dekan/Dosen PTN & PTS Seluruh Indonesia Strategi Kemandirian Ekonomi dan Kesejahteraan Indonesia",
     "thumbnail": "https://i1.ytimg.com/vi/8bDSBAlUfyk/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=8bDSBAlUfyk",
-    "scraped_at": "2026-06-28T04:16:32.219447",
+    "scraped_at": "2026-06-28T09:18:21.461841",
     "status": "VOD",
     "scheduled_start": "2026-06-26T08:00:00+00:00",
     "actual_end": ""
@@ -42,7 +58,7 @@
     "description": "",
     "thumbnail": "https://i4.ytimg.com/vi/GPuv8LD2r4Q/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=GPuv8LD2r4Q",
-    "scraped_at": "2026-06-28T04:16:32.219469",
+    "scraped_at": "2026-06-28T09:18:21.461860",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -58,7 +74,7 @@
     "description": "Launching dan Sosialisasi Program Kosabangsa Tahun 2026",
     "thumbnail": "https://i3.ytimg.com/vi/JCgnYDZsqms/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=JCgnYDZsqms",
-    "scraped_at": "2026-06-28T04:16:32.219488",
+    "scraped_at": "2026-06-28T09:18:21.461879",
     "status": "VOD",
     "scheduled_start": "2026-06-23T04:00:00+00:00",
     "actual_end": ""
@@ -74,7 +90,7 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/yPYo3nl-SOU/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=yPYo3nl-SOU",
-    "scraped_at": "2026-06-28T04:16:32.219507",
+    "scraped_at": "2026-06-28T09:18:21.461898",
     "status": "VOD",
     "scheduled_start": "2026-06-19T06:00:00+00:00",
     "actual_end": ""
