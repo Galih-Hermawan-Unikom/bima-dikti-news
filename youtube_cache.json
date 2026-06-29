@@ -3,6 +3,22 @@
     "source": "youtube",
     "kind": "video",
     "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
+    "title": "Pelantikan Pimpinan Perguruan Tinggi Negeri dan Pejabat di Lingkungan Kemdiktisaintek, dan BIM",
+    "video_id": "LBCwLGcHsoM",
+    "date": "2026-06-29T06:41:12+00:00",
+    "published": "2026-06-29T06:41:12+00:00",
+    "description": "Pelantikan Pimpinan Perguruan Tinggi Negeri dan Pejabat di Lingkungan Kementerian Pendidikan Tinggi, Sains, dan Teknologi, dan Badan Industri Mineral",
+    "thumbnail": "https://i1.ytimg.com/vi/LBCwLGcHsoM/hqdefault.jpg",
+    "url": "https://www.youtube.com/watch?v=LBCwLGcHsoM",
+    "scraped_at": "2026-06-29T11:09:45.307919",
+    "status": "UPCOMING",
+    "scheduled_start": "2026-06-30T01:00:00+00:00",
+    "actual_end": ""
+  },
+  {
+    "source": "youtube",
+    "kind": "video",
+    "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
     "title": "Pengambilan Sumpah/Janji Pegawai Pemerintah dengan Perjanjian Kerja (PPPK) Guru SMA Unggul Garuda",
     "video_id": "RaBdAK6LPZc",
     "date": "2026-06-28T10:28:35+00:00",
@@ -10,7 +26,7 @@
     "description": "",
     "thumbnail": "https://i3.ytimg.com/vi/RaBdAK6LPZc/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=RaBdAK6LPZc",
-    "scraped_at": "2026-06-29T04:23:08.973697",
+    "scraped_at": "2026-06-29T11:09:45.307953",
     "status": "VOD",
     "scheduled_start": "2026-06-29T02:00:00+00:00",
     "actual_end": ""
@@ -26,7 +42,7 @@
     "description": "Sarasehan Kebangsaan, 2.600 Rektor/Dekan/Dosen PTN & PTS Seluruh Indonesia",
     "thumbnail": "https://i3.ytimg.com/vi/6hIkTK0204k/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=6hIkTK0204k",
-    "scraped_at": "2026-06-29T04:23:08.973724",
+    "scraped_at": "2026-06-29T11:09:45.307976",
     "status": "VOD",
     "scheduled_start": "2026-06-15T02:00:00+00:00",
     "actual_end": ""
@@ -42,7 +58,7 @@
     "description": "",
     "thumbnail": "https://i1.ytimg.com/vi/tpSMO5p1bTw/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=tpSMO5p1bTw",
-    "scraped_at": "2026-06-29T04:23:08.973740",
+    "scraped_at": "2026-06-29T11:09:45.307994",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -58,7 +74,7 @@
     "description": "Pembukaan Sarasehan Kebangsaan, 2.600 Rektor/Dekan/Dosen PTN & PTS Seluruh Indonesia Strategi Kemandirian Ekonomi dan Kesejahteraan Indonesia",
     "thumbnail": "https://i1.ytimg.com/vi/8bDSBAlUfyk/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=8bDSBAlUfyk",
-    "scraped_at": "2026-06-29T04:23:08.973755",
+    "scraped_at": "2026-06-29T11:09:45.308013",
     "status": "VOD",
     "scheduled_start": "2026-06-26T08:00:00+00:00",
     "actual_end": ""
@@ -74,7 +90,7 @@
     "description": "",
     "thumbnail": "https://i4.ytimg.com/vi/GPuv8LD2r4Q/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=GPuv8LD2r4Q",
-    "scraped_at": "2026-06-29T04:23:08.973769",
+    "scraped_at": "2026-06-29T11:09:45.308032",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -90,7 +106,7 @@
     "description": "Launching dan Sosialisasi Program Kosabangsa Tahun 2026",
     "thumbnail": "https://i3.ytimg.com/vi/JCgnYDZsqms/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=JCgnYDZsqms",
-    "scraped_at": "2026-06-29T04:23:08.973783",
+    "scraped_at": "2026-06-29T11:09:45.308050",
     "status": "VOD",
     "scheduled_start": "2026-06-23T04:00:00+00:00",
     "actual_end": ""
@@ -106,7 +122,7 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/yPYo3nl-SOU/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=yPYo3nl-SOU",
-    "scraped_at": "2026-06-29T04:23:08.973796",
+    "scraped_at": "2026-06-29T11:09:45.308073",
     "status": "VOD",
     "scheduled_start": "2026-06-19T06:00:00+00:00",
     "actual_end": ""
