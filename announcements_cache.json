@@ -1,5 +1,32 @@
 [
   {
+    "title": "Undangan Sosialisasi Mahasiswa Berdampak: Program Aksara Mahasiswa Tahun 2026 - Wilayah Jawa Barat",
+    "surat": "912/DST/C3/DT.06.01/202623",
+    "date": "23 July 2026",
+    "documents": [
+      {
+        "name": "Undangan Sosialisasi Mahasiswa Berdampak Program Aksara Mahasiswa Tahun 2026 - Wilayah Jawa Barat.pdf"
+      }
+    ],
+    "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+    "scraped_at": "2026-07-29T11:29:24.314775"
+  },
+  {
+    "title": "Pemberitahuan Batas Waktu Pengunggahan Laporan Kemajuan Program RIKUB Tahun Anggaran 2026",
+    "surat": "933/DST/C3/DT.05.00/202628",
+    "date": "28 July 2026",
+    "documents": [
+      {
+        "name": "Pedoman Monev RIKUB 2026.pdf"
+      },
+      {
+        "name": "Pemberitahuan Batas Waktu Pengunggahan Laporan Kemajuan RIKUB 2026.pdf"
+      }
+    ],
+    "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+    "scraped_at": "2026-07-29T11:29:30.512924"
+  },
+  {
     "title": "Pengunguman Penerima Hibah Diaspora Berdampak Batch 1 Tahun 2026",
     "surat": "216/DST/C/TU.02.02/202624",
     "date": "24 July 2026",
@@ -9,10 +36,10 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-07-27T09:59:29.336379"
+    "scraped_at": "2026-07-29T11:29:33.629035"
   },
   {
-    "title": "Undangan Sosialisasi Mahasiswa Berdampak: Program Aksara Mahasiswa Wilayah Bali Tahun 2026",
+    "title": "Undangan Sosialisasi Mahasiswa Berdampak: Program Aksara Mahasiswa Tahun 2026 - Wilayah Bali",
     "surat": "910/DST/C3/DT.06.01/2026",
     "date": "23 July 2026",
     "documents": [
@@ -21,7 +48,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-07-27T09:59:32.448065"
+    "scraped_at": "2026-07-29T11:29:36.745143"
   },
   {
     "title": "Pengumuman Pendaftaran Workshop Penulisan Proposal Hibah Nasional Dosen Muda dan Vokasi secara daring",
@@ -33,7 +60,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-07-27T09:59:35.547645"
+    "scraped_at": "2026-07-29T11:29:39.847384"
   },
   {
     "title": "Undangan Sosialisasi Mahasiswa Berdampak: Program AKSARA Mahasiswa Tahun 2026",
@@ -45,7 +72,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-07-27T09:59:38.647323"
+    "scraped_at": "2026-07-29T11:29:42.946087"
   },
   {
     "title": "Surat Penyampaian Laporan Kemajuan Program PUI-PT Lanjutan 2026",
@@ -57,7 +84,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-07-27T09:59:41.762123"
+    "scraped_at": "2026-07-29T11:29:46.044200"
   },
   {
     "title": "Surat Pemberitahuan Revisi Proposal dan RAB Program Riset PUI-PT",
@@ -69,7 +96,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-07-27T09:59:44.929394"
+    "scraped_at": "2026-07-29T11:29:49.143422"
   },
   {
     "title": "Undangan Peluncuran Mahasiswa Berdampak: Program Aksara Mahasiswa Tahun 2026",
@@ -81,7 +108,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-07-27T09:59:48.044289"
+    "scraped_at": "2026-07-29T11:29:52.226650"
   },
   {
     "title": "Pengumuman Hasil Seleksi Awal Program Insentif Video Pembelajaran Interaktif Berbasis Riset Tahun 2026",
@@ -93,7 +120,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-07-27T09:59:51.162628"
+    "scraped_at": "2026-07-29T11:29:55.345031"
   },
   {
     "title": "Pengumuman Perpanjangan Penerimaan Proposal Program Kosabangsa Tahun Anggaran 2026",
