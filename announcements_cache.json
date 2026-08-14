@@ -1,5 +1,17 @@
 [
   {
+    "title": "Surat Pemberitahuan Unggah Laporan Kemajuan Program Penelitian Tahun 2026",
+    "surat": "1024/DST/C3/DT.05.00/202614",
+    "date": "14 August 2026",
+    "documents": [
+      {
+        "name": "Surat Pemberitahuan Unggah Laporan Kemajuan Program Penelitian Tahun 2026.pdf"
+      }
+    ],
+    "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+    "scraped_at": "2026-08-14T10:08:07.795769"
+  },
+  {
     "title": "Pengumuman Penerimaan Proposal Program Aksara Mahasiswa Tahun Anggaran 2026",
     "surat": "997/DST/C3/DT.06.01/202611",
     "date": "11 August 2026",
@@ -9,7 +21,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-08-13T07:40:26.867125"
+    "scraped_at": "2026-08-14T10:08:10.893409"
   },
   {
     "title": "Pengumuman Pendaftaran Workshop Pendampingan Calon PhD",
@@ -21,7 +33,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-08-13T07:40:29.979572"
+    "scraped_at": "2026-08-14T10:08:13.991310"
   },
   {
     "title": "Pemberitahuan Perpanjangan Batas Waktu Pengunggahan Laporan Kemajuan Program Pengabdian kepada Masyarakat dan PISN Tahun 2026",
@@ -33,7 +45,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-08-13T07:40:33.095839"
+    "scraped_at": "2026-08-14T10:08:17.074681"
   },
   {
     "title": "Pengumuman Hasil Seleksi dan Mekanisme Kontrak Pendanaan Program Penelitian Batch 2",
@@ -45,7 +57,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-08-13T07:40:36.195557"
+    "scraped_at": "2026-08-14T10:08:20.141173"
   },
   {
     "title": "Undangan Sosialisasi Mahasiswa Berdampak Program Aksara Mahasiswa Tahun 2026 - Wilayah Sulawesi Tengah",
@@ -57,7 +69,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-08-13T07:40:39.295413"
+    "scraped_at": "2026-08-14T10:08:23.223347"
   },
   {
     "title": "Undangan Sosialisasi Mahasiswa Berdampak Program Aksara Mahasiswa Tahun 2026 - Wilayah Sumsel dan Lampung",
@@ -69,7 +81,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-08-13T07:40:42.394393"
+    "scraped_at": "2026-08-14T10:08:26.307323"
   },
   {
     "title": "Surat Pengumuman Penerima Pendanaan PUI-PT Politeknik Baru Tahun 2026",
@@ -81,7 +93,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-08-13T07:40:45.510522"
+    "scraped_at": "2026-08-14T10:08:29.390535"
   },
   {
     "title": "Pemberitahuan Program Hibah Penguatan Ekosistem Talenta Riset",
@@ -93,7 +105,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-08-13T07:40:48.811418"
+    "scraped_at": "2026-08-14T10:08:32.473708"
   },
   {
     "title": "Undangan Sosialisasi Mahasiswa Berdampak Program Aksara Mahasiswa Tahun 2026 - Wilayah NTB",
@@ -105,7 +117,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-08-13T07:40:51.928117"
+    "scraped_at": "2026-08-14T10:08:35.572900"
   },
   {
     "title": "Undangan Sosialisasi Mahasiswa Berdampak Program Aksara Mahasiswa Tahun 2026 - Wilayah Jawa Tengah",
