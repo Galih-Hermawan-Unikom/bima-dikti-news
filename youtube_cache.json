@@ -3,22 +3,6 @@
     "source": "youtube",
     "kind": "video",
     "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
-    "title": "Penutupan KRTI Tingkat Nasional Tahun 2026",
-    "video_id": "M-p501ywwaU",
-    "date": "2026-09-20T14:26:59+00:00",
-    "published": "2026-09-20T14:26:59+00:00",
-    "description": "",
-    "thumbnail": "https://i2.ytimg.com/vi/M-p501ywwaU/hqdefault.jpg",
-    "url": "https://www.youtube.com/watch?v=M-p501ywwaU",
-    "scraped_at": "2026-09-20T23:06:06.848581",
-    "status": "UPCOMING",
-    "scheduled_start": "2026-09-25T11:00:00+00:00",
-    "actual_end": ""
-  },
-  {
-    "source": "youtube",
-    "kind": "video",
-    "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
     "title": "Pembukaan KRTI Tingkat Nasional Tahun 2026",
     "video_id": "YOduqa_jVns",
     "date": "2026-09-20T14:24:17+00:00",
@@ -26,9 +10,25 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/YOduqa_jVns/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=YOduqa_jVns",
-    "scraped_at": "2026-09-20T23:06:06.848612",
-    "status": "UPCOMING",
+    "scraped_at": "2026-09-21T12:26:16.091780",
+    "status": "VOD",
     "scheduled_start": "2026-09-21T11:00:00+00:00",
+    "actual_end": ""
+  },
+  {
+    "source": "youtube",
+    "kind": "video",
+    "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
+    "title": "Penutupan KRTI Tingkat Nasional Tahun 2026",
+    "video_id": "M-p501ywwaU",
+    "date": "2026-09-20T14:26:59+00:00",
+    "published": "2026-09-20T14:26:59+00:00",
+    "description": "",
+    "thumbnail": "https://i2.ytimg.com/vi/M-p501ywwaU/hqdefault.jpg",
+    "url": "https://www.youtube.com/watch?v=M-p501ywwaU",
+    "scraped_at": "2026-09-21T12:26:16.091839",
+    "status": "UPCOMING",
+    "scheduled_start": "2026-09-25T11:00:00+00:00",
     "actual_end": ""
   },
   {
@@ -42,7 +42,7 @@
     "description": "",
     "thumbnail": "https://i4.ytimg.com/vi/GZIdd00hi1g/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=GZIdd00hi1g",
-    "scraped_at": "2026-09-20T23:06:06.848634",
+    "scraped_at": "2026-09-21T12:26:16.091862",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -58,7 +58,7 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/IotZYhIfT-4/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=IotZYhIfT-4",
-    "scraped_at": "2026-09-20T23:06:06.848653",
+    "scraped_at": "2026-09-21T12:26:16.091883",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -74,7 +74,7 @@
     "description": "Sosialisasi Buku Panduan Kredensial Mikro",
     "thumbnail": "https://i1.ytimg.com/vi/X_4PalxnlWk/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=X_4PalxnlWk",
-    "scraped_at": "2026-09-20T23:06:06.848671",
+    "scraped_at": "2026-09-21T12:26:16.091902",
     "status": "VOD",
     "scheduled_start": "2026-09-17T00:30:00+00:00",
     "actual_end": ""
@@ -90,7 +90,7 @@
     "description": "",
     "thumbnail": "https://i3.ytimg.com/vi/FcSRXCkduDo/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=FcSRXCkduDo",
-    "scraped_at": "2026-09-20T23:06:06.848690",
+    "scraped_at": "2026-09-21T12:26:16.091927",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -106,7 +106,7 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/Yu7nBAFLaOg/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=Yu7nBAFLaOg",
-    "scraped_at": "2026-09-20T23:06:06.848707",
+    "scraped_at": "2026-09-21T12:26:16.091946",
     "status": "VOD",
     "scheduled_start": "2026-09-16T02:00:00+00:00",
     "actual_end": ""
@@ -122,7 +122,7 @@
     "description": "Acara diselenggaran dilantai 2 Ballroom Kemdiktisaintek Senayan",
     "thumbnail": "https://i1.ytimg.com/vi/LV3xIgHkfP8/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=LV3xIgHkfP8",
-    "scraped_at": "2026-09-20T23:06:06.848730",
+    "scraped_at": "2026-09-21T12:26:16.091970",
     "status": "VOD",
     "scheduled_start": "2026-09-15T01:00:00+00:00",
     "actual_end": ""
@@ -138,7 +138,7 @@
     "description": "",
     "thumbnail": "https://i4.ytimg.com/vi/7mCcOxF9Zng/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=7mCcOxF9Zng",
-    "scraped_at": "2026-09-20T23:06:06.848749",
+    "scraped_at": "2026-09-21T12:26:16.091991",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -154,7 +154,7 @@
     "description": "",
     "thumbnail": "https://i1.ytimg.com/vi/xCyXZ7rEOCA/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=xCyXZ7rEOCA",
-    "scraped_at": "2026-09-20T23:06:06.848768",
+    "scraped_at": "2026-09-21T12:26:16.092010",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -170,7 +170,7 @@
     "description": "",
     "thumbnail": "https://i3.ytimg.com/vi/jHtWZ5_y6vo/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=jHtWZ5_y6vo",
-    "scraped_at": "2026-09-20T23:06:06.848785",
+    "scraped_at": "2026-09-21T12:26:16.092030",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -186,7 +186,7 @@
     "description": "",
     "thumbnail": "https://i1.ytimg.com/vi/0WvxhmEkXcE/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=0WvxhmEkXcE",
-    "scraped_at": "2026-09-20T23:06:06.848806",
+    "scraped_at": "2026-09-21T12:26:16.092049",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
