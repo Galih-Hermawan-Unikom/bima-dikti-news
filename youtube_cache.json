@@ -10,8 +10,8 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/52KrNlviygY/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=52KrNlviygY",
-    "scraped_at": "2026-10-02T22:00:47.872139",
-    "status": "UPCOMING",
+    "scraped_at": "2026-10-03T11:22:14.959321",
+    "status": "VOD",
     "scheduled_start": "2026-10-03T07:00:00+00:00",
     "actual_end": ""
   },
@@ -26,7 +26,7 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/acYl4lrhdc8/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=acYl4lrhdc8",
-    "scraped_at": "2026-10-02T22:00:47.872169",
+    "scraped_at": "2026-10-03T11:22:14.959342",
     "status": "VOD",
     "scheduled_start": "2026-10-01T12:00:00+00:00",
     "actual_end": ""
@@ -42,7 +42,7 @@
     "description": "",
     "thumbnail": "https://i4.ytimg.com/vi/gEOMRDpuNc8/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=gEOMRDpuNc8",
-    "scraped_at": "2026-10-02T22:00:47.872192",
+    "scraped_at": "2026-10-03T11:22:14.959354",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
@@ -58,7 +58,7 @@
     "description": "",
     "thumbnail": "https://i2.ytimg.com/vi/1hvySWBOEls/hqdefault.jpg",
     "url": "https://www.youtube.com/watch?v=1hvySWBOEls",
-    "scraped_at": "2026-10-02T22:00:47.872212",
+    "scraped_at": "2026-10-03T11:22:14.959363",
     "status": "VOD",
     "scheduled_start": "",
     "actual_end": ""
