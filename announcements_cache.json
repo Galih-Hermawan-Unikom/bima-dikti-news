@@ -1,27 +1,42 @@
 [
   {
+    "title": "Pemberitahuan Revisi Proposal dan RAB Mahasiswa Berdampak: Program Aksara Mahasiswa Tahun Anggaran 2026",
+    "surat": "1417/DST/C3/DT.06.01/202613",
+    "date": "13 Oktober 2026",
+    "documents": [
+      {
+        "name": "Pemberitahuan Revisi Proposal dan RAB Program Aksara Mahasiswa Tahun Anggaran 2026.pdf"
+      }
+    ],
+    "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+    "scraped_at": "2026-10-15T11:07:53.444865"
+  },
+  {
     "title": "Pemberitahuan Hasil Verifikasi Pernyataan Minat PHC – Nusantara Tahun 2027",
     "surat": "1383/DST/C3/DT.05.00/202606",
-    "date": "06 October 2026",
+    "date": "06 Oktober 2026",
     "documents": [
+      {
+        "name": "Panduan Pengusulan PHC Nusantara 2027 di BIMA.pdf"
+      },
       {
         "name": "Pemberitahuan Hasil Verifikasi Pernyataan Minat PHC – Nusantara Tahun 2027.pdf"
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-10-08T10:14:43.684508"
+    "scraped_at": "2026-10-15T11:07:59.661475"
   },
   {
     "title": "Undangan Penandatanganan Kontrak Program Aksara Mahasiswa Tahun Anggaran 2026",
     "surat": "1386/DST/C3/DT.06.01/202607",
-    "date": "07 October 2026",
+    "date": "07 Oktober 2026",
     "documents": [
       {
         "name": "Undangan Penandatanganan Kontrak Program Aksara Mahasiswa Tahun Anggaran 2026.pdf"
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-10-08T10:14:46.792912"
+    "scraped_at": "2026-10-15T11:08:02.777273"
   },
   {
     "title": "Pemberitahuan Batas Waktu Pengunggahan Laporan Kemajuan Program Riset PUI-PT dan Penelitian Batch 2",
@@ -33,7 +48,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-10-08T10:14:53.023935"
+    "scraped_at": "2026-10-15T11:08:09.009984"
   },
   {
     "title": "Pengumuman Pembukaan Pendaftaran Program Insentif Artikel pada Jurnal Internasional Bereputasi Tahun 2026",
@@ -51,7 +66,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-10-08T10:15:02.322647"
+    "scraped_at": "2026-10-15T11:08:18.309424"
   },
   {
     "title": "Pemberitahuan Pelaksanaan Monitoring dan Evaluasi Program Pengabdian kepada Masyarakat Skema Pemberdayaan Berbasis Masyarakat Tahun 2026",
@@ -63,7 +78,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-10-08T10:15:05.425048"
+    "scraped_at": "2026-10-15T11:08:21.410236"
   },
   {
     "title": "Pemberitahuan Revisi Proposal dan RAB Program Penelitian Batch 2",
@@ -75,7 +90,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-10-08T10:15:08.523126"
+    "scraped_at": "2026-10-15T11:08:24.543219"
   },
   {
     "title": "Pemberitahuan Revisi Proposal dan RAB Program Kosabangsa Tahun Anggaran 2026",
@@ -87,7 +102,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-10-08T10:15:11.657051"
+    "scraped_at": "2026-10-15T11:08:27.658531"
   },
   {
     "title": "Pemberitahuan Pelaksanaan Monitoring dan Evaluasi PISN Tahun 2026",
@@ -99,7 +114,7 @@
       }
     ],
     "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
-    "scraped_at": "2026-10-08T10:15:14.774072"
+    "scraped_at": "2026-10-15T11:08:30.776807"
   },
   {
     "title": "Pemberitahuan Pemutakhiran Data pada SINTA Tahun 2026",
