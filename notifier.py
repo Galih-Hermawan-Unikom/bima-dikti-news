@@ -20,21 +20,23 @@ def now_wib():
 
 class Notifier:
     def __init__(self, config=None, config_path="config.json"):
-        self.config = config or load_config(config_path=config_path)
+        self.config = load_config(config_path=config_path) if config is None else config
 
-    def send_notification(self, items):
+    def send_notification(self, items, progress=None, checkpoint=None):
         if not items:
-            return
+            return True
 
         method = self.config.get("notification_method", "console")
 
         if method == "telegram":
-            self._send_telegram(items)
+            return self._send_telegram(items, progress, checkpoint)
         elif method == "console":
             self._send_console(items)
+            return False
         elif method == "both":
             self._send_console(items)
-            self._send_telegram(items)
+            return self._send_telegram(items, progress, checkpoint)
+        return False
 
     def _item_source(self, item):
         source = (item or {}).get("source", "bima")
@@ -66,11 +68,13 @@ class Notifier:
     def _format_html_item(self, index, ann):
         source = self._item_source(ann)
         if source == "youtube":
-            status = ann.get("status", "VOD")
+            status = ann.get("status", "UNKNOWN")
             if status == "LIVE":
                 icon = "🔴 [LIVE SEDANG TAYANG]"
             elif status == "UPCOMING":
                 icon = "⏰ [RENCANA TAYANG]"
+            elif status == "UNKNOWN":
+                icon = "[STATUS BELUM DIKETAHUI]"
             else:
                 icon = "▶️ [VIDEO BARU]"
             
@@ -170,11 +174,13 @@ class Notifier:
         for i, ann in enumerate(items, 1):
             source = self._item_source(ann)
             if source == "youtube":
-                status = ann.get("status", "VOD")
+                status = ann.get("status", "UNKNOWN")
                 if status == "LIVE":
                     prefix = "🔴 [LIVE] "
                 elif status == "UPCOMING":
                     prefix = "⏰ [UPCOMING] "
+                elif status == "UNKNOWN":
+                    prefix = "[UNKNOWN] "
                 else:
                     prefix = "▶️ [VOD] "
                     
@@ -220,6 +226,7 @@ class Notifier:
         print("=" * 60)
 
     def _download_file(self, url, file_name, max_size_mb=25):
+        temp_path = None
         try:
             headers = {
                 "User-Agent": (
@@ -241,23 +248,36 @@ class Notifier:
             safe_name = "".join(
                 char for char in file_name if char.isalnum() or char in ".-_ "
             ).strip() or "dokumen"
-            temp_path = os.path.join(tempfile.gettempdir(), safe_name)
+            fd, temp_path = tempfile.mkstemp(suffix="-" + safe_name)
+            os.close(fd)
 
             with open(temp_path, "wb") as file:
+                total = 0
                 for chunk in response.iter_content(chunk_size=8192):
                     if chunk:
+                        total += len(chunk)
+                        if total > max_size_mb * 1024 * 1024:
+                            raise ValueError("Attachment exceeds size limit")
                         file.write(chunk)
 
             return temp_path
         except Exception as e:
-            print(f"  Error download file: {e}")
+            if temp_path and os.path.exists(temp_path):
+                os.unlink(temp_path)
+            print(f"  Error download file: {type(e).__name__}")
             return None
 
-    def _send_summary_message(self, bot_token, chat_id, items):
+    def _send_summary_message(self, bot_token, chat_id, items, progress=None, checkpoint=None):
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
         success = True
+        progress = progress if progress is not None else {}
+        progress.setdefault("chunks", self._build_summary_chunks(items))
+        progress.setdefault("sent_chunks", [])
+        checkpoint = checkpoint or (lambda: None)
 
-        for index, text in enumerate(self._build_summary_chunks(items), 1):
+        for index, text in enumerate(progress["chunks"], 1):
+            if index in progress["sent_chunks"]:
+                continue
             payload = {
                 "chat_id": chat_id,
                 "text": text,
@@ -267,15 +287,18 @@ class Notifier:
 
             try:
                 response = requests.post(url, json=payload, timeout=15)
-                if response.status_code == 200 and response.json().get("ok"):
+                if response.status_code == 200 and response.json().get("ok") is True:
+                    progress["sent_chunks"].append(index)
+                    checkpoint()
                     print(f"  Ringkasan Telegram terkirim ({index})")
                     continue
 
-                print(f"  Gagal kirim ringkasan Telegram: {response.text}")
+                print(f"  Gagal kirim ringkasan Telegram: HTTP {response.status_code} or ok=false")
                 success = False
             except Exception as e:
-                print(f"  Error kirim ringkasan Telegram: {e}")
+                print(f"  Error kirim ringkasan Telegram: {type(e).__name__}")
                 success = False
+                break
 
         return success
 
@@ -292,46 +315,69 @@ class Notifier:
             )
 
         result = response.json()
-        if result.get("ok"):
+        if response.status_code == 200 and result.get("ok") is True:
             print(f"  Dokumen terkirim: {file_name}")
             return True
 
-        print(f"  Gagal kirim dokumen {file_name}: {result.get('description')}")
+        print(f"  Gagal kirim dokumen {file_name}: HTTP {response.status_code} or ok=false")
         return False
 
-    def _send_telegram_documents(self, bot_token, chat_id, announcements):
-        for ann in announcements:
-            for doc in self._downloadable_documents(ann):
+    def _send_telegram_documents(self, bot_token, chat_id, announcements, progress, checkpoint):
+        progress.setdefault("sent_documents", [])
+        success = True
+        for item_index, ann in enumerate(announcements):
+            for doc_index, doc in enumerate(ann.get("documents", [])):
+                document_key = f"{item_index}:{doc_index}"
+                if document_key in progress["sent_documents"]:
+                    continue
                 file_name = self._document_name(doc) or "dokumen"
+                if not self._document_url(doc):
+                    success = False
+                    continue
                 temp_path = self._download_file(self._document_url(doc), file_name)
                 if not temp_path:
+                    success = False
                     continue
 
                 try:
-                    self._send_document(bot_token, chat_id, temp_path, file_name)
+                    if self._send_document(bot_token, chat_id, temp_path, file_name):
+                        progress["sent_documents"].append(document_key)
+                        checkpoint()
+                    else:
+                        success = False
+                except Exception as exc:
+                    print(f"  Error kirim dokumen: {type(exc).__name__}")
+                    success = False
                 finally:
                     try:
                         os.unlink(temp_path)
                     except OSError:
                         pass
+        return success
 
-    def _send_telegram(self, items):
+    def _send_telegram(self, items, progress=None, checkpoint=None):
         bot_token = self.config.get("telegram_bot_token", "")
         chat_id = self.config.get("telegram_chat_id", "")
         send_files = self.config.get("telegram_send_files", False)
 
         if not bot_token or not chat_id:
             print("  Telegram bot_token atau chat_id belum dikonfigurasi")
-            return
+            return False
 
-        self._send_summary_message(bot_token, chat_id, items)
+        progress = progress if progress is not None else {}
+        checkpoint = checkpoint or (lambda: None)
+        if not self._send_summary_message(bot_token, chat_id, items, progress, checkpoint):
+            return False
 
         if send_files:
             print("  Mode Telegram: ringkasan + lampiran")
-            self._send_telegram_documents(
+            return self._send_telegram_documents(
                 bot_token,
                 chat_id,
                 [item for item in items if self._item_source(item) == "bima"],
+                progress,
+                checkpoint,
             )
         else:
             print("  Mode Telegram: ringkasan saja")
+        return True

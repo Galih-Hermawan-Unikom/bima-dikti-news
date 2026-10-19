@@ -2,9 +2,7 @@ import sys
 import schedule
 import time
 from app_config import load_config
-from scraper import BimaScraper
-from notifier import Notifier
-from youtube_monitor import YouTubeMonitor
+from monitor_runner import run_once
 
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
@@ -15,26 +13,11 @@ def check_announcements():
 
     try:
         config = load_config()
-        scraper = BimaScraper()
-        notifier = Notifier(config)
-
-        new_announcements = scraper.check_new_announcements()
-        new_youtube_items = []
-
-        if config.get("youtube_monitor_enabled", True):
-            monitor = YouTubeMonitor(
-                channel_id=config.get("youtube_channel_id", ""),
-                channel_url=config.get("youtube_channel_url", ""),
-            )
-            new_youtube_items = monitor.check_new_videos()
-
-        new_items = new_announcements + new_youtube_items
-
-        if new_items:
-            print(f"\n[NEW] Ditemukan {len(new_items)} item baru!")
-            notifier.send_notification(new_items)
-        else:
-            print("[OK] Tidak ada item baru")
+        result = run_once(config)
+        for source in result.sources:
+            print(f"[{source.source}] {source.status}: {source.error}")
+        for error in result.errors:
+            print(f"[ERROR] {error}")
     except Exception as e:
         print(f"[ERROR] Error saat mengecek: {e}")
 
@@ -64,4 +47,7 @@ def main():
 
 
 if __name__ == "__main__":
+    if "--dry-run" in sys.argv:
+        from run_github import main as run_check
+        raise SystemExit(run_check())
     main()

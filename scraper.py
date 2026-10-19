@@ -1,4 +1,3 @@
-import json
 import os
 import platform
 import re
@@ -7,6 +6,7 @@ from datetime import datetime
 from urllib.parse import unquote
 
 from playwright.sync_api import sync_playwright
+from reliability import SourceError, atomic_json, read_json
 
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
@@ -17,7 +17,7 @@ def normalize_text(value):
 
 
 def announcement_identity(item):
-    surat = normalize_surat(item.get("surat", "")) if isinstance(item, dict) else ""
+    surat = canonical_surat(item) if isinstance(item, dict) else ""
     if surat:
         return f"surat:{surat}"
 
@@ -40,10 +40,7 @@ def extract_surat(full_text):
     if not full_text:
         return ""
 
-    patterns = [
-        r"No\.\s*Surat:\s*([0-9A-Za-z./-]+?/\d{4})\b",
-        r"No\.\s*Surat:\s*([0-9A-Za-z./-]+)",
-    ]
+    patterns = [r"No\.?\s*Surat\s*:\s*([0-9A-Za-z./-]+?/(?:19|20)\d{2})(?![0-9A-Za-z./-])"]
 
     for pattern in patterns:
         match = re.search(pattern, full_text, flags=re.IGNORECASE)
@@ -51,6 +48,29 @@ def extract_surat(full_text):
             return normalize_surat(match.group(1))
 
     return ""
+
+
+def canonical_surat(item):
+    """Recognize only the known year+publication-day corruption."""
+    value = normalize_surat(item.get("surat", ""))
+    date = re.fullmatch(r"(\d{1,2})\s+[A-Za-z]+\s+((?:19|20)\d{2})", item.get("date", "").strip())
+    if date:
+        day, year = date.groups()
+        month = item.get("date", "").split()[1].lower()
+        months = ["january januari", "february februari", "march maret", "april",
+                  "may mei", "june juni", "july juli", "august agustus",
+                  "september", "october oktober", "november", "december desember"]
+        month_number = next((i for i, names in enumerate(months, 1) if month in names.split()), None)
+        if month_number is None:
+            return value
+        try:
+            datetime(int(year), month_number, int(day))
+        except ValueError:
+            return value
+        for suffix in {day, day.zfill(2)}:
+            if value.endswith("/" + year + suffix):
+                return value[:-len(suffix)]
+    return value
 
 
 def extract_filename_from_url(url):
@@ -174,7 +194,11 @@ class BimaScraper:
                     const title = (titleEl.textContent || '').trim();
                     if (!title || title.length < 10) return null;
 
-                    const fullText = (card.textContent || '').trim();
+                    // Preserve DOM text boundaries between the surat and date.
+                    const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+                    const texts = [];
+                    while (walker.nextNode()) texts.push(walker.currentNode.textContent);
+                    const fullText = texts.join(' ').trim();
                     const dateMatch = fullText.match(
                         /(\\d{1,2}\\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\\s+\\d{4})/i
                     );
@@ -291,7 +315,9 @@ class BimaScraper:
             page = context.new_page()
 
             try:
-                page.goto(self.url, wait_until="networkidle", timeout=30000)
+                response = page.goto(self.url, wait_until="networkidle", timeout=30000)
+                if response is not None and response.status >= 400:
+                    raise SourceError(f"BIMA HTTP {response.status}")
                 page.wait_for_timeout(3000)
 
                 items = self._collect_cards(page)
@@ -317,31 +343,24 @@ class BimaScraper:
                     )
 
             except Exception as e:
-                print(f"  Error saat scraping: {e}")
+                raise SourceError(f"BIMA scraping failed: {type(e).__name__}") from None
             finally:
                 browser.close()
 
+        if not announcements:
+            raise SourceError("BIMA returned zero cards; source health cannot be confirmed")
         return announcements
 
     def load_cache(self):
         if os.path.exists(self.data_file):
-            try:
-                with open(self.data_file, "r", encoding="utf-8") as file:
-                    raw_cache = json.load(file)
-            except (json.JSONDecodeError, OSError):
-                return []
+            raw_cache = read_json(self.data_file, [])
 
             if not isinstance(raw_cache, list):
-                return []
+                raise ValueError("BIMA cache must be a list")
 
-            return [
-                item
-                for item in (
-                    self._sanitize_announcement_for_cache(announcement)
-                    for announcement in raw_cache
-                )
-                if announcement_identity(item)
-            ]
+            if any(not isinstance(item, dict) or not announcement_identity(item) for item in raw_cache):
+                raise ValueError("BIMA cache contains invalid records")
+            return raw_cache
         return []
 
     def save_cache(self, announcements):
@@ -354,10 +373,10 @@ class BimaScraper:
             if announcement_identity(item)
         ]
 
-        with open(self.data_file, "w", encoding="utf-8") as file:
-            json.dump(sanitized, file, ensure_ascii=False, indent=2)
+        atomic_json(self.data_file, sanitized)
 
     def check_new_announcements(self):
+        self.proposed_cache = None
         print("  [Web] Mengambil data dari BIMA...")
         current = self.fetch_announcements()
         cached = self.load_cache()
@@ -365,9 +384,9 @@ class BimaScraper:
         print(f"  [Info] Ditemukan {len(current)} pengumuman di halaman")
         print(f"  [Info] Cache berisi {len(cached)} pengumuman")
 
-        if not current and cached:
-            print("  [Warning] Tidak bisa mengambil data saat ini, menggunakan cache terakhir")
-            return []
+        if not current:
+            raise SourceError("BIMA returned zero cards")
+        self.current_items = current
 
         cached_keys = {announcement_identity(item) for item in cached}
         new_announcements = [
@@ -377,16 +396,9 @@ class BimaScraper:
         ]
 
         if new_announcements or not cached:
-            all_announcements = current + cached
-            seen = set()
-            unique = []
-            for item in all_announcements:
-                key = announcement_identity(item)
-                if not key:
-                    continue
-                if key not in seen:
-                    seen.add(key)
-                    unique.append(item)
-            self.save_cache(unique)
+            self.proposed_cache = cached + new_announcements
+
+        if self.proposed_cache is None:
+            self.proposed_cache = cached
 
         return new_announcements

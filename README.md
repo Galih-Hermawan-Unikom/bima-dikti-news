@@ -340,6 +340,14 @@ Bot Notifikasi BIMA
 
 ## Troubleshooting
 
+### Reliabilitas dan Dry-run (Fase 1)
+
+Gunakan `python run_github.py --dry-run` untuk membaca sumber dan melihat preview tanpa mengirim Telegram, membaca secrets, atau mengubah cache/jurnal. Pengujian otomatis: `pip install -r requirements-dev.txt`, `playwright install chromium`, lalu `python -m pytest`.
+
+Cache mencatat **deteksi**, sedangkan `delivery_state.json` mencatat **pengiriman terkonfirmasi** dan bagian yang perlu diulang. Kegagalan sumber atau pengiriman menghasilkan status gagal di GitHub Actions. Jika commit/push state gagal, periksa recovery artifact sebelum menjalankan retry. Duplikasi tetap mungkin jika Telegram sudah menerima pesan tetapi checkpoint/commit belum tersimpan; sistem tidak menjamin exactly-once.
+
+Migrasi nomor surat tersedia melalui `migrate_cache.py`, diawali preview dan backup terverifikasi sebelum `--apply`. Jangan menghapus cache atau jurnal untuk mengatasi kegagalan karena dapat memicu pengiriman ulang. Prosedur dan batasan lengkap: [Audit Reliabilitas Fase 1](docs/reliability-phase1.md).
+
 | Masalah | Solusi |
 |---|---|
 | `Executable doesn't exist` | Jalankan `playwright install --with-deps chromium` |
@@ -348,7 +356,7 @@ Bot Notifikasi BIMA
 | Video YouTube tidak muncul | Periksa `YOUTUBE_MONITOR_ENABLED`, `YOUTUBE_CHANNEL_URL`, dan `YOUTUBE_CHANNEL_ID` |
 | Workflow tidak jalan | Pastikan file ada di `.github/workflows/` dan branch default repository sesuai workflow |
 | Timeout di GitHub Actions | Website BIMA lambat, timeout sudah diset 15 menit |
-| Cache ter-reset atau rusak | Hapus `announcements_cache.json` atau `youtube_cache.json`, lalu jalankan ulang agar cache metadata dibuat ulang |
+| Cache atau jurnal rusak | Hentikan bot dan pulihkan backup/state terverifikasi; jangan menghapus riwayat cache atau jurnal |
 
 ## Pengembang
 
