@@ -64,6 +64,18 @@ Percobaan awal menemukan pengaman socket yang memblokir IPC loopback Windows, br
 
 Bukti integritas cache: SHA256 awal dan akhir identik. Pada worktree audit: BIMA `5ED05613FA1B246F2E3E5BC88E572DDFD05C0EAA4CEA88E52B21E66858378A91`, YouTube `6CDF8BC5F4F0E6D881F874B8F0B331D1A3E6FC0B502834D1783B9E3CA8119A0B`. Pada workspace asli: BIMA `30B83418F2BCA5DF9D03475398947E3129DD0286B2CC27A898F93A4873B0157B`, YouTube `AFE924BABF30296C65DF9B21AB1CF22963B8C537693CE06FFFA2EAA848EFBFA7`. Perubahan lokal README/cache YouTube pada workspace asli tetap utuh. Pembacaan audit cache BIMA mengonfirmasi 89 entri dengan 80 kandidat perbaikan; penerapan hanya diuji pada salinan sementara.
 
+## Tindak Lanjut Review PR #1 (20 Oktober 2026)
+
+Lingkup tambahan hanya `notifier.py`, `tests/test_notifier_review.py`, dan laporan ini. Tidak ada perubahan runner, sumber, workflow/cron, dependency, atau cache produksi pada tindak lanjut ini.
+
+- `_send_summary_message()` sebelumnya berhenti pada exception, tetapi melanjutkan chunk berikutnya setelah HTTP error atau `ok=false`. Sekarang seluruh kegagalan menghentikan urutan batch. Checkpoint yang sudah terkonfirmasi tetap disimpan; eksekusi berikutnya memakai payload tersimpan dan melanjutkan dari chunk pertama yang belum terkonfirmasi. Payload tidak dibangun ulang saat retry.
+- `_build_summary_chunks()` sebelumnya hanya memindahkan satu item ke chunk lain, sehingga item tunggal dengan banyak lampiran tetap dapat melampaui batas. Sekarang splitter memprioritaskan baris utuh, kemudian kata utuh, dan terakhir karakter bila satu kata sangat panjang. Tag bold/italic ditutup dan dibuka kembali pada batas chunk. Entitas HTML dan code point Unicode tidak dipotong; teks tidak dipangkas dan urutannya dipertahankan. Pesan pendek tetap menggunakan format sebelumnya.
+- Setiap chunk dibatasi konservatif sampai 4.000 unit UTF-16 pada string HTML lengkap, termasuk tag dan entitas. Ini lebih ketat dari batas pesan [Telegram sendMessage](https://core.telegram.org/bots/api#sendmessage), yaitu 4.096 karakter setelah parsing entitas. Emoji non-BMP turut dihitung sebagai dua unit. Pengiriman juga menolak chunk kosong/terlalu panjang yang mungkin sudah tersimpan sebelum perbaikan; antrean tersebut tetap pending dan tidak ditulis ulang otomatis.
+
+Hasil seluruh regression suite pada lingkungan `.venv` yang sama: **69 passed, 0 failed** (49 test sebelumnya + 20 test review), bukan hanya test baru. Test tambahan mencakup HTTP error dan `ok=false` pada chunk pertama/tengah dari tiga chunk; urutan retry; 180/250 lampiran; judul, nomor surat, nama dokumen, URL, dan nama kanal sangat panjang; entitas HTML dan emoji; batas 3.999/4.000/4.001/4.096/4.097; validitas HTML setiap payload; serta guard untuk payload tersimpan yang tidak valid. JUnit diperbarui di `.pytest_cache/reliability-results.xml`.
+
+Seluruh Telegram tetap mock dengan kredensial dummy, fixture pengaman jaringan/secrets dan pemeriksaan hash cache tetap aktif. Tidak ada bot produksi dijalankan, migrasi produksi, merge, atau deployment. Diff tindak lanjut diperiksa terpisah dari perubahan fase 1 agar kedua temuan review menjadi satu-satunya perubahan kode.
+
 ## File Diubah
 
 | File | Alasan |

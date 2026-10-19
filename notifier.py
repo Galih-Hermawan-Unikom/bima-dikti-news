@@ -1,8 +1,10 @@
 import os
+import re
 import sys
 import tempfile
 from datetime import datetime, timedelta, timezone
 from html import escape
+from html.parser import HTMLParser
 
 import requests
 
@@ -16,6 +18,78 @@ WIB = timezone(timedelta(hours=7))
 
 def now_wib():
     return datetime.now(WIB)
+
+
+def _message_length(text):
+    # Conservative bound: count HTML markup/entities and UTF-16 surrogate pairs.
+    return len(text.encode("utf-16-le")) // 2
+
+
+class _SummaryHTMLSplitter(HTMLParser):
+    """Split generated b/i markup without breaking tags or escaped characters."""
+
+    def __init__(self, limit):
+        super().__init__(convert_charrefs=True)
+        self.limit = limit
+        self.chunks = []
+        self.current = []
+        self.tags = []
+        self.size = 0
+        self.has_text = False
+
+    def _remaining(self):
+        return self.limit - self.size - sum(len(f"</{tag}>") for tag in self.tags)
+
+    def _flush(self):
+        if self.has_text:
+            self.chunks.append("".join(self.current) + "".join(f"</{tag}>" for tag in reversed(self.tags)))
+            self.current = [f"<{tag}>" for tag in self.tags]
+            self.size = sum(map(len, self.current))
+            self.has_text = False
+
+    def handle_starttag(self, tag, attrs):
+        if tag not in {"b", "i"} or attrs:
+            raise ValueError("Unexpected summary HTML tag")
+        if len(f"<{tag}></{tag}>") > self._remaining():
+            self._flush()
+        self.current.append(f"<{tag}>")
+        self.size += len(f"<{tag}>")
+        self.tags.append(tag)
+
+    def handle_endtag(self, tag):
+        if not self.tags or self.tags.pop() != tag:
+            raise ValueError("Unbalanced summary HTML")
+        self.current.append(f"</{tag}>")
+        self.size += len(f"</{tag}>")
+
+    def _append_text(self, text):
+        encoded = escape(text)
+        self.current.append(encoded)
+        self.size += _message_length(encoded)
+        self.has_text = True
+
+    def handle_data(self, data):
+        for line in data.splitlines(keepends=True):
+            if _message_length(escape(line)) <= self._remaining():
+                self._append_text(line)
+                continue
+            # Prefer intact lines, then intact words; split a single huge word last.
+            fresh_capacity = self.limit - sum(len(f"<{t}></{t}>") for t in self.tags)
+            if _message_length(escape(line)) <= fresh_capacity:
+                self._flush()
+                self._append_text(line)
+                continue
+            for word in re.findall(r"\S+\s*|\s+", line):
+                if _message_length(escape(word)) <= self._remaining():
+                    self._append_text(word)
+                elif _message_length(escape(word)) <= fresh_capacity:
+                    self._flush()
+                    self._append_text(word)
+                else:
+                    for char in word:
+                        if _message_length(escape(char)) > self._remaining():
+                            self._flush()
+                        self._append_text(char)
 
 
 class Notifier:
@@ -135,21 +209,17 @@ class Notifier:
         header += "\n"
         footer = "━━━━━━━━━━━━━━━━━━━━\n<i>Bot Notifikasi BIMA</i>"
 
-        chunks = []
-        current = header
-
-        for index, ann in enumerate(items, 1):
-            item = self._format_html_item(index, ann)
-            if len(current) + len(item) + len(footer) > 4000:
-                chunks.append(current)
-                current = item
-            else:
-                current += item
-
-        if current:
-            chunks.append(current + footer)
-
-        return chunks
+        message = header + "".join(self._format_html_item(index, ann)
+                                  for index, ann in enumerate(items, 1)) + footer
+        if _message_length(message) <= 4000:
+            return [message]
+        splitter = _SummaryHTMLSplitter(limit=4000)
+        splitter.feed(message)
+        splitter.close()
+        if splitter.tags:
+            raise ValueError("Unclosed summary HTML")
+        splitter._flush()
+        return splitter.chunks
 
     def _send_console(self, items):
         bima_count = sum(1 for item in items if self._item_source(item) == "bima")
@@ -271,13 +341,17 @@ class Notifier:
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
         success = True
         progress = progress if progress is not None else {}
-        progress.setdefault("chunks", self._build_summary_chunks(items))
+        if "chunks" not in progress:
+            progress["chunks"] = self._build_summary_chunks(items)
         progress.setdefault("sent_chunks", [])
         checkpoint = checkpoint or (lambda: None)
 
         for index, text in enumerate(progress["chunks"], 1):
             if index in progress["sent_chunks"]:
                 continue
+            if not text or _message_length(text) > 4000:
+                print(f"  Ringkasan Telegram tidak valid ({index}): panjang payload di luar batas")
+                return False
             payload = {
                 "chat_id": chat_id,
                 "text": text,
@@ -295,6 +369,7 @@ class Notifier:
 
                 print(f"  Gagal kirim ringkasan Telegram: HTTP {response.status_code} or ok=false")
                 success = False
+                break
             except Exception as e:
                 print(f"  Error kirim ringkasan Telegram: {type(e).__name__}")
                 success = False
