@@ -99,8 +99,11 @@ class YouTubeMonitor:
             response.raise_for_status()
             match = re.search(r"ytInitialPlayerResponse\s*=\s*", response.text)
             if not match:
-                return {"status": "UNKNOWN"}
-            data, _ = json.JSONDecoder().raw_decode(response.text[match.end():].lstrip())
+                return self._unknown(video_id, "PLAYER_RESPONSE_MISSING")
+            try:
+                data, _ = json.JSONDecoder().raw_decode(response.text[match.end():].lstrip())
+            except ValueError:
+                return self._unknown(video_id, "PLAYER_JSON_INVALID")
             details = data.get("videoDetails", {})
             playability = data.get("playabilityStatus", {})
             # Only explicit unavailable-player evidence can lower severity.
@@ -108,9 +111,11 @@ class YouTubeMonitor:
                     and normalize_text(playability.get("reason", "")).casefold() in {
                         "video unavailable", "this video is unavailable",
                         "video tidak tersedia", "video ini tidak tersedia"}):
-                return {"status": "UNKNOWN", "unavailable": True}
-            if not details or data.get("playabilityStatus", {}).get("status", "OK") not in {"OK", "LIVE_STREAM_OFFLINE"}:
-                return {"status": "UNKNOWN"}
+                return self._unknown(video_id, "PLAYABILITY_DENIED", unavailable=True)
+            if playability.get("status", "OK") not in {"OK", "LIVE_STREAM_OFFLINE"}:
+                return self._unknown(video_id, "PLAYABILITY_DENIED")
+            if not details:
+                return self._unknown(video_id, "VIDEO_DETAILS_MISSING")
             live = data.get("microformat", {}).get("playerMicroformatRenderer", {}).get("liveBroadcastDetails", {})
             start = live.get("startTimestamp", "")
             end = live.get("endTimestamp", "")
@@ -127,9 +132,26 @@ class YouTubeMonitor:
                 status = "VOD"
             else:
                 status = "UNKNOWN"
+            if status == "UNKNOWN":
+                return self._unknown(video_id, "STATUS_METADATA_INSUFFICIENT")
             return {"status": status, "scheduled_start": start, "actual_end": end}
-        except (requests.RequestException, ValueError, TypeError, AttributeError):
-            return {"status": "UNKNOWN"}
+        except requests.Timeout:
+            return self._unknown(video_id, "TIMEOUT")
+        except requests.HTTPError:
+            return self._unknown(video_id, "HTTP_ERROR")
+        except requests.RequestException:
+            return self._unknown(video_id, "NETWORK_ERROR")
+        except Exception:
+            return self._unknown(video_id, "OTHER")
+
+    def _unknown(self, video_id, category, *, unavailable=False):
+        # Runtime-only diagnostics: no response, URL, exception or cache field.
+        if not hasattr(self, "inspection_diagnostics"):
+            self.inspection_diagnostics = {}
+        self.inspection_diagnostics[video_id] = category
+        safe_id = video_id if re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id) else "invalid-id"
+        print(f"[YouTube inspection] video={safe_id}; category={category}")
+        return {"status": "UNKNOWN", **({"unavailable": True} if unavailable else {})}
 
     def fetch_videos(self):
         channel_id = self._resolve_channel_id()
@@ -210,6 +232,7 @@ class YouTubeMonitor:
 
     def check_new_videos(self):
         self.inspection_failed = False
+        self.inspection_diagnostics = {}
         self.historical_warning_count = 0
         self.rss_error = ""
         self.proposed_cache = None
@@ -235,6 +258,7 @@ class YouTubeMonitor:
         current_keys = {youtube_identity(v) for v in current}
         missing = [dict(i) for i in cached if i.get("status", "") in {"UNKNOWN", "UPCOMING", "LIVE", ""}
                    and youtube_identity(i) not in current_keys]
+        self.current_items = current + missing
         for item in current + missing:
             key = youtube_identity(item)
             previous = old.get(key)
@@ -260,9 +284,12 @@ class YouTubeMonitor:
             last_known = (previous or {}).get("last_known_status") or (previous_status if previous_status != "UNKNOWN" else "")
             if previous is None:
                 new_items.append(item)
-            elif ((last_known == "UPCOMING" and item["status"] in {"LIVE", "VOD"})
-                  or (previous_status == "UNKNOWN" and not last_known and item["status"] in {"UPCOMING", "LIVE"})):
+            elif last_known == "UPCOMING" and item["status"] in {"LIVE", "VOD"}:
                 item["is_status_update"] = True
+                new_items.append(item)
+            elif previous_status == "UNKNOWN" and not last_known and item["status"] in {"UPCOMING", "LIVE", "VOD"}:
+                # Recovery is an initial event; the delivery journal decides whether it was already sent.
+                item.pop("is_status_update", None)
                 new_items.append(item)
             updated[key] = item
         self.proposed_cache = [updated.pop(youtube_identity(i), i) for i in cached] + list(updated.values())

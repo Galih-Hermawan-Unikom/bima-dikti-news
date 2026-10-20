@@ -339,7 +339,9 @@ def test_unknown_video_rechecked_outside_rss(tmp_path, monkeypatch):
     monkeypatch.setattr(monitor, "fetch_videos", lambda: [])
     analyze = Mock(return_value={"status": "VOD"})
     monkeypatch.setattr(monitor, "_analyze_video_type", analyze)
-    assert monitor.check_new_videos() == []
+    recovered = monitor.check_new_videos()
+    assert len(recovered) == 1 and recovered[0]["status"] == "VOD"
+    assert not recovered[0].get("is_status_update")
     analyze.assert_called_once_with("fixture")
     assert monitor.proposed_cache[0]["status"] == "VOD"
 
@@ -386,4 +388,5 @@ def test_new_unknown_then_live_notifies_recovered_status(tmp_path, monkeypatch):
     assert monitor.check_new_videos()[0]["status"] == "UNKNOWN"
     monitor.save_cache(monitor.proposed_cache)
     monkeypatch.setattr(monitor, "_analyze_video_type", lambda _: {"status": "LIVE"})
-    assert monitor.check_new_videos()[0]["is_status_update"]
+    recovered = monitor.check_new_videos()[0]
+    assert recovered["status"] == "LIVE" and not recovered.get("is_status_update")

@@ -9,6 +9,7 @@ from html.parser import HTMLParser
 import requests
 
 from app_config import load_config
+from reliability import awaiting_youtube_verification
 
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
@@ -97,6 +98,10 @@ class Notifier:
         self.config = load_config(config_path=config_path) if config is None else config
 
     def send_notification(self, items, progress=None, checkpoint=None):
+        if any(awaiting_youtube_verification(i)
+               for group in (items or [], (progress or {}).get("items", [])) for i in group):
+            print("  Notification blocked: YouTube payload awaiting verification")
+            return False
         if not items:
             return True
 
@@ -338,6 +343,10 @@ class Notifier:
             return None
 
     def _send_summary_message(self, bot_token, chat_id, items, progress=None, checkpoint=None):
+        if any(awaiting_youtube_verification(i)
+               for group in (items or [], (progress or {}).get("items", [])) for i in group):
+            print("  Telegram blocked: YouTube payload awaiting verification")
+            return False
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
         success = True
         progress = progress if progress is not None else {}

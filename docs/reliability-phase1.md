@@ -482,3 +482,59 @@ Validasi lokal perubahan severity: 255 passed (221 regresi sebelumnya + 34 kasus
 baru), termasuk batas tujuh hari, timezone, alasan unavailable eksplisit,
 recovery LIVE/VOD tanpa replay, RSS/BIMA gagal, serta error pengiriman/checkpoint/
 persistensi. Pemeriksaan integritas cache operasional tetap lulus.
+
+## UNKNOWN Delivery Safety (PR Terpisah)
+
+Insiden run 39440844582 membuktikan health DEGRADED tidak menghentikan seluruh
+delivery: kandidat baru UNKNOWN sebelumnya tetap menjadi batch. Pesan 271 untuk
+K94OBen4CiU sudah terkirim dan memiliki event initial delivered. PR ini tidak
+mengoreksi pesan, cache, atau jurnal produksi tersebut.
+
+Deteksi dan delivery dipisahkan tanpa schema cache/jurnal baru:
+
+- Detected: video ditemukan melalui RSS atau diperiksa ulang dari cache.
+- Awaiting verification: status UNKNOWN/kosong/tidak dikenal tetap disimpan oleh
+  mekanisme cache, diperiksa ulang meski keluar dari RSS, tetapi tidak menjadi
+  batch baru. Log VERIFICATION menampilkan jumlah runtime awaiting/eligible/blocked.
+- Eligible: hanya status UPCOMING, LIVE, VOD yang terkonfirmasi dapat menjadi
+  kandidat delivery. BIMA valid dan video valid lain tidak tertahan oleh UNKNOWN.
+- Delivered: hanya checkpoint/API sukses dan jurnal yang sudah ada menjadi bukti;
+  keberadaan cache bukan bukti pengiriman. DEGRADED/FAILED tetap exit gagal.
+
+UNKNOWN tanpa last-known status yang pulih ke UPCOMING/LIVE/VOD menawarkan event
+initial, termasuk VOD di luar RSS. Jurnal menentukan apakah initial sudah dikenal.
+Initial UNKNOWN yang sudah delivered tidak diubah dan tidak memicu initial kedua
+atau update palsu saat status cache pulih. UPCOMING yang sebelumnya benar-benar
+dikirim tetap mendukung update LIVE/VOD, termasuk melalui UNKNOWN sementara.
+
+Retry fail-closed: batch pending yang payload-nya UNKNOWN (termasuk campuran), atau
+yang inspeksi terkininya belum terverifikasi, diblokir dan dilaporkan membutuhkan
+rekonsiliasi operator. Tidak memecah/menghapus batch, tidak membangun ulang chunk,
+tidak menaikkan attempts batch terblokir, dan tidak mengubah progres terkonfirmasi.
+Verifikasi berikutnya tidak otomatis menulis ulang payload pending UNKNOWN lama;
+operator harus menilai payload/chunk yang mungkin sudah terkirim. Batch valid
+independen tetap dapat diproses. Notifier memerlukan guard kecil pada entrypoint
+dan jalur ringkasan karena pembatasan runner saja dapat dilewati pemanggil langsung.
+Format pesan dan mekanisme retry/checkpoint yang ada tidak diubah.
+
+Diagnostik UNKNOWN hanya berada di memori/log, bukan field cache/jurnal:
+HTTP_ERROR, TIMEOUT, NETWORK_ERROR, PLAYER_RESPONSE_MISSING, PLAYER_JSON_INVALID,
+PLAYABILITY_DENIED, VIDEO_DETAILS_MISSING, STATUS_METADATA_INSUFFICIENT, OTHER.
+Log hanya memuat video ID publik yang formatnya valid dan kategori tetap, tanpa
+HTML, alasan player mentah, exception, URL, header, cookie, token, atau chat ID.
+Tidak mengubah User-Agent, endpoint, proxy, atau autentikasi. Tidak menyimpulkan
+penyebab insiden pasti pembatasan YouTube/GitHub tanpa bukti kategori berikutnya.
+
+WARNING lima video historis unavailable tetap berlaku dan UNKNOWN tetap diperiksa
+ulang. Kegagalan persist/checkpoint tetap kritis. Exactly-once tetap tidak dijamin
+jika pengiriman sukses tetapi checkpoint atau push state gagal. Jangan melakukan
+retry/rollback buta; pertahankan recovery artifact dan rekonsiliasi operator.
+
+Validasi offline PR UNKNOWN safety: 290 passed, 0 failed (255 kasus regresi
+sebelumnya, dua ekspektasi recovery diperbaiki menjadi initial, dan 35 kasus baru).
+Mencakup tiga kali pemeriksaan UNKNOWN, recovery awal VOD/LIVE/UPCOMING satu kali,
+initial insiden K94OBen4CiU delivered tanpa replay/update palsu, update UPCOMING
+yang sah, batch pending campuran/parsial yang immutable, guard pemanggilan notifier,
+Telegram/persist/checkpoint gagal, RSS gagal, serta sembilan kategori diagnostik.
+Jaringan eksternal dan .env diblokir; pemeriksaan hash cache operasional lulus.
+Tidak ada pengiriman nyata atau perubahan state produksi pada pekerjaan PR ini.
