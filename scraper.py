@@ -6,7 +6,7 @@ import unicodedata
 from datetime import datetime
 from urllib.parse import unquote
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
 from reliability import SourceError, atomic_json, read_json
 
 if sys.platform == "win32":
@@ -418,6 +418,34 @@ class BimaScraper:
 
         return documents
 
+    def _wait_for_cards(self, page, timeout_ms=15000):
+        try:
+            page.wait_for_function(
+                """() => {
+                    const modern = [...document.querySelectorAll('article.ap-card')];
+                    const legacy = [...document.querySelectorAll('.card-body.p-4, div[class*="card-body"]')];
+                    // Mixed layouts must reach the existing ambiguity validator.
+                    if (modern.length && legacy.length) return true;
+                    const cards = modern.length ? modern : legacy;
+                    const text = (card, selector) => (card.querySelector(selector)?.textContent || '').trim();
+                    const documentsReady = card => {
+                        const docs = [...card.querySelectorAll(modern.length ? '.ap-file' : 'li span.text-primary')];
+                        return docs.length > 0 && docs.every(doc => modern.length
+                            ? text(doc, '.ap-file__name') : doc.textContent.trim());
+                    };
+                    return cards.length > 0 && cards.every(card => modern.length
+                        ? text(card, '.ap-card__title') && text(card, '.ap-card__number')
+                            && card.querySelector('time.ap-date')?.getAttribute('datetime')
+                            && documentsReady(card)
+                        : text(card, 'h5, h4, h3') && documentsReady(card));
+                }""",
+                timeout=timeout_ms,
+            )
+        except PlaywrightTimeoutError:
+            raise SourceError(
+                f"BIMA card readiness timeout after {timeout_ms} ms (ap-card/legacy)"
+            ) from None
+
     def fetch_announcements(self):
         announcements = []
 
@@ -444,7 +472,7 @@ class BimaScraper:
                 response = page.goto(self.url, wait_until="networkidle", timeout=30000)
                 if response is not None and response.status >= 400:
                     raise SourceError(f"BIMA HTTP {response.status}")
-                page.wait_for_timeout(3000)
+                self._wait_for_cards(page)
 
                 items = self._collect_cards(page)
 

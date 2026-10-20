@@ -312,6 +312,122 @@ merge, deployment atau modifikasi worktree utama. Blocker DOM/identitas Aksara
 selesai pada pengujian terisolasi; keputusan cutover tetap NO-GO dan memerlukan
 persetujuan operator terpisah serta peninjauan blocker operasional lainnya.
 
+## Penantian Kesiapan Kartu BIMA (20 Oktober 2026)
+
+Tindak lanjut dari `e79fcde`, PR #1 tetap draft, **cutover tetap NO-GO**.
+Diagnosis read-only membuktikan `networkidle` dapat selesai saat kartu masih
+kosong: pada satu probe, networkidle sekitar 2,86 detik dan respons API baru
+tiba sekitar 3,45-3,56 detik. Tiga probe berhasil pada saat ekstraksi, tetapi
+ini tidak menjelaskan secara pasti semua kegagalan pengambilan sebelumnya.
+
+Jeda tetap 3000 ms sesudah navigasi kini diganti `_wait_for_cards()` dengan
+batas eksplisit 15000 ms. Penantian mengamati kartu yang didukung beserta field
+dasarnya, bukan HTTP 200 atau container kosong saja. Untuk ap-card: judul,
+nomor, datetime dan nama dokumen; untuk legacy: heading dan nama dokumen.
+Seluruh kartu dan seluruh nama dokumen yang ditemukan harus memenuhi kesiapan dasar. Layout campuran
+diteruskan ke validator ambiguitas yang sudah ada, bukan dianggap siap valid.
+
+Penantian ini bukan parser baru: validitas tanggal/nomor, field ganda, identitas
+konservatif dan penanganan dokumen tetap menggunakan kode yang telah lulus.
+Timeout menghasilkan `SourceError` berisi fase, batas ms dan nama layout saja;
+tanpa body, URL halaman/API, raw exception, signed URL atau credentials.
+Halaman kosong/tidak dikenal tetap FAILED, bukan NO_NEW_ITEMS. Navigasi tetap
+memiliki timeout 30 detik; penantian DOM adalah batas terpisah 15 detik, bukan
+15 detik untuk keseluruhan proses termasuk pengambilan dokumen.
+
+Regresi baru mencakup kartu modern/legacy langsung siap, rendering lebih dari
+3 detik sesudah networkidle, container parsial, kartu terakhir belum siap,
+halaman kosong/tidak dikenal, timeout yang aman, metadata ambigu/invalid,
+serta propagasi FAILED melalui runner dan cleanup browser tanpa state write.
+Seluruh suite dijalankan, bukan hanya test baru. Hasil final lokal:
+**201 passed, 0 failed**, 76,51 detik (182 sebelumnya + 19 regresi baru).
+Run antara sebelum melengkapi kasus hidrasi metadata menghasilkan 196 passed;
+setelah perubahan terakhir seluruh suite dijalankan ulang sampai 201 passed.
+Fixture historis 89 BIMA/125 YouTube tetap independen dari pertumbuhan cache
+operasional. Status CI untuk commit tindak lanjut dicatat pada komentar PR.
+
+### Baseline Master dan Dry-Run Penguatan DOM
+
+Master terbaru yang dipakai: `f4353d147ccafa0fb65240ec9e8d1e670eb86888`, diverifikasi
+ulang sebelum simulasi. Sejak `7ef156d` hanya ada satu commit cache otomatis
+`f4353d1`, yang mengubah `youtube_cache.json`, bukan kode atau cache BIMA.
+
+| Cache master | Jumlah | SHA256 |
+|---|---:|---|
+| BIMA | 89 | `4f7e2e0cc58235c5635622e9a5d84710ab62608017ec97cfa5c61068bd1c4d08` |
+| YouTube | 128 | `99e46f88d39947cdf72794aaec33eaa0f3b4cec37867092a52cfac78866dc388` |
+
+Tiga video sudah diproses, bukan kandidat baru: `twhITZaDKgA` (VOD),
+`Bb1gSvrljLE` (UPCOMING), dan `IUpiyaiB5e4` (UPCOMING), menurut cache master.
+[Log produksi](https://github.com/Galih-Hermawan-Unikom/bima-dikti-news/actions/runs/39392516567)
+mencatat tiga item dan satu ringkasan terkirim. [Pesan kanal 270](https://t.me/dikti_news/270)
+memuat ketiga ID pada 20 Oktober 2026 pukul 15.20.20 WIB. Status watch terkini
+tidak diinspeksi ulang pada fase penguatan BIMA ini. Cache branch yang lebih
+lama tidak boleh dipakai untuk menimpa 128 entri master saat cutover.
+
+Simulasi hanya di direktori sementara: tambah satu entri Aksara jika belum ada,
+lalu jalankan migrasi salinan dan verifikasi backup. Hasil yang diobservasi,
+bukan asumsi jumlah: 89 menjadi 90 baris, 88 menjadi 89 identitas unik,
+80 perbaikan nomor, 0 pada migrasi kedua dan 0 append kedua. Seluruh entri lama
+tetap berurutan, tanpa penghapusan/perubahan field selain surat yang diperbaiki;
+0 replay historis. Cache YouTube 128 baris tetap byte-identik. Tidak ada batch
+delivered buatan atau jurnal produksi dibuat. SHA256 BIMA hasil simulasi tetap
+`711fca981035df2552be57514ee2f136af5b9a551e2631b7547149ee5170e0c6`.
+
+Tiga run penguatan awal, dengan jeda 20 detik, masing-masing membaca 10 kartu /
+13 dokumen, menunggu 1031 / 594 / 718 ms setelah networkidle (awal 0 kartu),
+dan menghasilkan NO_NEW_ITEMS, pending 0, exit 0. Sesudah kondisi kesiapan semua
+nama dokumen diperketat, satu run mengalami timeout 15000 ms dan tetap FAILED.
+Helper audit pada run gagal berhenti karena assertion hasil sukses; ini bukan
+pengiriman, kehilangan state atau pengembalian NO_NEW_ITEMS oleh aplikasi.
+Penyebab sumber pada kejadian timeout itu tidak direkam lengkap dan tidak ditebak.
+Dua probe diagnostik kemudian READY dalam 953 / 875 ms dengan API HTTP 200 dan
+seluruh field/nama dokumen terisi.
+
+Dua dry-run lengkap berikutnya pada implementasi final, dengan jeda 20 detik,
+masing-masing membaca 10 kartu / 13 dokumen: 0 kartu sebelum penantian, 10
+sesudahnya, waktu tunggu 625 / 625 ms, NO_NEW_ITEMS, error kosong, pending 0,
+exit 0. Judul/nomor/tanggal/nama seluruh dokumen tetap memakai parser yang sama;
+tidak ada kandidat Aksara, identitas ambigu atau pengumuman historis terdeteksi
+ulang pada state gabungan. Angka 10 adalah hasil observasi, bukan syarat kode.
+
+Timeout nyata tetap dicatat sebagai risiko kestabilan sumber: penantian terbatas
+tidak menjamin sumber selalu tersedia. Tidak ditambahkan retry, fallback atau
+perubahan parser untuk memaksakan sukses. Seluruh preview tanpa Telegram dan
+tanpa perubahan state sementara, lalu direktori sementara dibersihkan. Hash
+cache lokal tetap sama; worktree utama tidak dipakai sebagai sumber cache.
+**GO untuk penguatan kode teruji; cutover tetap NO-GO** sampai preflight,
+baseline final, backup/rollback, persetujuan penerapan serta health sumber
+ditinjau operator.
+
+### Desain Preflight Telegram GitHub: Belum Diimplementasikan
+
+Tidak ada workflow preflight dibuat/diaktifkan/dijalankan pada perubahan ini.
+Workflow monitoring bukan sarana preflight karena menjalankan scraper dan
+pengiriman. Desain ini memerlukan persetujuan operator terpisah:
+
+1. Workflow terpisah khusus `workflow_dispatch`, tanpa trigger push, pull_request, pull_request_target, schedule, reusable workflow atau workflow_run. GitHub mensyaratkan file workflow manual tersedia pada default branch; file di draft PR saja bukan jalur eksekusi preflight yang sudah tersedia.
+2. Review workflow-only pada default branch tepercaya, guard event manual dan `refs/heads/master`, serta hanya dispatch ref tersebut. Jangan checkout atau menjalankan kode dari PR/input ref. Guard bukan perlindungan terhadap penulis repository berbahaya yang dapat mengubah workflow: akses dispatch/penulisan dan review tetap harus dikendalikan. Protected environment hanya dapat dipertimbangkan setelah review terpisah; jangan membuat environment atau memindahkan Secrets tanpa persetujuan.
+3. Gunakan GitHub-hosted runner bersih, timeout job pendek, `permissions: {}`, tanpa checkout, artifact, cache atau dependency pihak ketiga. Kode inline yang direview memakai Python standard library. Tidak perlu izin tulis repository atau `GITHUB_TOKEN` untuk Bot API.
+4. Inject hanya Secrets `TELEGRAM_BOT_TOKEN` dan `TELEGRAM_CHAT_ID` ke satu step pemeriksaan, serta Variables metode notifikasi dan pengiriman lampiran dengan fallback dan scope yang sama seperti workflow produksi. Workflow produksi saat ini tidak memakai environment: menambahkan environment pada preflight dapat mengubah precedence Secrets/Variables dan memvalidasi konfigurasi yang berbeda. Jangan menyalin Secrets ke file, input dispatch, output job atau mesin lokal. Jangan membaca `.env`.
+5. Allowlist tepat tiga metode GET: `getMe`, `getChat`, `getChatMember`. HTTP harus sukses dan `ok=true`. Identitas wajib bot `@bima_dikti_bot`, target channel publik `DIKTI News` / `@dikti_news`, serta bot owner atau administrator dengan `can_post_messages=true`. Bot ID dan chat ID hanya dipakai internal. Tujuan eksperimen/private chat harus ditolak.
+6. Tampilkan hanya nama/username bot, nama/username/tipe kanal, hasil izin posting dan kebijakan efektif lampiran. Kebijakan lampiran harus boolean valid dan disetujui operator; jangan mengasumsikan default false sama dengan konfigurasi produksi. Log produksi terakhir menunjukkan override true.
+7. Tangkap error tanpa mencetak exception mentah, request URL, token, ID numerik, JSON respons, environment dump atau debug HTTP/shell tracing. Batasi request ke HTTPS api.telegram.org, tolak redirect, gunakan timeout HTTP dan job eksplisit. Hentikan pemeriksaan dengan exit nonzero saat validasi gagal. Tidak ada sendMessage/sendDocument/getUpdates, scraper, scheduler, persistensi cache atau jurnal.
+
+Prasyarat: persetujuan workflow-only terpisah, review kode yang memegang Secrets,
+akses operator untuk dispatch, dan konfirmasi expected identities serta kebijakan
+lampiran. Risiko tersisa: workflow manual yang menjalankan kode tidak tepercaya
+dapat membocorkan Secrets meski namanya preflight; pembatasan ref/akses dan review
+adalah syarat, bukan sekadar label READ-ONLY. Preflight hanya membuktikan identitas,
+akses dan izin pada waktu pemeriksaan, bukan keberhasilan pengiriman nyata.
+Catat waktu/ref/SHA dan kebijakan efektif yang aman; perubahan Secrets/Variables
+sesudah preflight membatalkan bukti konfigurasi dan memerlukan pemeriksaan ulang.
+
+Referensi resmi:
+[manual workflow](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow),
+[penggunaan Actions yang aman](https://docs.github.com/en/actions/reference/security/secure-use),
+[Telegram Bot API](https://core.telegram.org/bots/api).
+
 ## File Diubah
 
 | File | Alasan |

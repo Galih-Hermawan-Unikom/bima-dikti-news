@@ -191,6 +191,7 @@ def test_all_89_historical_records_roundtrip_dom_without_replay(page, fixtures, 
             iso = _publication_date(item).strftime('%Y-%m-%d')
             html.append(f'<article class="ap-card"><h3 class="ap-card__title">{title}</h3><p class="ap-card__number">{number}</p><time class="ap-date" datetime="{iso}" title="{date}"></time>' + ''.join(f'<button class="ap-file"><span class="ap-file__name">{d}</span></button>' for d in docs) + '</article>')
     page.set_content(''.join(html))
+    BimaScraper()._wait_for_cards(page, timeout_ms=1000)
     parsed = BimaScraper()._collect_cards(page)
     assert len(parsed) == len(history) == 89
     assert new_announcements(parsed, history) == []
@@ -232,3 +233,97 @@ def test_operational_cache_growth_does_not_change_frozen_baselines(fixtures, tmp
     assert monitor.check_new_videos() == []
     assert len(monitor.proposed_cache) == len(cache)
     assert len(history) == 89 and len(videos) == 125
+
+
+@pytest.mark.parametrize("fixture,expected", [("bima_ap_card.html", 3), ("bima.html", 1)])
+def test_readiness_immediate_modern_and_legacy(page, fixtures, fixture, expected):
+    page.set_content((fixtures / fixture).read_text(encoding="utf-8"))
+    scraper = BimaScraper()
+    scraper._wait_for_cards(page, timeout_ms=1000)
+    assert len(scraper._collect_cards(page)) == expected
+
+
+@pytest.mark.parametrize("fixture,selector,expected", [("bima_ap_card.html", "article.ap-card", 3), ("bima.html", ".card-body", 1)])
+def test_readiness_cards_arrive_after_networkidle_and_old_fixed_delay(page, fixtures, fixture, selector, expected):
+    html = (fixtures / fixture).read_text(encoding="utf-8")
+    # At extraction time the old networkidle + 3s delay would still see no cards.
+    body = "<html><body></body></html>"
+    page.route("https://example.invalid/readiness", lambda route: route.fulfill(status=200, content_type="text/html", body=body))
+    page.goto("https://example.invalid/readiness", wait_until="networkidle")
+    assert page.locator(selector).count() == 0
+    page.evaluate("html => setTimeout(() => {document.body.innerHTML=html},3300)", html)
+    BimaScraper()._wait_for_cards(page, timeout_ms=7000)
+    assert len(BimaScraper()._collect_cards(page)) == expected
+
+
+def test_readiness_waits_for_card_metadata_not_just_container(page, fixtures):
+    page.set_content('<article class="ap-card"><h3 class="ap-card__title">Loading announcement</h3></article>')
+    html = (fixtures / "bima_ap_card.html").read_text(encoding="utf-8")
+    page.evaluate("html => setTimeout(() => {document.body.innerHTML=html},150)", html)
+    BimaScraper()._wait_for_cards(page, timeout_ms=1500)
+    assert len(BimaScraper()._collect_cards(page)) == 3
+
+
+def test_readiness_waits_for_all_supported_cards(page, fixtures):
+    cards(page, fixtures)
+    page.locator(".ap-card__title").last.evaluate("el => {const title=el.textContent;el.textContent='';setTimeout(()=>el.textContent=title,150)}")
+    BimaScraper()._wait_for_cards(page, timeout_ms=1500)
+    assert len(BimaScraper()._collect_cards(page)) == 3
+
+
+@pytest.mark.parametrize("field", ["title", "number", "date", "last_document"])
+def test_readiness_waits_for_metadata_hydration(page, fixtures, field):
+    cards(page, fixtures)
+    selector = {"title": ".ap-card__title", "number": ".ap-card__number", "date": "time.ap-date", "last_document": ".ap-file__name"}[field]
+    if field == "date":
+        page.locator(selector).last.evaluate("el => {const value=el.getAttribute('datetime');el.removeAttribute('datetime');setTimeout(()=>el.setAttribute('datetime',value),150)}")
+    else:
+        page.locator(selector).last.evaluate("el => {const value=el.textContent;el.textContent='';setTimeout(()=>el.textContent=value,150)}")
+    BimaScraper()._wait_for_cards(page, timeout_ms=1500)
+    assert len(BimaScraper()._collect_cards(page)) == 3
+
+
+@pytest.mark.parametrize("html", ["", "<article><h3>Unknown layout</h3></article>", '<article class="ap-card"></article>', '<article class="ap-card"><h3 class="ap-card__title">Only a title</h3></article>', '<div class="card-body p-4"><h5>Only a legacy title</h5></div>'])
+def test_readiness_timeout_safe_and_never_success(page, html):
+    page.set_content(html + '<p>token=DO_NOT_LOG_PAGE_CONTENT</p>')
+    with pytest.raises(SourceError) as error:
+        BimaScraper()._wait_for_cards(page, timeout_ms=120)
+    assert str(error.value) == "BIMA card readiness timeout after 120 ms (ap-card/legacy)"
+    assert "DO_NOT_LOG" not in str(error.value)
+
+
+@pytest.mark.parametrize("change", ["duplicate_title", "invalid_date", "mixed_layout"])
+def test_readiness_does_not_replace_metadata_validation(page, fixtures, change):
+    cards(page, fixtures)
+    if change == "duplicate_title":
+        page.locator("article.ap-card").first.evaluate("c => c.append(c.querySelector('.ap-card__title').cloneNode(true))")
+    elif change == "invalid_date":
+        page.locator("time").first.evaluate("t => t.setAttribute('datetime','2026-02-30')")
+    else:
+        page.locator("body").evaluate("b => b.insertAdjacentHTML('beforeend','<div class=\"card-body p-4\"></div>')")
+    scraper = BimaScraper()
+    scraper._wait_for_cards(page, timeout_ms=1000)
+    with pytest.raises(SourceError, match="BIMA"):
+        scraper._collect_cards(page)
+
+
+def test_readiness_fetch_timeout_reports_source_failed_and_closes_browser(page, config, tmp_path, telegram, notifier, monkeypatch):
+    page.set_content("<body>Unrecognized page</body>")
+    browser = Mock()
+    browser.new_context.return_value.new_page.return_value = page
+    manager = Mock()
+    manager.__enter__ = Mock(return_value=SimpleNamespace(chromium=SimpleNamespace(launch=Mock(return_value=browser))))
+    manager.__exit__ = Mock(return_value=False)
+    monkeypatch.setattr("scraper.sync_playwright", lambda: manager)
+    monkeypatch.setattr(page, "goto", Mock(return_value=SimpleNamespace(status=200)))
+    scraper = BimaScraper()
+    wait = scraper._wait_for_cards
+    monkeypatch.setattr(scraper, "_wait_for_cards", lambda p: wait(p, timeout_ms=120))
+    result = run_once(dict(config, youtube_monitor_enabled=False), dry_run=True, state_dir=tmp_path, scraper=scraper, notifier=notifier)
+    source = next(s for s in result.sources if s.source == "bima")
+    assert result.exit_code == 1 and source.status == "FAILED"
+    assert source.error == "BIMA card readiness timeout after 120 ms (ap-card/legacy)"
+    assert not (tmp_path / "announcements_cache.json").exists()
+    assert not (tmp_path / "delivery_state.json").exists()
+    browser.close.assert_called_once()
+    telegram.assert_not_called()
