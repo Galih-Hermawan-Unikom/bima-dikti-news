@@ -193,8 +193,21 @@ class YouTubeMonitor:
 
     def check_new_videos(self):
         self.inspection_failed = False
-        current = self.fetch_videos()
+        self.rss_error = ""
+        self.proposed_cache = None
         cached = self.load_cache()
+        try:
+            current = self.fetch_videos()
+        except (requests.RequestException, SourceError) as exc:
+            # RSS discovers videos; its outage must not block known video IDs.
+            detail = str(exc) if isinstance(exc, SourceError) else type(exc).__name__
+            response = getattr(exc, "response", None)
+            if response is not None:
+                detail += f" HTTP {response.status_code}"
+            self.rss_error = "YouTube RSS failed: " + detail
+            if not cached:
+                raise SourceError(self.rss_error) from None
+            current = []
         old = {youtube_identity(i): dict(i) for i in cached}
         self.current_items = current
         new_items = []

@@ -70,9 +70,11 @@ def run_once(config, *, dry_run=False, state_dir=".", scraper=None, youtube=None
     for name, monitor, check in sources:
         try:
             items = check()
-            status = "DEGRADED" if getattr(monitor, "inspection_failed", False) else ("NEW_ITEMS" if items else "NO_NEW_ITEMS")
+            rss_error = getattr(monitor, "rss_error", "") if name == "youtube" else ""
+            inspection_error = "Video inspection unresolved" if getattr(monitor, "inspection_failed", False) else ""
+            status = "FAILED" if rss_error else ("DEGRADED" if inspection_error else ("NEW_ITEMS" if items else "NO_NEW_ITEMS"))
             result.sources.append(SourceResult(name, status, items,
-                                 "Video inspection unresolved" if status == "DEGRADED" else ""))
+                                 "; ".join(error for error in (rss_error, inspection_error) if error)))
             candidates.extend(items)
             successful.append(monitor)
             fresh.update({item_key(i): i for i in monitor.current_items})

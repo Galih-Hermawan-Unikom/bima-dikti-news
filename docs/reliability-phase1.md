@@ -128,6 +128,64 @@ Seluruh API Telegram pada test adalah mock dengan kredensial dummy. Pengaman aks
 
 Keterbatasan tetap ada: tanpa ID pengumuman stabil dari sumber, perubahan serentak seluruh jangkar tidak bisa dibuktikan sebagai pengumuman lama. Aturan konservatif sengaja menunda kasus terkait yang ambigu; operator harus menyelesaikan metadata resmi, bukan mengaktifkan fuzzy matching. Nomor Kosabangsa tetap memerlukan verifikasi. Jaminan pengiriman tetap bukan exactly-once; risiko crash/timeout/checkpoint/commit pada bagian sebelumnya tidak berubah.
 
+## Pemisahan RSS dan Inspeksi Cache YouTube (20 Oktober 2026)
+
+Tindak lanjut dari `092930b`, tetap pada branch `fix/reliability-phase1` dan PR draft #1. **Cutover tetap NO-GO.** Tidak ada mekanisme pengecualian backlog, perubahan identitas BIMA, atau perubahan `notifier.py`.
+
+### Diagnosis RSS
+
+Konfigurasi kanal `UCGo_6l_6kp8H8OHcKcSIeDw` memiliki format valid dan cocok dengan `externalId` halaman [kanal resmi](https://www.youtube.com/@kemdiktisaintek), halaman `/channel/<id>`, serta `videoDetails.channelId` video webinar ASN. Kedua halaman kanal memublikasikan link RSS yang persis sama dengan URL yang dibentuk kode: `https://www.youtube.com/feeds/videos.xml?channel_id=UCGo_6l_6kp8H8OHcKcSIeDw`. Tidak ada alasan berbukti untuk mengganti channel ID atau URL.
+
+Audit sebelumnya pada 20 Oktober sekitar 08.55 WIB menemukan HTTP 404. Tiga probe pada 09.35 WIB kini semuanya HTTP 200, `text/xml`, dengan root Atom yang valid. Pengambilan ulang 09.38 WIB juga berhasil dan parser membaca 11 entri. Ini membuktikan kegagalan tidak konsisten sepanjang waktu; penyebab internal YouTube atau jalur jaringan tidak dapat dipastikan dari respons publik saja. Tidak ditemukan kesalahan konfigurasi kanal atau parser yang menyebabkan HTTP 404. Tidak ditambahkan sumber alternatif, retry tersembunyi, perubahan URL, atau library baru.
+
+Akar masalah yang dapat diperbaiki: `check_new_videos()` sebelumnya memanggil `fetch_videos()` sebelum memuat/memeriksa cache. Exception HTTP/timeout/XML menghentikan seluruh pemeriksaan, sehingga ID yang sudah diketahui ikut tidak diperiksa.
+
+### Perubahan Minimal
+
+- Muat dan validasi cache dahulu; cache rusak tetap gagal, bukan dianggap kosong.
+- Tangkap kegagalan RSS yang dikenal (`RequestException`/`SourceError`), simpan ringkasan `rss_error` tanpa pesan exception jaringan mentah, lalu jalankan kembali loop inspeksi ID cache yang sudah ada. HTTP status dipertahankan bila tersedia.
+- Tanpa cache yang bisa dipakai, RSS gagal tetap melempar error; tidak membuat cache kosong untuk menganggap pemantauan berhasil.
+- Runner memprioritaskan health `FAILED` bila `rss_error` terisi, bahkan ketika inspeksi cache sukses dan menghasilkan kandidat. Kegagalan inspeksi video ikut dilaporkan. Exit code tetap 1, bukan `NO_NEW_ITEMS` atau sukses.
+- Proposal cache hasil inspeksi yang valid tetap menggunakan urutan persistensi jurnal-sebelum-cache dan pengiriman terkonfirmasi yang sudah ada. Health gagal tidak membuang pembaruan status yang benar-benar terdeteksi, atau memalsukan keberhasilan pengiriman.
+- Saat RSS pulih, `rss_error` direset. UNKNOWN tetap menyimpan status terkonfirmasi sebelumnya; jadwal yang lewat tidak dianggap bukti VOD. Seluruh aturan transisi dan kode pengiriman Telegram tidak diubah.
+
+Lingkup perubahan kode produksi hanya 15 baris diff pada `youtube_monitor.py` dan 6 baris pada pelaporan health `monitor_runner.py`. Identitas BIMA, notifier, workflow/cron, konfigurasi kanal, Secrets/Variables, migrasi, dan cache produksi tidak diubah.
+
+### Simulasi Snapshot Produksi 125 Video
+
+Snapshot master `7ef156d1d7de3d36d9f9ff0177673222876d0753`, blob cache `ff52bfe095084a158f0d048242dd2dab29349acd`, SHA256 `2e615790228d8210961e9089a5b52d6b8767d32e9ea31fa9a2949aca193468f6`. Sumber dibaca pada sekitar 09.38 WIB. Snapshot berisi 119 VOD dan 6 UPCOMING; bukan cache lokal utama yang hanya berisi 9 video dan memiliki perubahan milik pengguna.
+
+| ID cache UPCOMING | Hasil inspeksi watch | Usulan status dan status terkonfirmasi terakhir | Kandidat perubahan status |
+|---|---|---|---|
+| `u7oQyLh3WoE` | HTTP 200, LIVE_STREAM_OFFLINE, isUpcoming=true; jadwal 21 Oktober 09.00 WIB | UPCOMING / UPCOMING | Tidak |
+| `EmT9kEWQA-U` | HTTP 200, player ERROR, video tidak tersedia | UNKNOWN / UPCOMING | Tidak |
+| `s4FGn5EMd4U` | HTTP 200, player ERROR, video tidak tersedia | UNKNOWN / UPCOMING | Tidak |
+| `a93gPqHSkIY` | HTTP 200, player ERROR, video tidak tersedia | UNKNOWN / UPCOMING | Tidak |
+| `OSa7fFmQ90k` | HTTP 200, player ERROR, video tidak tersedia | UNKNOWN / UPCOMING | Tidak |
+| `ojkn0KmQASY` | HTTP 200, player ERROR, video tidak tersedia | UNKNOWN / UPCOMING | Tidak |
+
+Tidak ada LIVE atau VOD baru yang terverifikasi di antara enam ID tersebut. Penyebab lima video tidak tersedia tidak dipaksakan menjadi privat/dihapus, dan UNKNOWN tidak diubah menjadi VOD.
+
+Replay `run_once(..., dry_run=True)` memakai salinan sementara snapshot, respons RSS/inspeksi yang dicatat di memori, monitor BIMA dummy, dan notifier mock yang melarang pengiriman. RSS 404/timeout diinjeksikan secara terkontrol, bukan diklaim sebagai hasil jaringan saat RSS sedang pulih.
+
+| Kondisi RSS | Inspeksi | Hasil sumber / exit | Kandidat | Baris proposal di memori |
+|---|---|---|---|---:|
+| Respons aktual HTTP 200, 11 entri | 6 ID cache + 1 ID baru | DEGRADED / 1, karena 5 UNKNOWN | 0 perubahan status lama; 1 video baru `twhITZaDKgA`, UPCOMING, jadwal 20 Oktober 11.00 WIB | 126 |
+| HTTP 404 terkontrol | Keenam ID cache tetap diperiksa | FAILED / 1, menyertakan HTTP 404 dan inspeksi unresolved | 0 | 125 |
+| Timeout terkontrol | Keenam ID cache tetap diperiksa | FAILED / 1, menyertakan Timeout dan inspeksi unresolved | 0 | 125 |
+
+Cache sementara tetap byte-identik setelah masing-masing preview; tidak ada jurnal dibuat dan tidak ada metode pengiriman dipanggil. Proposal di memori bukan migrasi atau pembaruan cache produksi. Video baru tetap dapat ditemukan ketika RSS pulih; saat RSS gagal, penemuan video baru memang belum tersedia dan harus tetap terlihat sebagai kegagalan.
+
+### Pengujian dan Risiko Tersisa
+
+Seluruh regression suite: **141 passed, 0 failed** (110 sebelumnya + 31 baru). Cakupan baru meliputi RSS 404/503, timeout, XML invalid, feed berhasil tanpa item baru, inspeksi cache pada RSS gagal, kegagalan watch/JSON/player, UPCOMING -> LIVE, UPCOMING -> UNKNOWN -> LIVE, UPCOMING -> VOD, status tidak berubah, pemulihan RSS, cache kosong/rusak, retry pengiriman mock saat RSS tetap gagal, serta seluruh salinan cache 125 video. Test memastikan sumber tetap FAILED walau status cache berhasil diproses dan mock Telegram menerima pembaruan. JUnit lokal diperbarui di `.pytest_cache/reliability-results.xml`.
+
+Run awal menghasilkan 116 passed dan 25 failed karena fixture monitor bersama masih mengganti `fetch_videos()` dengan stub kosong, sehingga test baru melewati jalur RSS yang hendak diuji. Helper test baru dibetulkan untuk memasang kembali metode RSS asli dan hanya memock respons HTTP. Seluruh suite kemudian dijalankan ulang sampai 141 lulus; tidak ada pengujian Telegram nyata untuk menyelesaikan kegagalan tersebut.
+
+Pengaman jaringan/secrets dan pemeriksaan hash empat cache kedua worktree tetap aktif dan lulus. Semua pengiriman dalam test adalah mock dengan kredensial dummy. Tidak ada pembacaan `.env`, migrasi, penulis cache produksi, commit pada master, merge, atau deployment. Hasil CI untuk tindak lanjut ini ditinjau pada checks PR setelah push.
+
+Lima UNKNOWN dapat bertahan dan membuat health DEGRADED ketika RSS sehat atau FAILED ketika RSS bermasalah. Jika kelak terverifikasi LIVE/VOD, transisi tetap menghasilkan kandidat; tidak ada penandaan historis sebagai sudah terkirim. RSS gagal tetap menghalangi penemuan ID baru, tetapi tidak lagi menghalangi inspeksi ID tersimpan. Penyebab intermiten 404 dan rekonsiliasi historis tetap menjadi risiko/tinjauan operator, bukan alasan membungkam error atau notifikasi.
+
 ## File Diubah
 
 | File | Alasan |
