@@ -1,7 +1,7 @@
 import json
 import re
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import requests
 
@@ -25,6 +25,16 @@ def youtube_identity(item):
         return f"url:{link}"
 
     return ""
+
+
+def historical_unavailable(previous, unavailable, now):
+    if not previous or not unavailable:
+        return False
+    try:
+        start = datetime.fromisoformat(previous.get("scheduled_start", "").replace("Z", "+00:00"))
+        return start.tzinfo is not None and now - start >= timedelta(days=7)
+    except (ValueError, TypeError, AttributeError):
+        return False
 
 
 class YouTubeMonitor:
@@ -92,6 +102,13 @@ class YouTubeMonitor:
                 return {"status": "UNKNOWN"}
             data, _ = json.JSONDecoder().raw_decode(response.text[match.end():].lstrip())
             details = data.get("videoDetails", {})
+            playability = data.get("playabilityStatus", {})
+            # Only explicit unavailable-player evidence can lower severity.
+            if (not details and playability.get("status") == "ERROR"
+                    and normalize_text(playability.get("reason", "")).casefold() in {
+                        "video unavailable", "this video is unavailable",
+                        "video tidak tersedia", "video ini tidak tersedia"}):
+                return {"status": "UNKNOWN", "unavailable": True}
             if not details or data.get("playabilityStatus", {}).get("status", "OK") not in {"OK", "LIVE_STREAM_OFFLINE"}:
                 return {"status": "UNKNOWN"}
             live = data.get("microformat", {}).get("playerMicroformatRenderer", {}).get("liveBroadcastDetails", {})
@@ -193,6 +210,7 @@ class YouTubeMonitor:
 
     def check_new_videos(self):
         self.inspection_failed = False
+        self.historical_warning_count = 0
         self.rss_error = ""
         self.proposed_cache = None
         cached = self.load_cache()
@@ -212,6 +230,7 @@ class YouTubeMonitor:
         self.current_items = current
         new_items = []
         updated = {}
+        now = datetime.now(timezone.utc)
         # Recheck unresolved streams even after they leave the short RSS window.
         current_keys = {youtube_identity(v) for v in current}
         missing = [dict(i) for i in cached if i.get("status", "") in {"UNKNOWN", "UPCOMING", "LIVE", ""}
@@ -221,11 +240,17 @@ class YouTubeMonitor:
             previous = old.get(key)
             previous_status = previous.get("status", "") if previous else ""
             if previous is None or previous_status in {"", "UNKNOWN", "UPCOMING", "LIVE"}:
-                analysis = self._analyze_video_type(item["video_id"])
+                analysis = dict(self._analyze_video_type(item["video_id"]))
+                unavailable = analysis.pop("unavailable", False) is True
                 status = analysis.get("status", "UNKNOWN")
                 if status == "UNKNOWN":
-                    self.inspection_failed = True
+                    if historical_unavailable(previous, unavailable, now):
+                        self.historical_warning_count += 1
+                    else:
+                        self.inspection_failed = True
                     item["last_known_status"] = (previous or {}).get("last_known_status", previous_status)
+                    if previous and previous.get("scheduled_start") and not analysis.get("scheduled_start"):
+                        analysis["scheduled_start"] = previous["scheduled_start"]
                 else:
                     item["last_known_status"] = status
                 item.update(analysis)

@@ -449,6 +449,36 @@ Referensi resmi:
 - Jurnal dan cache harus dipertahankan bersama. Jangan menghapus jurnal untuk mengatasi error.
 - Konkurensi workflow diserialisasi; menjalankan bot lokal bersamaan dengan workflow pada state yang sama belum didukung. Gunakan satu penulis.
 - Lampiran pengumuman yang keluar dari halaman BIMA sebelum retry bisa tetap pending karena signed URL perlu diambil kembali. Operator perlu meninjau pemulihan dokumen.
-- Inspeksi status masih bergantung pada halaman player YouTube. UNKNOWN dapat bertahan saat akses dibatasi dan akan membuat health DEGRADED.
+- Inspeksi status masih bergantung pada halaman player YouTube. UNKNOWN dapat bertahan; pengecualian severity historis yang sempit dijelaskan di bawah.
 - Riwayat jurnal bertambah seiring waktu; fase ini tidak melakukan pruning.
 - Tidak ada uji end-to-end produksi dan tidak ada perubahan credentials. Perlu review/merge/deployment approval terpisah, persetujuan migrasi produksi, serta keputusan operator tentang pemulihan artifact saat persist remote gagal.
+
+## Severity Inspeksi Historis YouTube
+
+WARNING hanya berlaku jika video sudah ada dalam cache, `scheduled_start` cache
+valid dan berzona waktu, jadwal sudah lewat minimal tujuh hari terhadap UTC, dan
+player secara eksplisit menyatakan video tidak tersedia: HTTP sukses, tanpa
+`videoDetails`, `playabilityStatus.status=ERROR`, dan alasan unavailable yang
+dikenali dalam bahasa Indonesia/Inggris. Alasan tidak dikenal tetap fail-closed.
+Tidak ada daftar pengecualian ID. Jadwal lewat sendiri bukan bukti VOD.
+
+Video tetap UNKNOWN dengan `last_known_status` dan jadwal cache dipertahankan,
+termasuk ketika RSS tidak lagi memuat jadwalnya. Video tetap diperiksa ulang pada
+run berikutnya; pemulihan UPCOMING -> LIVE/VOD tetap menjadi kandidat satu kali.
+Penanda unavailable hanya dipakai saat inspeksi, tidak disimpan sebagai field cache.
+
+Log sumber menampilkan `Historical unavailable inspections: N`. WARNING dapat
+berdampingan dengan kandidat baru valid dan tidak menghasilkan exit gagal sendiri.
+Video baru UNKNOWN, jadwal mendatang/kurang dari tujuh hari/tidak valid, timeout,
+HTTP error, player hilang/rusak, atau alasan lain tetap DEGRADED. RSS/BIMA gagal
+tetap FAILED. Error Telegram, checkpoint, persistensi, commit/push tetap kritis;
+tidak ada perubahan pada notifier, jurnal, workflow, atau cron.
+
+Pengujian hanya memakai fixture, cache sementara, dan mock API; tidak mengirim
+Telegram atau mengubah cache operasional. Perubahan ini memerlukan PR dan
+persetujuan merge/aktivasi terpisah. Workflow produksi tetap dinonaktifkan.
+
+Validasi lokal perubahan severity: 255 passed (221 regresi sebelumnya + 34 kasus
+baru), termasuk batas tujuh hari, timezone, alasan unavailable eksplisit,
+recovery LIVE/VOD tanpa replay, RSS/BIMA gagal, serta error pengiriman/checkpoint/
+persistensi. Pemeriksaan integritas cache operasional tetap lulus.
