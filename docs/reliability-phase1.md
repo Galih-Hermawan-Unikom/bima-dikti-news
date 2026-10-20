@@ -76,6 +76,58 @@ Hasil seluruh regression suite pada lingkungan `.venv` yang sama: **69 passed, 0
 
 Seluruh Telegram tetap mock dengan kredensial dummy, fixture pengaman jaringan/secrets dan pemeriksaan hash cache tetap aktif. Tidak ada bot produksi dijalankan, migrasi produksi, merge, atau deployment. Diff tindak lanjut diperiksa terpisah dari perubahan fase 1 agar kedua temuan review menjadi satu-satunya perubahan kode.
 
+## Identitas BIMA Konservatif (20 Oktober 2026)
+
+Tindak lanjut ini berangkat dari commit `4c3b210` di branch `fix/reliability-phase1`, PR draft #1. **Status cutover tetap NO-GO.** Perubahan ini bukan persetujuan migrasi, merge, atau pengaktifan produksi.
+
+### Temuan dan Batas Bukti
+
+Audit baseline menemukan 89 baris, 87 nomor surat kanonis, dan 88 kelompok judul/dokumen. Nomor surat saja bukan identitas unik. Dua baris workshop artikel ilmiah tanggal 11 Juni memiliki judul, tanggal, dan nama dokumen sama; satu nomor bersih dan satu berakhiran hari. Keduanya tetap disimpan, bukan dihapus atau digabungkan.
+
+Dua pengumuman September berbeda: monitoring PBK/PBW tanggal 6 September dan undangan kontrak Kosabangsa tanggal 2 September. Keduanya tersimpan dengan nomor kanonis `1147/DST/C3/DT.06.01/2026`. Audit sumber sebelumnya menemukan nomor monitoring `1173/DST/C3/DT.06.01/2026` pada [salinan surat kementerian](https://dppm.warmadewa.ac.id/public/uploads/pengumuman/pengumuman_260809080956_pemberitahuan-pelaksanaan-monitoring-dan-evaluasi-skema-pemberdayaan-berbasis-kewirausahaan-pbk-dan-skema-pemberdayaan-berbasis-wilayah-pbw-program-pengabdian-kepada-masyakat-tahun-2026.pdf), dengan [konfirmasi ITS](https://www.its.ac.id/drpm/pemberitahuan-pelaksanaan-monitoring-dan-evaluasi-eksternal-program-pengabdian-kepada-masyarakat-skema-pbk-dan-pbw-tahun-2026/). Nomor resmi undangan Kosabangsa belum terverifikasi. Algoritma tidak menebak nomor tersebut dan tidak memuat pemetaan khusus `1147 -> 1173`.
+
+### Desain dan Aturan Pencocokan
+
+Kunci sekarang menggabungkan nomor surat kanonis dan judul. Normalisasi judul/nama dokumen terbatas pada kapitalisasi, whitespace, Unicode NFKC, dan padanan tanda kutip/dash tipografis; bukan kemiripan kata, stemming, atau fuzzy matching. Tanggal divalidasi sebagai tanggal kalender dengan bulan Indonesia/Inggris. URL lampiran, urutan dokumen, dan waktu scraping bukan identitas.
+
+| Bukti antara sumber dan satu baris historis | Keputusan |
+|---|---|
+| Nomor kanonis dan judul sama | Riwayat yang sama; konflik tanggal sekaligus dokumen dihentikan. |
+| Nomor berubah, judul dan tanggal valid sama | Riwayat yang sama jika kedua daftar dokumen yang tersedia tidak bertentangan. |
+| Judul berubah, nomor, tanggal valid, dan seluruh nama dokumen sama | Riwayat yang sama, berdasarkan tiga jangkar yang tetap; tidak memakai kemiripan judul. |
+| Nomor sama, judul berbeda, tanggal valid berbeda, dan daftar dokumen tidak beririsan | Pengumuman berbeda, termasuk pasangan September. |
+| Judul berulang pada tahun berbeda dengan nomor berbeda | Pengumuman baru; tidak membuat alias lintas tahun. |
+| Tidak ada nomor | Judul saja tidak cukup untuk menyamakan riwayat yang tanggal/dokumennya bertentangan. |
+| Bukti terkait bertentangan, kurang, atau cocok ke beberapa kunci historis | `BimaIdentityError`, health BIMA `FAILED`, exit code gagal, tanpa menebak. |
+
+Pencocokan dilakukan terhadap metadata baris historis tertentu, bukan alias nomor global. Nama satu lampiran generik yang beririsan tidak membentuk alias. Koreksi nomor tidak disimpan ke baris lama; pencocokan dilakukan lagi dari riwayat asli pada run berikutnya. Duplikat historis dengan kunci komposit identik tidak dianggap dua target berbeda, tetapi seluruh baris cache tetap dipertahankan. Duplikat pada hasil sumber tidak membuat dua kandidat baru.
+
+Jika ambigu, tidak ada proposal cache BIMA yang disimpan dan tidak ada batch BIMA baru atau retry BIMA dikirim pada run tersebut. Batch campuran yang sudah tersimpan juga ditunda utuh, tanpa membangun ulang atau memotong chunk. Sumber lain tetap dapat diproses secara independen. Operator perlu membandingkan judul, tanggal, dan dokumen resmi sebelum menentukan tindak lanjut; menghapus cache/jurnal bukan pemulihan yang aman.
+
+Jurnal sebelum perubahan masih dikenali melalui `items` yang disimpannya, termasuk saat cache sebelumnya gagal ditulis dan nomor sumber kemudian dikoreksi. Kunci, item, chunk, dan checkpoint batch lama tidak ditulis ulang menjadi versi baru. Pemetaan item sumber terbaru untuk retry menggunakan pencocokan BIMA yang sama; kode pencocokan nama/pengiriman lampiran dan `notifier.py` tidak diubah.
+
+Contoh: sebelum perbaikan, monitoring dan Kosabangsa sama-sama berkunci `surat:1147/.../2026`. Sekarang judul membedakan keduanya. Jika sumber kemudian mengganti nomor monitoring menjadi `1173/.../2026`, kombinasi judul, tanggal, dan nama dokumennya tetap mengenali baris monitoring lama, bukan Kosabangsa dan bukan berita baru.
+
+### Kompatibilitas Migrasi dan Hasil Regresi
+
+`migrate_cache.py` tidak perlu diubah: ia hanya memperbaiki kerusakan tahun+hari yang terverifikasi tanggal, dengan backup, verifikasi identitas per baris, dan idempotensi. Penerapan pada salinan sementara tetap memperbaiki 80 nomor, mempertahankan 89 baris dan 88 kunci komposit, serta menghasilkan nol perubahan pada penerapan kedua. Migrasi tidak mengoreksi nomor monitoring menjadi `1173`, tidak menebak Kosabangsa, dan tidak melakukan deduplikasi. Identitas baru mengenali cache lama tanpa mensyaratkan migrasi fisik terlebih dahulu.
+
+Simulasi seluruh baseline:
+
+| Skenario | Baris cache | Kelompok komposit | Kandidat historis yang dikirim ulang |
+|---|---:|---:|---:|
+| Cache asli, sumber asli | 89 | 88 | 0 |
+| Cache asli, sumber dengan nomor kanonis | 89 | 88 | 0 |
+| Cache asli, nomor monitoring pada sumber menjadi `1173` | 89 | 88 | 0 |
+| Cache hasil migrasi sementara, sumber kanonis atau monitoring terkoreksi | 89 | 88 | 0 |
+| Baseline ditambah satu pengumuman sintetis yang berbeda | 90 setelah persist sementara | 89 | Hanya 1 item baru, bukan riwayat |
+
+Seluruh regression suite lokal: **110 passed, 0 failed** (69 sebelumnya + 41 regresi identitas). Pengujian mencakup dua pengumuman September, duplikat Juni, akhiran hari, koreksi nomor tanpa alias global, perubahan minor metadata, konflik metadata, fallback tanpa nomor, dokumen invalid, judul historis hilang, kecocokan historis majemuk, baseline 89 sebelum/sesudah migrasi sementara, item baru, jurnal lama pending/delivered, retry setelah cache gagal ditulis, isolasi sumber, dan penundaan batch campuran yang ambigu. Hasil JUnit lokal: `.pytest_cache/reliability-results.xml`. Hasil CI untuk commit tindak lanjut diperiksa melalui checks PR #1 setelah push, bukan diasumsikan dari CI commit dasar.
+
+Seluruh API Telegram pada test adalah mock dengan kredensial dummy. Pengaman akses jaringan/secrets dan hash empat cache tetap aktif dan lulus; SHA256 sama dengan baseline yang dicatat di atas. Tidak ada pembacaan `.env`, Telegram nyata, migrasi/cache/jurnal produksi, workflow/cron, Secrets, kode YouTube, kode pengiriman Telegram, atau deployment yang diubah. Lingkup tindak lanjut hanya `scraper.py`, integrasi identitas BIMA di `monitor_runner.py`, `tests/test_bima_identity.py`, dan laporan ini.
+
+Keterbatasan tetap ada: tanpa ID pengumuman stabil dari sumber, perubahan serentak seluruh jangkar tidak bisa dibuktikan sebagai pengumuman lama. Aturan konservatif sengaja menunda kasus terkait yang ambigu; operator harus menyelesaikan metadata resmi, bukan mengaktifkan fuzzy matching. Nomor Kosabangsa tetap memerlukan verifikasi. Jaminan pengiriman tetap bukan exactly-once; risiko crash/timeout/checkpoint/commit pada bagian sebelumnya tidak berubah.
+
 ## File Diubah
 
 | File | Alasan |

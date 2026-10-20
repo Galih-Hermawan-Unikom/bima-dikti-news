@@ -5,7 +5,8 @@ from pathlib import Path
 
 from notifier import Notifier
 from reliability import RunResult, SourceError, SourceResult, atomic_json, read_json
-from scraper import BimaScraper, announcement_identity
+from scraper import (BimaIdentityError, BimaScraper, announcement_identity,
+                     match_announcement, new_announcements)
 from youtube_monitor import YouTubeMonitor, youtube_identity
 
 
@@ -65,6 +66,7 @@ def run_once(config, *, dry_run=False, state_dir=".", scraper=None, youtube=None
     else:
         result.sources.append(SourceResult("youtube", "DISABLED"))
     candidates, successful, fresh = [], [], {}
+    bima_identity_failed = False
     for name, monitor, check in sources:
         try:
             items = check()
@@ -75,6 +77,7 @@ def run_once(config, *, dry_run=False, state_dir=".", scraper=None, youtube=None
             successful.append(monitor)
             fresh.update({item_key(i): i for i in monitor.current_items})
         except Exception as exc:
+            bima_identity_failed |= name == "bima" and isinstance(exc, BimaIdentityError)
             # Exception strings may contain signed URLs or request credentials.
             detail = str(exc) if isinstance(exc, SourceError) else type(exc).__name__
             response = getattr(exc, "response", None)
@@ -88,6 +91,25 @@ def run_once(config, *, dry_run=False, state_dir=".", scraper=None, youtube=None
     except Exception as exc:
         result.errors.append("delivery state: " + type(exc).__name__)
         return result
+    # Old journals retain their exact chunks/keys. Match their BIMA items, not a
+    # global letter alias, even if detection-cache persistence previously failed.
+    if not bima_identity_failed:
+        try:
+            historical = [i for b in state["batches"] for i in b["items"] if i.get("source") != "youtube"]
+            selected = new_announcements([i for i in candidates if i.get("source") != "youtube"], historical)
+            candidates = [i for i in candidates if i.get("source") == "youtube" or any(i is s for s in selected)]
+            current_bima = [i for key, i in fresh.items() if key.startswith("bima:")]
+            for item in historical:
+                match = match_announcement(item, current_bima)
+                if match is not None:
+                    fresh[item_key(item)] = current_bima[match]
+        except BimaIdentityError as exc:
+            bima_identity_failed = True
+            source = next(s for s in result.sources if s.source == "bima")
+            source.status, source.items, source.error = "FAILED", [], str(exc)
+    if bima_identity_failed:
+        candidates = [i for i in candidates if i.get("source") == "youtube"]
+        successful = [m for m in successful if m is not scraper]
     known = {key for batch in state["batches"] for key in batch["event_keys"]}
     new = []
     for item in candidates:
@@ -124,6 +146,9 @@ def run_once(config, *, dry_run=False, state_dir=".", scraper=None, youtube=None
 
     for batch in state["batches"]:
         if batch["delivered"]:
+            continue
+        if bima_identity_failed and any(i.get("source") != "youtube" for i in batch["items"]):
+            # Do not send an ambiguous BIMA batch, including a mixed-source batch.
             continue
         items = deepcopy(batch["items"])
         for item in items:

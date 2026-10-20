@@ -2,6 +2,7 @@ import os
 import platform
 import re
 import sys
+import unicodedata
 from datetime import datetime
 from urllib.parse import unquote
 
@@ -17,15 +18,103 @@ def normalize_text(value):
 
 
 def announcement_identity(item):
+    """A letter number is not a unique announcement identifier."""
     surat = canonical_surat(item) if isinstance(item, dict) else ""
-    if surat:
-        return f"surat:{surat}"
-
-    title = normalize_text(item.get("title", "")) if isinstance(item, dict) else ""
+    title = _metadata_text(item.get("title", "")) if isinstance(item, dict) else ""
     if title:
-        return f"title:{title.lower()}"
+        return f"surat:{surat.casefold()}|title:{title}"
 
     return ""
+
+
+class BimaIdentityError(SourceError):
+    pass
+
+
+def _metadata_text(value):
+    value = unicodedata.normalize("NFKC", value or "")
+    value = value.translate(str.maketrans({"\u2013": "-", "\u2014": "-",
+                                          "\u2018": "'", "\u2019": "'",
+                                          "\u201c": '"', "\u201d": '"'}))
+    return normalize_text(value).casefold()
+
+
+def _publication_date(item):
+    parts = normalize_text(item.get("date", "")).split()
+    if len(parts) != 3 or not re.fullmatch(r"\d{1,2}", parts[0]) or not re.fullmatch(r"(?:19|20)\d{2}", parts[2]):
+        return None
+    months = ["january januari", "february februari", "march maret", "april",
+              "may mei", "june juni", "july juli", "august agustus",
+              "september", "october oktober", "november", "december desember"]
+    month = next((i for i, names in enumerate(months, 1) if parts[1].lower() in names.split()), None)
+    if month is not None:
+        try:
+            return datetime(int(parts[2]), month, int(parts[0]))
+        except ValueError:
+            pass
+    return None
+
+
+def _document_names(item):
+    documents = item.get("documents", [])
+    if not isinstance(documents, list) or any(not isinstance(doc, (str, dict)) for doc in documents):
+        raise BimaIdentityError("BIMA identity ambiguous: invalid document metadata")
+    return frozenset(name for doc in documents
+                     if (name := _metadata_text(doc if isinstance(doc, str) else doc.get("name", ""))))
+
+
+def match_announcement(item, history):
+    """Return a history index, or fail closed on conflicting evidence; no fuzzy aliases."""
+    key = announcement_identity(item)
+    if not key:
+        raise BimaIdentityError("BIMA identity ambiguous: announcement title missing")
+    title, surat = _metadata_text(item.get("title")), canonical_surat(item).casefold()
+    date, documents = _publication_date(item), _document_names(item)
+    matches = []
+    for index, old in enumerate(history):
+        old_key = announcement_identity(old)
+        if not old_key:
+            raise BimaIdentityError("BIMA identity ambiguous: historical announcement title missing")
+        old_title, old_surat = _metadata_text(old.get("title")), canonical_surat(old).casefold()
+        old_date, old_docs = _publication_date(old), _document_names(old)
+        same_title = bool(title and title == old_title)
+        same_surat = bool(surat and surat == old_surat)
+        same_date = date is not None and date == old_date
+        same_docs = bool(documents and documents == old_docs)
+        disjoint_docs = bool(documents and old_docs and documents.isdisjoint(old_docs))
+        if key == old_key:
+            if not surat and (not same_date or (documents and old_docs and documents != old_docs)):
+                raise BimaIdentityError("BIMA identity ambiguous: title alone is insufficient")
+            if date and old_date and date != old_date and documents and old_docs and documents != old_docs:
+                raise BimaIdentityError("BIMA identity ambiguous: conflicting dates and documents")
+            matches.append(index)
+        elif same_title:
+            if same_date and not (documents and old_docs and documents != old_docs):
+                matches.append(index)
+            elif date and old_date and date.year != old_date.year and surat and old_surat and surat != old_surat:
+                continue
+            else:
+                raise BimaIdentityError("BIMA identity ambiguous: title reused or letter correction unresolved")
+        elif same_surat:
+            if same_date and same_docs:
+                matches.append(index)
+            elif date and old_date and date != old_date and disjoint_docs:
+                continue
+            else:
+                raise BimaIdentityError("BIMA identity ambiguous: letter reused without distinct dated documents")
+        elif same_date and same_docs:
+            raise BimaIdentityError("BIMA identity ambiguous: both title and letter changed")
+    if len({announcement_identity(history[i]) for i in matches}) > 1:
+        raise BimaIdentityError("BIMA identity ambiguous: multiple historical announcements match")
+    return matches[0] if matches else None
+
+
+def new_announcements(current, history):
+    new = []
+    for item in current:
+        if match_announcement(item, history + new) is None:
+            new.append(item)
+    return new
 
 
 def normalize_surat(value):
@@ -53,20 +142,9 @@ def extract_surat(full_text):
 def canonical_surat(item):
     """Recognize only the known year+publication-day corruption."""
     value = normalize_surat(item.get("surat", ""))
-    date = re.fullmatch(r"(\d{1,2})\s+[A-Za-z]+\s+((?:19|20)\d{2})", item.get("date", "").strip())
+    date = _publication_date(item)
     if date:
-        day, year = date.groups()
-        month = item.get("date", "").split()[1].lower()
-        months = ["january januari", "february februari", "march maret", "april",
-                  "may mei", "june juni", "july juli", "august agustus",
-                  "september", "october oktober", "november", "december desember"]
-        month_number = next((i for i, names in enumerate(months, 1) if month in names.split()), None)
-        if month_number is None:
-            return value
-        try:
-            datetime(int(year), month_number, int(day))
-        except ValueError:
-            return value
+        day, year = item["date"].split()[0], str(date.year)
         for suffix in {day, day.zfill(2)}:
             if value.endswith("/" + year + suffix):
                 return value[:-len(suffix)]
@@ -388,17 +466,12 @@ class BimaScraper:
             raise SourceError("BIMA returned zero cards")
         self.current_items = current
 
-        cached_keys = {announcement_identity(item) for item in cached}
-        new_announcements = [
-            item
-            for item in current
-            if announcement_identity(item) and announcement_identity(item) not in cached_keys
-        ]
+        detected = new_announcements(current, cached)
 
-        if new_announcements or not cached:
-            self.proposed_cache = cached + new_announcements
+        if detected or not cached:
+            self.proposed_cache = cached + detected
 
         if self.proposed_cache is None:
             self.proposed_cache = cached
 
-        return new_announcements
+        return detected
