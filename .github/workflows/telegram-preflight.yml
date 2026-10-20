@@ -1,0 +1,152 @@
+name: Telegram Production Preflight (Read Only)
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  preflight:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && github.repository == 'Galih-Hermawan-Unikom/bima-dikti-news'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify production Telegram identity and permissions without sending
+        shell: bash
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NOTIFICATION_METHOD: ${{ vars.NOTIFICATION_METHOD || 'telegram' }}
+          TELEGRAM_SEND_FILES: ${{ vars.TELEGRAM_SEND_FILES || 'false' }}
+          YOUTUBE_MONITOR_ENABLED: ${{ vars.YOUTUBE_MONITOR_ENABLED || 'true' }}
+        run: |
+          python3 -B - <<'PY'
+          import json
+          import os
+          import re
+          import sys
+          import urllib.request
+          from datetime import datetime, timezone
+          from urllib.parse import urlencode
+
+          METHODS = frozenset({"getMe", "getChat", "getChatMember"})
+          TIMEOUT_SECONDS = 10
+          MAX_RESPONSE_BYTES = 1024 * 1024
+          REPOSITORY = "Galih-Hermawan-Unikom/bima-dikti-news"
+
+          class PreflightError(Exception):
+              pass
+
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  raise PreflightError("API redirect rejected")
+
+          def boolean_setting(name, default):
+              raw = os.environ.get(name) or str(default).lower()
+              value = raw.strip().lower()
+              if value in {"1", "true", "yes", "y", "on"}:
+                  return True
+              if value in {"0", "false", "no", "n", "off"}:
+                  return False
+              # Match app_config._read_bool, but flag an invalid override safely.
+              print(name + "=" + str(default).lower() + " (invalid override; production fallback)")
+              raise PreflightError("invalid boolean configuration")
+
+          def api_get(token, method, parameters=None):
+              if method not in METHODS:
+                  raise PreflightError("API method not allowed")
+              request = urllib.request.Request(
+                  "https://api.telegram.org/bot" + token + "/" + method
+                  + ("?" + urlencode(parameters) if parameters else ""),
+                  headers={"Accept": "application/json"},
+                  method="GET",
+              )
+              # Fixed HTTPS host, verified default TLS, no proxy or redirect hop.
+              opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+              try:
+                  with opener.open(request, timeout=TIMEOUT_SECONDS) as response:
+                      if response.status != 200:
+                          raise PreflightError(method + ": HTTP failure")
+                      if response.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
+                          raise PreflightError(method + ": invalid response type")
+                      body = response.read(MAX_RESPONSE_BYTES + 1)
+                  if len(body) > MAX_RESPONSE_BYTES:
+                      raise PreflightError(method + ": response too large")
+                  payload = json.loads(body)
+                  if not isinstance(payload, dict) or payload.get("ok") is not True or not isinstance(payload.get("result"), dict):
+                      raise PreflightError(method + ": API response not successful")
+              except PreflightError:
+                  raise
+              except Exception:
+                  # HTTPError/URLError may embed the credential-bearing URL.
+                  raise PreflightError(method + ": request or response failed (details suppressed)") from None
+              print(method + ": HTTP 200, ok=true")
+              return payload["result"]
+
+          def check():
+              if (os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch"
+                      or os.environ.get("GITHUB_REF") != "refs/heads/master"
+                      or os.environ.get("GITHUB_REPOSITORY") != REPOSITORY):
+                  raise PreflightError("untrusted execution context")
+              if os.environ.get("RUNNER_DEBUG") == "1" or os.environ.get("ACTIONS_STEP_DEBUG", "").lower() == "true":
+                  raise PreflightError("debug execution is not allowed")
+              method = os.environ.get("NOTIFICATION_METHOD") or "telegram"
+              if method not in {"console", "telegram", "both"}:
+                  raise PreflightError("invalid notification configuration (value suppressed)")
+              print("NOTIFICATION_METHOD=" + method)
+              files = boolean_setting("TELEGRAM_SEND_FILES", False)
+              youtube = boolean_setting("YOUTUBE_MONITOR_ENABLED", True)
+              print("TELEGRAM_SEND_FILES=" + str(files).lower())
+              print("YOUTUBE_MONITOR_ENABLED=" + str(youtube).lower())
+              if method not in {"telegram", "both"}:
+                  raise PreflightError("Telegram notification is disabled")
+
+              token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+              target = os.environ.get("TELEGRAM_CHAT_ID", "")
+              if not token or not target:
+                  raise PreflightError("required Telegram Secrets are unavailable")
+              if not re.fullmatch(r"[0-9]+:[A-Za-z0-9_-]+", token):
+                  raise PreflightError("invalid bot credential format")
+              numeric_target = bool(re.fullmatch(r"-[1-9][0-9]*", target))
+              if not numeric_target and target.lower() != "@dikti_news":
+                  raise PreflightError("configured target is not a production channel identifier")
+
+              bot = api_get(token, "getMe")
+              bot_id = bot.get("id")
+              if (bot.get("is_bot") is not True or bot.get("username", "").lower() != "bima_dikti_bot"
+                      or type(bot_id) is not int or bot_id <= 0 or int(token.split(":", 1)[0]) != bot_id):
+                  raise PreflightError("bot identity mismatch")
+              chat = api_get(token, "getChat", {"chat_id": target})
+              chat_id = chat.get("id")
+              if (type(chat_id) is not int or chat_id >= 0
+                      or chat.get("type") != "channel" or chat.get("username", "").lower() != "dikti_news"
+                      or chat.get("title") != "DIKTI News"
+                      or (numeric_target and int(target) != chat_id)):
+                  raise PreflightError("production channel identity mismatch")
+              member = api_get(token, "getChatMember", {"chat_id": chat_id, "user_id": bot_id})
+              user = member.get("user", {})
+              if (not isinstance(user, dict) or type(user.get("id")) is not int or user.get("id") != bot_id
+                      or user.get("is_bot") is not True or member.get("status") != "administrator"
+                      or member.get("can_post_messages") is not True):
+                  raise PreflightError("bot administrator posting permission is not confirmed")
+              # Print validated public constants, never arbitrary API fields.
+              print("Bot: @bima_dikti_bot")
+              print("Channel: DIKTI News (@dikti_news), type=channel")
+              print("Administrator: yes; can_post_messages: true")
+              print("Checked at UTC: " + datetime.now(timezone.utc).isoformat())
+              print("PASS: read-only preflight; no delivery was attempted")
+
+          def main():
+              try:
+                  check()
+              except PreflightError as error:
+                  print("FAIL: " + str(error))
+                  return 1
+              except Exception:
+                  print("FAIL: unexpected error (details suppressed)")
+                  return 1
+              return 0
+
+          if __name__ == "__main__":
+              sys.exit(main())
+          PY
