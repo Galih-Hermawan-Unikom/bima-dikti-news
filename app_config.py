@@ -49,7 +49,7 @@ def _read_bool(value, default):
     return default
 
 
-def load_config(config_path="config.json", load_env=True):
+def load_config(config_path="config.json", load_env=True, include_secrets=True):
     if load_env:
         load_env_file()
 
@@ -72,8 +72,8 @@ def load_config(config_path="config.json", load_env=True):
         "telegram_send_files": _read_bool(
             file_config.get("telegram_send_files", False), False
         ),
-        "telegram_bot_token": os.environ.get("TELEGRAM_BOT_TOKEN", ""),
-        "telegram_chat_id": os.environ.get("TELEGRAM_CHAT_ID", ""),
+        "telegram_bot_token": os.environ.get("TELEGRAM_BOT_TOKEN", "") if include_secrets else "",
+        "telegram_chat_id": os.environ.get("TELEGRAM_CHAT_ID", "") if include_secrets else "",
     }
 
     if os.environ.get("NOTIFICATION_METHOD"):

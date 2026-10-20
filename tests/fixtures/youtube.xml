@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/">
+  <title>Kemdiktisaintek</title>
+  <entry>
+    <yt:videoId>fixture1234</yt:videoId>
+    <title>Sosialisasi Penelitian</title>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=fixture1234"/>
+    <published>2026-04-16T04:05:14+00:00</published>
+    <media:group><media:description>Informasi penelitian</media:description>
+      <media:thumbnail url="https://example.invalid/thumb.jpg"/>
+    </media:group>
+  </entry>
+</feed>

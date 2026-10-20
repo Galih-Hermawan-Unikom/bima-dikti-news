@@ -8,8 +8,13 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: monitoring-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   check-announcements:
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -31,6 +36,7 @@ jobs:
           playwright install --with-deps chromium
 
       - name: Run scraper
+        id: monitor
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -43,6 +49,8 @@ jobs:
           python run_github.py
 
       - name: Commit cache
+        id: persist
+        if: ${{ always() && !cancelled() }}
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
@@ -50,10 +58,23 @@ jobs:
           if [ -f youtube_cache.json ]; then
             git add youtube_cache.json
           fi
+          if [ -f delivery_state.json ]; then
+            git add delivery_state.json
+          fi
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
             git commit -m "chore: update monitoring cache"
             git push
           fi
-        continue-on-error: true
+
+      - name: Preserve retry state if monitoring or persistence failed
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitoring-recovery-${{ github.run_id }}
+          path: |
+            announcements_cache.json
+            youtube_cache.json
+            delivery_state.json
+          retention-days: 14
