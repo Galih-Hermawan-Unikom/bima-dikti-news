@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "batches": [
+    {
+      "event_keys": [
+        "youtube:video:K94OBen4CiU:initial"
+      ],
+      "items": [
+        {
+          "source": "youtube",
+          "kind": "video",
+          "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
+          "title": "#2TahunGerakNyata: Transformasi Bangsa",
+          "video_id": "K94OBen4CiU",
+          "date": "2026-10-20T10:24:20+00:00",
+          "published": "2026-10-20T10:24:20+00:00",
+          "description": "",
+          "thumbnail": "https://i4.ytimg.com/vi/K94OBen4CiU/hqdefault.jpg",
+          "url": "https://www.youtube.com/watch?v=K94OBen4CiU",
+          "documents": [],
+          "scraped_at": "2026-10-20T14:38:48.472653",
+          "status": "UNKNOWN",
+          "scheduled_start": "",
+          "actual_end": "",
+          "last_known_status": ""
+        }
+      ],
+      "chunks": [
+        "<b>▶️ VIDEO BARU YOUTUBE KEMDIKTISAINTEK</b>\n\n📅 20/10/2026 21:38 WIB\n🔢 Jumlah: 1 item baru\n📺 YouTube: 1\n\n<b>1. [STATUS BELUM DIKETAHUI] #2TahunGerakNyata: Transformasi Bangsa</b>\n   📺 Kementerian Pendidikan Tinggi, Sains dan Teknologi\n   📆 Rilis: 2026-10-20T10:24:20+00:00\n   🔗 https://www.youtube.com/watch?v=K94OBen4CiU\n\n━━━━━━━━━━━━━━━━━━━━\n<i>Bot Notifikasi BIMA</i>"
+      ],
+      "sent_chunks": [
+        1
+      ],
+      "sent_documents": [],
+      "send_files": true,
+      "delivered": true,
+      "attempts": 1
+    }
+  ]
+}
