@@ -11,6 +11,10 @@ class SourceError(RuntimeError):
     pass
 
 
+def awaiting_youtube_verification(item):
+    return item.get("source") == "youtube" and item.get("status") not in {"UPCOMING", "LIVE", "VOD"}
+
+
 def read_json(path, default):
     path = Path(path)
     if not path.exists():
@@ -46,6 +50,7 @@ class RunResult:
     sources: list = field(default_factory=list)
     errors: list = field(default_factory=list)
     pending: int = 0
+    awaiting_verification: int = 0
 
     @property
     def exit_code(self):

@@ -4,7 +4,8 @@ from copy import deepcopy
 from pathlib import Path
 
 from notifier import Notifier
-from reliability import RunResult, SourceError, SourceResult, atomic_json, read_json
+from reliability import (RunResult, SourceError, SourceResult, atomic_json, read_json,
+                         awaiting_youtube_verification)
 from scraper import (BimaIdentityError, BimaScraper, announcement_identity,
                      match_announcement, new_announcements)
 from youtube_monitor import YouTubeMonitor, youtube_identity
@@ -116,6 +117,12 @@ def run_once(config, *, dry_run=False, state_dir=".", scraper=None, youtube=None
         candidates = [i for i in candidates if i.get("source") == "youtube"]
         successful = [m for m in successful if m is not scraper]
     known = {key for batch in state["batches"] for key in batch["event_keys"]}
+    delivered_unknown_initials = {
+        item_key(i) for batch in state["batches"] if batch["delivered"] for i in batch["items"]
+        if awaiting_youtube_verification(i) and item_key(i) + ":initial" in batch["event_keys"]}
+    result.awaiting_verification = sum(awaiting_youtube_verification(i) for i in fresh.values())
+    candidates = [i for i in candidates if not awaiting_youtube_verification(i)
+                  and not (i.get("is_status_update") and item_key(i) in delivered_unknown_initials)]
     new = []
     for item in candidates:
         key = event_key(item)
@@ -123,11 +130,19 @@ def run_once(config, *, dry_run=False, state_dir=".", scraper=None, youtube=None
             new.append(item)
             known.add(key)
 
+    blocked = {index for index, batch in enumerate(state["batches"]) if not batch["delivered"]
+               and any(awaiting_youtube_verification(i)
+                       or awaiting_youtube_verification(fresh.get(item_key(i), {})) for i in batch["items"])}
+    if blocked:
+        result.errors.append("Pending YouTube batch blocked; operator reconciliation required")
+    print(f"[VERIFICATION] awaiting: {result.awaiting_verification}; eligible new: {len(new)}; blocked batches: {len(blocked)}")
+
     if dry_run or config.get("notification_method", "console") == "console":
         # Preview never acknowledges delivery, and never writes detection state.
         result.pending = len(new) + sum(len(b["items"]) for b in state["batches"] if not b["delivered"])
         print(f"[DRY-RUN/PREVIEW] {result.pending} pending items; no writes or Telegram calls")
-        preview = new + [i for b in state["batches"] if not b["delivered"] for i in b["items"]]
+        preview = new + [i for index, b in enumerate(state["batches"])
+                         if not b["delivered"] and index not in blocked for i in b["items"]]
         if preview:
             notifier._send_console(preview)
         return result
@@ -149,8 +164,10 @@ def run_once(config, *, dry_run=False, state_dir=".", scraper=None, youtube=None
         result.errors.append("persist detection/retry state: " + type(exc).__name__)
         return result
 
-    for batch in state["batches"]:
+    for index, batch in enumerate(state["batches"]):
         if batch["delivered"]:
+            continue
+        if index in blocked:
             continue
         if bima_identity_failed and any(i.get("source") != "youtube" for i in batch["items"]):
             # Do not send an ambiguous BIMA batch, including a mixed-source batch.
