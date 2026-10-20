@@ -15,5 +15,35 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install -r requirements-dev.txt
+      - name: Read-only YouTube inspection diagnostic (one request)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/fix/reliability-youtube-gh-diagnostic' && github.repository == 'Galih-Hermawan-Unikom/bima-dikti-news'
+        timeout-minutes: 1
+        run: |
+          python -B - <<'PY'
+          import contextlib
+          import io
+          from youtube_monitor import YouTubeMonitor
+
+          video_id = "K94OBen4CiU"
+          categories = {
+              "HTTP_ERROR", "TIMEOUT", "NETWORK_ERROR", "PLAYER_RESPONSE_MISSING",
+              "PLAYER_JSON_INVALID", "PLAYABILITY_DENIED", "VIDEO_DETAILS_MISSING",
+              "STATUS_METADATA_INSUFFICIENT", "OTHER",
+          }
+          monitor = YouTubeMonitor()
+          # No runner, configuration loader, cache/journal access or delivery.
+          with contextlib.redirect_stdout(io.StringIO()):
+              result = monitor._analyze_video_type(video_id)
+          status = result.get("status", "UNKNOWN")
+          if status not in {"UNKNOWN", "VOD", "LIVE", "UPCOMING"}:
+              status = "UNKNOWN"
+          category = monitor.inspection_diagnostics.get(video_id, "OTHER") if status == "UNKNOWN" else "NONE"
+          if category not in categories | {"NONE"}:
+              category = "OTHER"
+          print("DIAGNOSTIC video=" + video_id)
+          print("DIAGNOSTIC status=" + status)
+          print("DIAGNOSTIC category=" + category)
+          print("DIAGNOSTIC classified=" + ("NO" if status == "UNKNOWN" else "YES"))
+          PY
       - run: playwright install --with-deps chromium
       - run: python -m pytest
