@@ -2,7 +2,6 @@
 
 import json
 from copy import deepcopy
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -15,8 +14,8 @@ from scraper import (BimaIdentityError, BimaScraper, announcement_identity,
 
 
 @pytest.fixture
-def history():
-    return json.loads((Path(__file__).resolve().parents[1] / "announcements_cache.json").read_bytes())
+def history(fixtures):
+    return json.loads((fixtures / "bima_history_89.json").read_bytes())
 
 
 @pytest.fixture

@@ -186,6 +186,132 @@ Pengaman jaringan/secrets dan pemeriksaan hash empat cache kedua worktree tetap 
 
 Lima UNKNOWN dapat bertahan dan membuat health DEGRADED ketika RSS sehat atau FAILED ketika RSS bermasalah. Jika kelak terverifikasi LIVE/VOD, transisi tetap menghasilkan kandidat; tidak ada penandaan historis sebagai sudah terkirim. RSS gagal tetap menghalangi penemuan ID baru, tetapi tidak lagi menghalangi inspeksi ID tersimpan. Penyebab intermiten 404 dan rekonsiliasi historis tetap menjadi risiko/tinjauan operator, bukan alasan membungkam error atau notifikasi.
 
+## DOM BIMA dan Publikasi Bernomor Sama (20 Oktober 2026)
+
+Tindak lanjut dari `e4ac89b`, branch `fix/reliability-phase1`, PR #1 tetap draft.
+**Cutover produksi tetap NO-GO.** Lingkup kode produksi hanya `scraper.py`;
+YouTube, notifier, runner, workflow/cron, konfigurasi dan cache tidak diubah.
+
+### Bukti Dokumen Sebelum Perubahan
+
+Dua PDF asli dibaca langsung melalui tombol dokumen pada
+[halaman BIMA](https://bima.kemdiktisaintek.go.id/pengumuman). Keduanya HTTP 200,
+valid PDF, dan memiliki perihal/isi berbeda. Tidak ada nomor surat yang ditebak.
+
+| Dokumen / nama PDF | Nomor dan tanggal surat dalam PDF | Isi | Ukuran / halaman |
+|---|---|---|---|
+| `Undangan Penandatanganan Kontrak Program Aksara Mahasiswa Tahun Anggaran 2026.pdf` | `1385/DST/C3/DT.06.01/2026`, 6 Oktober 2026 | Undangan acara kontrak 12 Oktober, persiapan berkas dan peserta | 265875 byte / 5 |
+| `Pengumuman Penerima Pendanaan Program Aksara Mahasiswa Tahun Anggaran 2026.pdf` | `1386/DST/C3/DT.06.01/2026`, 7 Oktober 2026 | Penetapan pendanaan berdasarkan keputusan 498/KPA/C3/KPT/2026, akses hasil seleksi dan mekanisme pencairan | 188699 byte / 2 |
+
+Keduanya mencantumkan satu berkas lampiran. Nama PDF di atas berasal dari tombol
+publikasi BIMA; pemeriksaan isi bukan validasi kriptografis tanda tangan PDF.
+SHA256 undangan: `40b994827caa53020d424f1af9b3ad8c2ff33e0e7da20c965afd01af949fd6e6`.
+SHA256 pendanaan: `4341b7887d0ea1018bf9c2db28afc85549a8bc42913b60dfc96dc7aad0e7c4ed`.
+
+[Publikasi LLDIKTI II](https://lldikti2.kemdiktisaintek.go.id/pengumuman-penerima-pendanaan-program-aksara-mahasiswa-tahun-anggaran-2026/)
+menautkan salinan PDF pendanaan yang berhasil diunduh dan byte-identik dengan
+PDF BIMA (ukuran dan SHA256 sama).
+[DRPM ITS](https://www.its.ac.id/drpm/pemberitahuan-revisi-proposal-dan-rab-program-aksara-mahasiswa-tahun-2026/)
+mendukung konteks tindak lanjut program dan penerima, tetapi bukan bukti langsung
+nomor undangan. Halaman undangan dan pendanaan DPPM Warmadewa ditemukan dalam
+indeks publik; akses langsung keduanya HTTP 403, sehingga isi PDF Warmadewa
+tidak diklaim sudah diverifikasi. Bukti kedua PDF BIMA sendiri sudah memadai.
+
+Kartu BIMA menampilkan nomor `1386` dan tanggal publikasi 7 Oktober untuk kedua
+judul, sementara PDF undangan bernomor `1385`. Tanggal publikasi tidak harus
+sama dengan tanggal surat. Parser mempertahankan metadata publikasi apa adanya;
+tidak mengoreksi nomor/tanggal cache atau menambahkan pengecualian Aksara.
+
+### Aturan Identitas Terbatas
+
+Sebelumnya, nomor/tanggal sama dan dokumen berbeda selalu menghasilkan ambiguitas.
+Kini dua judul berbeda pada nomor/tanggal sama dapat dipisahkan hanya jika:
+
+- Tanggal keduanya valid dan sama; himpunan nama dokumen terisi serta sepenuhnya terpisah.
+- Masing-masing entri memiliki nama PDF/DOC/DOCX yang stem-nya persis sama dengan judulnya setelah normalisasi konservatif yang sudah ada.
+- Masing-masing judul memiliki sedikitnya dua kata alfabetis yang tidak ada pada judul pasangannya. Perubahan satu kata/angka, penambahan frasa saja, dan judul yang saling mencakup tidak cukup.
+
+Perbandingan kata adalah pengaman pemisahan berbasis himpunan kata exact, bukan
+similarity/fuzzy matching untuk menyatukan entri. Tidak ada alias nomor global,
+nomor hardcoded, pencocokan isi secara perkiraan, atau pengecualian per program.
+`announcement_identity()` dan `canonical_surat()` tetap sama. Jangkar koreksi
+nomor historis, kegagalan saat beberapa riwayat cocok, dan penundaan metadata
+tidak lengkap tetap berlaku. Nomor PBK/PBW versus Kosabangsa dan duplikat Juni
+tetap tercakup tanpa penghapusan atau penggabungan data.
+
+Batas penting: nama dokumen bukan hash konten. Bukti PDF pasangan Aksara dibaca
+sebelum aturan dibuat; saat runtime aturan memakai metadata entri, bukan
+mengunduh/membandingkan konten PDF. Perubahan judul dan nama dokumen secara
+besar yang memenuhi semua syarat masih dapat menyerupai publikasi baru; tanpa
+ID sumber stabil, kepastian identitas mutlak tidak dapat dijanjikan. Perubahan
+yang tidak memenuhi bukti tersebut tetap FAILED, bukan dilewatkan diam-diam.
+
+### Parser dan Fixture
+
+DOM aktual memiliki 10 `article.ap-card`, tetapi selector lama `.card-body`
+menghasilkan 0. Nomor kini merupakan field `.ap-card__number` tanpa label
+`No. Surat:`. Parser membaca `.ap-card__title`, nomor terminal tahun yang valid,
+`time.ap-date[datetime]` (ISO valid, konsisten dengan label tanggal bila tersedia),
+serta `.ap-file`/`.ap-file__name` secara berurutan. Tanggal dikonversi ke format
+Indonesia penuh agar kompatibel dengan identitas historis. Jalur pengambilan
+URL dokumen yang sudah ada dipertahankan, hanya locator tombolnya dipetakan
+sesuai layout. HTTP error dan alasan validasi SourceError tetap terlihat.
+
+Legacy tetap didukung oleh parser yang sama. Teks judul dan daftar dokumen
+dikeluarkan dari pencarian metadata legacy agar tanggal/angka dalam nama PDF
+tidak dianggap tanggal publikasi. Layout campuran, halaman kosong/tidak dikenal,
+kartu kosong, judul/nomor/tanggal ganda, tanggal invalid/konflik, tahun+tanggal,
+serta dokumen tanpa nama menggagalkan seluruh sumber, bukan dianggap tanpa berita.
+
+Fixture `bima.html` lama dipertahankan. `bima_ap_card.html` menambah dua kartu
+Aksara sesuai metadata halaman dan satu kartu sintetis berkarakter khusus serta
+banyak dokumen. Baseline `bima_history_89.json` dan `youtube_history_125.json`
+dibekukan dari `e4ac89b`, nilai/urutan tetap sama dengan cache pada commit itu.
+Test historis dan migrasi tidak lagi bergantung pada jumlah cache operasional.
+Test pertumbuhan menambah 0/1/12 entri sintetis di salinan sementara, bukan
+mengganti angka ekspektasi cache aktif. Pemeriksaan hash cache kedua worktree tetap aktif.
+
+### Dry-Run Master Terbaru
+
+Snapshot master yang dibaca ulang: `7ef156d1d7de3d36d9f9ff0177673222876d0753`.
+Cache BIMA 89 baris, SHA256
+`4f7e2e0cc58235c5635622e9a5d84710ab62608017ec97cfa5c61068bd1c4d08`;
+YouTube 125 baris, SHA256
+`2e615790228d8210961e9089a5b52d6b8767d32e9ea31fa9a2949aca193468f6`.
+Keduanya hanya ditulis ke direktori sementara. YouTube dinonaktifkan untuk
+preview BIMA ini; bukan klaim verifikasi health YouTube terbaru.
+
+`run_once(..., dry_run=True)` dengan scraper aktual menghasilkan:
+
+- 10 kartu valid, seluruh judul/nomor/tanggal/nama dokumen terbaca; seluruh 13 URL dokumen berhasil diambil.
+- 9 kartu cocok dengan riwayat; tepat 1 kandidat baru: **Pengumuman Penerima Pendanaan Program Aksara Mahasiswa Tahun Anggaran 2026**, nomor `1386/DST/C3/DT.06.01/2026`, publikasi 7 Oktober 2026, satu PDF.
+- Tidak ada kandidat lain di halaman pertama yang diperiksa. Ini bukan klaim semua halaman arsip telah dirayapi.
+- Health BIMA `NEW_ITEMS`, error kosong, exit 0, pending 1. Sebelum perbaikan: nol kartu oleh selector lama; dengan metadata baru tetapi aturan lama: FAILED karena benturan Aksara.
+- Simulasi seluruh 89 riwayat: 88 identitas unik, 0 replay. Dua baris duplikat Juni tetap dipertahankan.
+- State sementara byte-identik setelah preview, tidak ada jurnal dibuat, pemanggilan pengiriman 0. SHA256 empat cache kedua worktree tidak berubah.
+
+### Pengujian dan Persetujuan
+
+Regresi meliputi kedua DOM, seluruh atribut dan indeks tombol, karakter khusus,
+metadata ambigu, kedua publikasi Aksara beserta koreksi nomor undangan, guard
+edit minor/berkas generik/dokumen bersama, seluruh baseline 89 melalui kedua
+DOM sebelum/sesudah migrasi salinan, dan pertumbuhan cache 89/125. Seluruh
+regresi identitas September/Juni, retry pengiriman mock dan YouTube tetap dijalankan.
+
+Run pertama: 178 passed / 3 failed (tanggal semu dari nama PDF legacy dan dua
+NameError import test saat pemindahan fixture). Parser metadata dan import
+diperbaiki, kemudian seluruh suite diulang. Hasil final lokal: **182 passed,
+0 failed** (141 sebelumnya + 41 regresi baru), 25,27 detik. Status CI dicatat
+pada laporan PR untuk commit tindak lanjut ini; JUnit lokal tersedia di
+`.pytest_cache/reliability-results.xml`.
+
+`migrate_cache.py` tidak diubah: uji salinan tetap memperbaiki 80 nomor, menyimpan
+backup, menjaga 89 baris/88 identitas, dan apply kedua menghasilkan 0 perubahan.
+Tidak ada migrasi produksi, Telegram nyata, cache/jurnal produksi berubah,
+merge, deployment atau modifikasi worktree utama. Blocker DOM/identitas Aksara
+selesai pada pengujian terisolasi; keputusan cutover tetap NO-GO dan memerlukan
+persetujuan operator terpisah serta peninjauan blocker operasional lainnya.
+
 ## File Diubah
 
 | File | Alasan |

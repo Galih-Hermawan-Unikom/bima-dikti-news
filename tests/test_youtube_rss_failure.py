@@ -182,8 +182,8 @@ def test_pending_delivery_retries_despite_failed_rss(tmp_path, config, monitors,
 
 
 def test_actual_125_row_cache_inspected_on_rss_failure(tmp_path, config, monitors, notifier, telegram, announcement, fixtures, monkeypatch):
-    root = Path(__file__).resolve().parents[1]
-    raw = (root / "youtube_cache.json").read_bytes()
+    source = fixtures / "youtube_history_125.json"
+    raw = source.read_bytes()
     history = json.loads(raw)
     assert len(history) == 125
     upcoming = [i["video_id"] for i in history if i["status"] == "UPCOMING"]
@@ -200,5 +200,5 @@ def test_actual_125_row_cache_inspected_on_rss_failure(tmp_path, config, monitor
     assert len(proposed) == 125
     assert sum(i["status"] == "UNKNOWN" for i in proposed) == 5
     assert all(i["last_known_status"] == "UPCOMING" for i in proposed if i["video_id"] in upcoming)
-    assert (root / "youtube_cache.json").read_bytes() == raw
+    assert source.read_bytes() == raw
     telegram.assert_not_called()

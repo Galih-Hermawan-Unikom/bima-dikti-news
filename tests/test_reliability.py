@@ -344,9 +344,9 @@ def test_unknown_video_rechecked_outside_rss(tmp_path, monkeypatch):
     assert monitor.proposed_cache[0]["status"] == "VOD"
 
 
-def test_real_cache_migration_in_temporary_copy_only(tmp_path):
-    root = Path(__file__).resolve().parents[1]
-    original = (root / "announcements_cache.json").read_bytes()
+def test_real_cache_migration_in_temporary_copy_only(tmp_path, fixtures):
+    source = fixtures / "bima_history_89.json"
+    original = source.read_bytes()
     path = tmp_path / "cache.json"
     path.write_bytes(original)
     before = json.loads(original)
@@ -355,7 +355,7 @@ def test_real_cache_migration_in_temporary_copy_only(tmp_path):
     assert len(before) == len(after)
     assert [announcement_identity(i) for i in before] == [announcement_identity(i) for i in after]
     assert migrate(path, apply=True) == 0
-    assert (root / "announcements_cache.json").read_bytes() == original
+    assert source.read_bytes() == original
     assert repairs > 0
 
 

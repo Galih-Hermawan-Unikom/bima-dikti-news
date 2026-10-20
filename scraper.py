@@ -63,6 +63,16 @@ def _document_names(item):
                      if (name := _metadata_text(doc if isinstance(doc, str) else doc.get("name", ""))))
 
 
+def _distinct_publications(item, old, documents, old_docs):
+    """Require entry-local title/document evidence, not a letter-number alias."""
+    title, old_title = _metadata_text(item.get("title")), _metadata_text(old.get("title"))
+    words, old_words = set(re.findall(r"[^\W\d_]+", title)), set(re.findall(r"[^\W\d_]+", old_title))
+    # One-word edits, generic attachments and title containment are insufficient.
+    return (len(words - old_words) >= 2 and len(old_words - words) >= 2
+            and any(title + ext in documents for ext in (".pdf", ".doc", ".docx"))
+            and any(old_title + ext in old_docs for ext in (".pdf", ".doc", ".docx")))
+
+
 def match_announcement(item, history):
     """Return a history index, or fail closed on conflicting evidence; no fuzzy aliases."""
     key = announcement_identity(item)
@@ -99,6 +109,8 @@ def match_announcement(item, history):
             if same_date and same_docs:
                 matches.append(index)
             elif date and old_date and date != old_date and disjoint_docs:
+                continue
+            elif same_date and disjoint_docs and _distinct_publications(item, old, documents, old_docs):
                 continue
             else:
                 raise BimaIdentityError("BIMA identity ambiguous: letter reused without distinct dated documents")
@@ -259,45 +271,80 @@ class BimaScraper:
         }
 
     def _collect_cards(self, page):
-        return page.evaluate(
+        raw = page.evaluate(
             """() => {
-                const cards = Array.from(
-                    document.querySelectorAll('.card-body.p-4, div[class*="card-body"]')
-                );
-
-                return cards.map((card, cardIndex) => {
-                    const titleEl = card.querySelector('h5.fw-bold, h5, h4, h3');
-                    if (!titleEl) return null;
-
-                    const title = (titleEl.textContent || '').trim();
-                    if (!title || title.length < 10) return null;
-
-                    // Preserve DOM text boundaries between the surat and date.
-                    const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+                const modern = [...document.querySelectorAll('article.ap-card')];
+                const legacy = [...document.querySelectorAll('.card-body.p-4, div[class*="card-body"]')];
+                const layout = modern.length ? 'ap-card' : 'legacy';
+                return {mixed: !!(modern.length && legacy.length), cards: (modern.length ? modern : legacy).map((card, index) => {
                     const texts = [];
+                    const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
                     while (walker.nextNode()) texts.push(walker.currentNode.textContent);
-                    const fullText = texts.join(' ').trim();
-                    const dateMatch = fullText.match(
-                        /(\\d{1,2}\\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)\\s+\\d{4})/i
-                    );
-
-                    const documents = Array.from(card.querySelectorAll('li span.text-primary'))
-                        .map((el, docIndex) => ({
-                            doc_index: docIndex,
-                            name: (el.textContent || '').trim()
-                        }))
-                        .filter(doc => doc.name);
-
+                    const metadata = card.cloneNode(true);
+                    metadata.querySelectorAll('h3, h4, h5, ul, ol').forEach(el => el.remove());
+                    const metadataTexts = [];
+                    const metadataWalker = document.createTreeWalker(metadata, NodeFilter.SHOW_TEXT);
+                    while (metadataWalker.nextNode()) metadataTexts.push(metadataWalker.currentNode.textContent);
+                    const values = selector => [...card.querySelectorAll(selector)].map(el => el.textContent.trim());
                     return {
-                        card_index: cardIndex,
-                        title,
-                        full_text: fullText,
-                        date: dateMatch ? dateMatch[1].trim() : '',
-                        documents
+                        card_index: index, layout, full_text: texts.join(' '),
+                        metadata_text: metadataTexts.join(' '),
+                        titles: values(layout === 'ap-card' ? '.ap-card__title' : 'h5, h4, h3'),
+                        numbers: values('.ap-card__number'),
+                        times: [...card.querySelectorAll('time.ap-date')].map(el => ({iso: el.getAttribute('datetime'), label: el.getAttribute('title')})),
+                        documents: [...card.querySelectorAll(layout === 'ap-card' ? '.ap-file' : 'li span.text-primary')].map((el, i) => ({
+                            doc_index: i,
+                            names: layout === 'ap-card' ? [...el.querySelectorAll('.ap-file__name')].map(n => n.textContent.trim()) : [el.textContent.trim()]
+                        }))
                     };
-                }).filter(Boolean);
+                })};
             }"""
         )
+        if raw["mixed"]:
+            raise SourceError("BIMA ambiguous mixed card layouts")
+        if not raw["cards"]:
+            raise SourceError("BIMA returned zero cards; unrecognized or empty page")
+        months = "Januari Februari Maret April Mei Juni Juli Agustus September Oktober November Desember".split()
+        cards = []
+        for item in raw["cards"]:
+            error = f"BIMA invalid or ambiguous metadata in card {item['card_index'] + 1}"
+            if len(item["titles"]) != 1 or len(normalize_text(item["titles"][0])) < 10:
+                raise SourceError(error + ": title")
+            item["title"] = normalize_text(item.pop("titles")[0])
+            if item["layout"] == "ap-card":
+                if len(item["numbers"]) != 1 or len(item["times"]) != 1:
+                    raise SourceError(error + ": number/date")
+                surat = normalize_text(item["numbers"][0])
+                time = item["times"][0]
+                iso = time["iso"] or ""
+                try:
+                    if not re.fullmatch(r"(?:19|20)\d{2}-\d{2}-\d{2}", iso):
+                        raise ValueError()
+                    date = datetime.strptime(iso, "%Y-%m-%d")
+                except ValueError:
+                    raise SourceError(error + ": ISO date") from None
+                if time["label"] and _publication_date({"date": time["label"]}) != date:
+                    raise SourceError(error + ": conflicting date label")
+                item["date"] = f"{date.day:02d} {months[date.month - 1]} {date.year}"
+            else:
+                numbers = re.findall(r"No\.?\s*Surat\s*:\s*([0-9A-Za-z./-]+)", item["metadata_text"], re.I)
+                dates = re.findall(r"\b\d{1,2}\s+[A-Za-z]+\s+(?:19|20)\d{2}\b", item["metadata_text"])
+                if len(numbers) != 1 or len(dates) != 1:
+                    raise SourceError(error + ": number/date")
+                surat, item["date"] = numbers[0], normalize_text(dates[0])
+                if _publication_date(item) is None:
+                    raise SourceError(error + ": date")
+            if not re.fullmatch(r"[0-9A-Za-z./-]+/(?:19|20)\d{2}", surat):
+                raise SourceError(error + ": letter number")
+            item["surat"] = surat
+            if not item["documents"]:
+                raise SourceError(error + ": documents missing")
+            for doc in item["documents"]:
+                if len(doc["names"]) != 1 or not normalize_text(doc["names"][0]):
+                    raise SourceError(error + ": document name")
+                doc["name"] = normalize_text(doc.pop("names")[0])
+            cards.append(item)
+        return cards
 
     def _capture_document_url(self, page, link, doc_name):
         captured_urls = []
@@ -344,14 +391,15 @@ class BimaScraper:
             except Exception:
                 pass
 
-    def _resolve_documents(self, page, card_index, raw_documents):
+    def _resolve_documents(self, page, card_index, raw_documents, layout="legacy"):
         documents = []
-        card = page.locator(".card-body.p-4, div[class*='card-body']").nth(card_index)
+        modern = layout == "ap-card"
+        card = page.locator("article.ap-card" if modern else ".card-body.p-4, div[class*='card-body']").nth(card_index)
 
         for raw_doc in raw_documents:
             doc_name = normalize_text(raw_doc.get("name", ""))
             doc_index = raw_doc.get("doc_index", 0)
-            link = card.locator("li span.text-primary").nth(doc_index)
+            link = card.locator(".ap-file" if modern else "li span.text-primary").nth(doc_index)
             download_url = self._capture_document_url(page, link, doc_name)
 
             documents.append(
@@ -408,18 +456,21 @@ class BimaScraper:
                     announcements.append(
                         {
                             "title": title,
-                            "surat": extract_surat(item.get("full_text", "")),
+                            "surat": item["surat"],
                             "date": normalize_text(item.get("date", "")),
                             "documents": self._resolve_documents(
                                 page,
                                 item.get("card_index", 0),
                                 item.get("documents", []),
+                                item.get("layout", "legacy"),
                             ),
                             "url": self.url,
                             "scraped_at": datetime.now().isoformat(),
                         }
                     )
 
+            except SourceError:
+                raise
             except Exception as e:
                 raise SourceError(f"BIMA scraping failed: {type(e).__name__}") from None
             finally:
