@@ -1,0 +1,94 @@
+{
+  "metadata": {
+    "channelMetadataRenderer": {
+      "title": "Synthetic Kemdiktisaintek Channel",
+      "externalId": "UCGo_6l_6kp8H8OHcKcSIeDw"
+    }
+  },
+  "contents": {
+    "twoColumnBrowseResultsRenderer": {
+      "tabs": [
+        {
+          "tabRenderer": {
+            "title": "Video",
+            "endpoint": {"commandMetadata": {"webCommandMetadata": {"url": "/@kemdiktisaintek/videos"}}}
+          }
+        },
+        {
+          "tabRenderer": {
+            "title": "Live",
+            "selected": true,
+            "endpoint": {"commandMetadata": {"webCommandMetadata": {"url": "/@kemdiktisaintek/streams"}}},
+            "content": {
+              "richGridRenderer": {
+                "contents": [
+                  {
+                    "richItemRenderer": {
+                      "content": {
+                        "lockupViewModel": {
+                          "contentId": "streamnew01",
+                          "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+                          "rendererContext": {"commandContext": {"onTap": {"innertubeCommand": {"watchEndpoint": {"videoId": "streamnew01"}}}}},
+                          "metadata": {
+                            "lockupMetadataViewModel": {
+                              "title": {"content": "Synthetic scheduled research event & discussion"},
+                              "metadata": {
+                                "contentMetadataViewModel": {
+                                  "metadataRows": [
+                                    {"metadataParts": [
+                                      {"text": {"content": "1 penonton menunggu"}},
+                                      {"text": {"content": "Tayang 23/10/26, 02.00"}}
+                                    ]}
+                                  ]
+                                }
+                              }
+                            }
+                          },
+                          "contentImage": {
+                            "thumbnailViewModel": {
+                              "image": {"sources": [{"url": "https://i.ytimg.com/vi/streamnew01/hqdefault.jpg?signature=SYNTHETIC_REMOVE"}]},
+                              "overlays": [{"thumbnailBottomOverlayViewModel": {"badges": [
+                                {"thumbnailBadgeViewModel": {"text": "Mendatang", "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT"}}
+                              ]}}]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "richItemRenderer": {
+                      "content": {
+                        "lockupViewModel": {
+                          "contentId": "streamold01",
+                          "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+                          "metadata": {
+                            "lockupMetadataViewModel": {
+                              "title": {"content": "Synthetic past public seminar"},
+                              "metadata": {"contentMetadataViewModel": {"metadataRows": [
+                                {"metadataParts": [{"text": {"content": "Streaming 7 jam lalu"}}]}
+                              ]}}
+                            }
+                          },
+                          "contentImage": {
+                            "thumbnailViewModel": {
+                              "image": {"sources": [{"url": "https://i.ytimg.com/vi/streamold01/hqdefault.jpg"}]},
+                              "overlays": [{"thumbnailBottomOverlayViewModel": {"badges": [
+                                {"thumbnailBadgeViewModel": {"text": "3.27.18"}}
+                              ]}}]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {"continuationItemRenderer": {"continuationEndpoint": {"continuationCommand": {"token": "SYNTHETIC_DO_NOT_FETCH_OR_PERSIST"}}}}
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
