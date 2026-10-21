@@ -2,6 +2,7 @@
 from copy import deepcopy
 from datetime import datetime, timezone
 import re
+import time
 import xml.etree.ElementTree as ET
 
 import requests
@@ -10,6 +11,7 @@ from reliability import SourceError, atomic_json, read_json
 
 RSS_FORMAT = "youtube-rss-v1"
 DEFAULT_CHANNEL = "UCGo_6l_6kp8H8OHcKcSIeDw"
+RSS_RETRY_DELAY_SECONDS = 2
 
 
 def normalize_text(value):
@@ -85,15 +87,50 @@ class YouTubeMonitor:
     def save_cache(self, items):
         atomic_json(self.cache_file, items)
 
+    def _read_feed(self):
+        for attempt in (1, 2):
+            response = None
+            try:
+                response = self.session.get(
+                    "https://www.youtube.com/feeds/videos.xml?channel_id=" + self.channel_id,
+                    timeout=15, allow_redirects=False)
+                if isinstance(response.status_code, int) and 300 <= response.status_code < 400:
+                    raise SourceError("YouTube RSS redirect rejected")
+                response.raise_for_status()
+                return ET.fromstring(response.content)
+            except requests.HTTPError as exc:
+                failed = exc.response if exc.response is not None else response
+                status = getattr(failed, "status_code", None)
+                status = status if isinstance(status, int) and 100 <= status <= 599 else None
+                category = f"HTTP_{status}" if status is not None else "HTTP_ERROR"
+                retryable = status in (404, 429) or (status is not None and 500 <= status <= 599)
+                retry_after = failed.headers.get("Retry-After") if failed is not None else None
+                if retry_after is not None:
+                    try:
+                        retryable = retryable and 0 <= float(retry_after) <= RSS_RETRY_DELAY_SECONDS
+                    except (TypeError, ValueError):
+                        # Long/date/invalid hints defer to a later run, never a tight retry.
+                        retryable = False
+            except requests.Timeout:
+                category, retryable = "TIMEOUT", True
+            except requests.ConnectionError:
+                category, retryable = "NETWORK_ERROR", True
+            except requests.RequestException:
+                category, retryable = "REQUEST_ERROR", False
+            except ET.ParseError:
+                category, retryable = "INVALID_XML", True
+            finally:
+                if response is not None:
+                    response.close()
+            if attempt == 2 or not retryable:
+                raise SourceError(f"YouTube RSS failed: {category}; attempts={attempt}") from None
+            print(f"[YOUTUBE RSS] {category}; retry=1/1; delay={RSS_RETRY_DELAY_SECONDS}s")
+            time.sleep(RSS_RETRY_DELAY_SECONDS)
+
     def fetch_videos(self):
         if not re.fullmatch(r"UC[A-Za-z0-9_-]{22}", self.channel_id):
             raise SourceError("Invalid YouTube RSS channel ID")
-        response = self.session.get("https://www.youtube.com/feeds/videos.xml?channel_id=" + self.channel_id, timeout=15)
-        response.raise_for_status()
-        try:
-            root = ET.fromstring(response.content)
-        except ET.ParseError:
-            raise SourceError("Invalid YouTube RSS XML") from None
+        root = self._read_feed()
         ns = {"atom": "http://www.w3.org/2005/Atom", "yt": "http://www.youtube.com/xml/schemas/2015",
               "media": "http://search.yahoo.com/mrss/"}
         if root.tag != "{" + ns["atom"] + "}feed":

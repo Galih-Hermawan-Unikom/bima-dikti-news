@@ -216,7 +216,8 @@ def test_only_rss_http_no_login_or_player(fixtures, monkeypatch):
     monkeypatch.setattr(monitor.session, "get", request)
     videos = monitor.fetch_videos()
     request.assert_called_once_with(
-        "https://www.youtube.com/feeds/videos.xml?channel_id=UCGo_6l_6kp8H8OHcKcSIeDw", timeout=15)
+        "https://www.youtube.com/feeds/videos.xml?channel_id=UCGo_6l_6kp8H8OHcKcSIeDw",
+        timeout=15, allow_redirects=False)
     assert monitor.session.auth is None and not monitor.session.cookies
     assert "status" not in videos[0]
     assert not hasattr(monitor, "_analyze_video_type")
