@@ -1,0 +1,40 @@
+[
+  {"name":"unknown_repeated","frames":[
+    {"snapshot_id":"s1","observed_at":"2026-10-22T00:00:00Z","items":[{"video_id":"shadownew01","title":"Synthetic video A"}]},
+    {"snapshot_id":"s2","observed_at":"2026-10-22T00:02:00Z","items":[{"video_id":"shadownew01","title":"Synthetic video A"}]}
+  ]},
+  {"name":"historical_reappears","frames":[
+    {"snapshot_id":"s1","observed_at":"2026-10-22T00:00:00Z","items":[{"video_id":"K94OBen4CiU","title":"Synthetic historical title"}]},
+    {"snapshot_id":"s2","observed_at":"2026-10-22T00:02:00Z","items":[],"empty_verified":true},
+    {"snapshot_id":"s3","observed_at":"2026-10-22T00:04:00Z","items":[{"video_id":"K94OBen4CiU","title":"Synthetic historical title"}]}
+  ]},
+  {"name":"title_changes_after_review","frames":[
+    {"snapshot_id":"s1","observed_at":"2026-10-22T00:00:00Z","items":[{"video_id":"shadownew01","title":"Synthetic original title"}]},
+    {"snapshot_id":"s2","observed_at":"2026-10-22T00:02:00Z","items":[{"video_id":"shadownew01","title":"Synthetic original title"}]},
+    {"action":"review","video_id":"shadownew01","decision":"NEW_CANDIDATE","review_id":"r1","reviewer":"fixture-operator","history_review_reference":"fixture-history-review","reviewed_at":"2026-10-22T00:02:10Z"},
+    {"action":"review","video_id":"shadownew01","decision":"APPROVED","review_id":"r2","reviewer":"fixture-operator","history_review_reference":"fixture-approval-review","reviewed_at":"2026-10-22T00:02:20Z"},
+    {"snapshot_id":"s3","observed_at":"2026-10-22T00:04:00Z","items":[{"video_id":"shadownew01","title":"Synthetic revised title"}]}
+  ]},
+  {"name":"unknown_disappears_reappears","frames":[
+    {"snapshot_id":"s1","observed_at":"2026-10-22T00:00:00Z","items":[{"video_id":"shadownew01","title":"Synthetic video A"}]},
+    {"snapshot_id":"s2","observed_at":"2026-10-22T00:02:00Z","items":[],"empty_verified":true},
+    {"snapshot_id":"s3","observed_at":"2026-10-22T00:04:00Z","items":[{"video_id":"shadownew01","title":"Synthetic video A"}]}
+  ]},
+  {"name":"multiple_unknowns","frames":[
+    {"snapshot_id":"s1","observed_at":"2026-10-22T00:00:00Z","items":[{"video_id":"shadownew01","title":"Synthetic A"},{"video_id":"shadownew02","title":"Synthetic B"}]},
+    {"snapshot_id":"s2","observed_at":"2026-10-22T00:02:00Z","items":[{"video_id":"shadownew01","title":"Synthetic A"},{"video_id":"shadownew02","title":"Synthetic B"},{"video_id":"shadownew03","title":"Synthetic C"}]}
+  ]},
+  {"name":"parser_fails","frames":[
+    {"snapshot_id":"s1","observed_at":"2026-10-22T00:00:00Z","items":[{"video_id":"shadownew01","title":"Synthetic video A"}]},
+    {"snapshot_id":"s2","observed_at":"2026-10-22T00:02:00Z","html":"<html>Safe synthetic parsing failure, no initial data</html>"}
+  ]},
+  {"name":"duplicate_historical_observation","frames":[
+    {"snapshot_id":"s1","observed_at":"2026-10-22T00:00:00Z","items":[{"video_id":"K94OBen4CiU","title":"Synthetic historical title"},{"video_id":"K94OBen4CiU","title":"Synthetic historical title"}]}
+  ]},
+  {"name":"explicit_shadow_review_only","frames":[
+    {"snapshot_id":"s1","observed_at":"2026-10-22T00:00:00Z","items":[{"video_id":"shadownew01","title":"Synthetic video A"}]},
+    {"snapshot_id":"s2","observed_at":"2026-10-22T00:02:00Z","items":[{"video_id":"shadownew01","title":"Synthetic video A"}]},
+    {"action":"review","video_id":"shadownew01","decision":"NEW_CANDIDATE","review_id":"r1","reviewer":"fixture-operator","history_review_reference":"fixture-history-review","reviewed_at":"2026-10-22T00:02:10Z"},
+    {"action":"review","video_id":"shadownew01","decision":"APPROVED","review_id":"r2","reviewer":"fixture-operator","history_review_reference":"fixture-approval-review","reviewed_at":"2026-10-22T00:02:20Z"}
+  ]}
+]
