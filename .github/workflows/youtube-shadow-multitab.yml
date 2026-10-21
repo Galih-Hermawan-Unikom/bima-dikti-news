@@ -1,0 +1,40 @@
+name: YouTube Multi-Tab Shadow Collection
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: youtube-shadow-multitab-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install HTTP dependency only
+        run: python -m pip install requests==2.31.0
+      - name: Collect two read-only tabs
+        run: >-
+          python -B youtube_multitab_snapshot.py
+          --output-dir "${RUNNER_TEMP}/youtube-shadow-multitab-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+      - name: Preserve snapshot or safe failure report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: youtube-shadow-multitab-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/youtube-shadow-multitab-${{ github.run_id }}-${{ github.run_attempt }}/*.json
+          retention-days: 14
+          if-no-files-found: error
+          overwrite: false

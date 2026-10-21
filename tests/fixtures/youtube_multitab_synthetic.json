@@ -1,0 +1,17 @@
+{
+  "description": "Synthetic observations, never publication or delivery evidence",
+  "historical_ids": ["knownvid001", "shortold001"],
+  "videos": [
+    {"video_id": "knownvid001", "title": "Synthetic research update"},
+    {"video_id": "unknown0001", "title": "Synthetic unseen presentation"}
+  ],
+  "streams": [
+    {"video_id": "knownvid001", "title": "Synthetic research event"},
+    {"video_id": "streamnew01", "title": "Synthetic scheduled discussion"}
+  ],
+  "source_metadata": {
+    "relative_text": ["Tayang 23/10/26, 02.00"],
+    "badges": ["Mendatang"],
+    "schedule_timezone": null
+  }
+}
