@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "repository": "Galih-Hermawan-Unikom/bima-dikti-news",
+  "snapshots": {
+    "gh-100-attempt-1": {
+      "sha256": "b031adb5d0343910b4a425142004acf1323f236b0c447cb87bd063249c2773a6",
+      "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "github_run_id": "100",
+      "github_run_attempt": 1
+    },
+    "gh-101-attempt-1": {
+      "sha256": "0ca140acc9e99ec61835c2f202bc338e62a8b719bb33027f38052fb004dc1f24",
+      "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "github_run_id": "101",
+      "github_run_attempt": 1
+    }
+  }
+}

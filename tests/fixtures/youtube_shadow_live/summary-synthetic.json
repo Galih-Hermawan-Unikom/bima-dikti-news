@@ -1,0 +1,16 @@
+{
+  "mode": "shadow-only",
+  "selected_files": 2,
+  "unique_snapshots": 2,
+  "duplicate_files": 0,
+  "baseline_sha256": "5591838561c4dd2bc8c353ec144836675d090b300d07fc56cff38da6f65f0c20",
+  "healthy_snapshots": 2,
+  "failed_snapshots": 0,
+  "classifications": {
+    "KNOWN": 1,
+    "UNKNOWN": 1,
+    "NEW_CANDIDATE": 0,
+    "APPROVED": 0
+  },
+  "delivery_authorized": false
+}

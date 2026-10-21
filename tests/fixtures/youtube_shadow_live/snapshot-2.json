@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "source": "youtube-videos-shadow-v1",
+  "channel_id": "UCGo_6l_6kp8H8OHcKcSIeDw",
+  "source_url": "https://www.youtube.com/@kemdiktisaintek/videos",
+  "repository": "Galih-Hermawan-Unikom/bima-dikti-news",
+  "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "github_run_id": "101",
+  "github_run_attempt": 1,
+  "snapshot_id": "gh-101-attempt-1",
+  "baseline": {
+    "ids": [
+      "K94OBen4CiU"
+    ],
+    "cutover_version": 1,
+    "cutover_at": "2026-10-21T01:32:44.160012+00:00",
+    "sha256": "5591838561c4dd2bc8c353ec144836675d090b300d07fc56cff38da6f65f0c20"
+  },
+  "http_status": 200,
+  "parser_health": "HEALTHY",
+  "parsing_errors": 0,
+  "detected_count": 2,
+  "observations": [
+    {
+      "video_id": "K94OBen4CiU",
+      "title": "Synthetic K94OBen4CiU",
+      "channel_title": "Synthetic channel",
+      "url": "https://www.youtube.com/watch?v=K94OBen4CiU",
+      "thumbnail": "https://i.ytimg.com/vi/K94OBen4CiU/hqdefault.jpg",
+      "knowledge": "KNOWN"
+    },
+    {
+      "video_id": "shadownew01",
+      "title": "Synthetic shadownew01",
+      "channel_title": "Synthetic channel",
+      "url": "https://www.youtube.com/watch?v=shadownew01",
+      "thumbnail": "https://i.ytimg.com/vi/shadownew01/hqdefault.jpg",
+      "knowledge": "UNKNOWN"
+    }
+  ],
+  "empty_verified": false,
+  "error_category": null,
+  "observed_at_utc": "2026-10-22T00:02:00+00:00",
+  "sha256": "0ca140acc9e99ec61835c2f202bc338e62a8b719bb33027f38052fb004dc1f24"
+}
