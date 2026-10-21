@@ -15,5 +15,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install -r requirements-dev.txt
+      - name: One RSS-only cutover diagnostic without retry
+        run: python -B scripts/diagnose_rss_cutover.py
       - run: playwright install --with-deps chromium
       - run: python -m pytest
