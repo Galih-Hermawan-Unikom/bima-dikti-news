@@ -15,5 +15,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install -r requirements-dev.txt
+      - name: One read-only public RSS diagnostic
+        run: python -B scripts/diagnose_youtube_rss.py
       - run: playwright install --with-deps chromium
       - run: python -m pytest
