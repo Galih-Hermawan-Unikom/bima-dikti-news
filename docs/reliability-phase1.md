@@ -1,5 +1,71 @@
 # Audit Reliabilitas Fase 1
 
+## Investigasi RSS dan Retry Terbatas
+
+Dasar: master `2054e584d3aa203b859702b9ae3eaeb1b7e71c0b`.
+Run produksi `39528477094`: BIMA NO_NEW_ITEMS, YouTube FAILED
+`HTTPError HTTP 404`, tanpa kandidat/pengiriman. Workflow tetap
+`disabled_manually` sepanjang pekerjaan ini.
+
+Perbandingan satu GET per lingkungan menggunakan script identik pada branch
+diagnostik `fix/reliability-youtube-rss-probe`, commit `ea18e7e`.
+Script memakai Session/User-Agent dan parser `YouTubeMonitor.fetch_videos()`
+produksi, tanpa membaca .env atau state. Redirect tidak diikuti untuk membatasi
+tepat satu request dan mencegah akses selain endpoint RSS.
+
+| Bukti | Lokal | GitHub Actions |
+|---|---|---|
+| UTC | 21 Oktober 2026 02:42:58.743939 | 21 Oktober 2026 02:43:25.962611 |
+| HTTP | 500 | 404 |
+| Content-Type | text/html; charset=UTF-8 | text/html; charset=UTF-8 |
+| Redirect | Tidak | Tidak |
+| Entri RSS valid | Tidak tersedia; fetch gagal sebelum parsing feed | Tidak tersedia; fetch gagal sebelum parsing feed |
+| Python / requests | 3.11.9 / 2.31.0 | 3.11.17 / 2.31.0 |
+
+Run diagnostik:
+[39534565318](https://github.com/Galih-Hermawan-Unikom/bima-dikti-news/actions/runs/39534565318),
+SUCCESS, 232 regression tests passed. Endpoint dan channel ID sesuai
+`https://www.youtube.com/feeds/videos.xml?channel_id=UCGo_6l_6kp8H8OHcKcSIeDw`.
+Channel ID pada env log run produksi gagal juga cocok persis; bukan hanya
+default config lokal yang dibandingkan.
+HTTP gagal sudah terjadi sebelum klasifikasi XML/identitas/cutover; bukan feed
+kosong. Lokal juga menerima error HTTP, sehingga bukti ini tidak membuktikan
+pemblokiran IP GitHub. Penyebab layanan/CDN/routing/pembatasan akses masih belum
+terpisahkan oleh dua observasi tersebut.
+
+Perubahan minimal: maksimal dua GET RSS (satu retry setelah dua detik) untuk
+404, 429, 5xx, timeout, connection error, atau XML tidak dapat diparse.
+Tidak ada loop retry tanpa batas, fallback, proxy, autentikasi, pergantian
+endpoint/User-Agent, atau retry pengiriman Telegram tambahan. Timeout requests
+tetap 15 detik per connect/read; bukan janji deadline absolut seluruh fetch.
+
+Retry-After numerik 0 sampai 2 detik tetap mendapat jeda dua detik; nilai lebih
+besar, format tanggal, atau nilai tidak valid tidak dipaksakan menjadi retry
+cepat. Run gagal secara eksplisit dan menunggu keputusan/run berikutnya.
+HTTP lain, redirect, root feed tidak dikenal, serta metadata entri ambigu tetap
+fail-closed tanpa retry. Redirect tidak diikuti. Log hanya kategori tetap,
+status HTTP dan jumlah percobaan; tidak ada body/header/cookie/URL sensitif.
+
+Jika percobaan terakhir gagal: SourceError aman menyebut kategori dan attempts;
+YouTube tetap FAILED, proposed_cache tetap None, cache video tidak ditulis atau
+dimajukan. BIMA dan delivery independen tetap berjalan. Jika berhasil: parser
+metadata, deduplikasi, gerbang cutover 133 ID, event pesan 271, checkpoint dan
+retry Telegram yang ada tidak berubah. Feed valid kosong tetap NO_NEW_ITEMS.
+
+Retry ini mitigasi kegagalan sementara, **bukan bukti RSS sudah pulih**.
+Tidak dilakukan request nyata tambahan untuk mencoba retry. Aktivasi produksi
+tetap NO-GO sebelum review PR dan keputusan verifikasi terkontrol berikutnya.
+Workflow diagnostik tidak masuk PR perbaikan; tests.yml produksi tetap identik.
+
+Validasi lokal seluruh suite: **274 passed, 0 failed** (232 regresi yang ada
+ditambah 42 kasus retry/HTTP/timeout/XML/redirect/Retry-After dan integritas).
+Satu test request lama disesuaikan agar memverifikasi redirect tidak diikuti.
+Semua network test dimock, .env dilarang, cache operasional diperiksa SHA-256.
+Simulasi tiga run mempertahankan marker 133 ID dan batch pesan 271 persis;
+404 lalu 200 hanya mengirim satu initial baru setelah cutover. Kegagalan RSS
+berulang tidak menulis cache YouTube, sementara item BIMA valid tetap dikirim
+melalui mock dan dicatat delivered hanya setelah konfirmasi mock API.
+
 **Catatan versi:** bagian inspeksi player, severity historis dan UNKNOWN safety
 di bawah mencatat implementasi sebelumnya. Rancangan pada bagian
 [YouTube RSS-only](#youtube-rss-only) menggantikan perilaku YouTube tersebut;
