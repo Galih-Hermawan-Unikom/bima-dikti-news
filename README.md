@@ -15,14 +15,14 @@ Implementasi publik proyek ini dapat dilihat di channel Telegram **Dikti News**:
 
 - Scraping otomatis halaman pengumuman BIMA menggunakan Playwright + Chromium
 - Deteksi dokumen lampiran beserta URL unduhan file
-- Monitoring kanal YouTube Kemdiktisaintek via RSS feed dengan fitur **Deep Inspection**
-- Deteksi status video YouTube: **LIVE**, **UPCOMING**, atau **VOD** (Video on Demand) secara akurat
-- Notifikasi pembaruan status video (misal: dari *Upcoming* menjadi *Live* atau *VOD*)
+- Monitoring kanal YouTube Kemdiktisaintek hanya melalui RSS publik, tanpa login atau API key
+- Notifikasi netral **VIDEO BARU — YOUTUBE KEMDIKTISAINTEK**, tanpa klaim status tayang
+- Deduplikasi berdasarkan ID video, baseline historis, dan jurnal pengiriman
 - Notifikasi via Telegram dan Console
 - Opsi kirim ringkasan saja atau ringkasan + file ke Telegram
 - Notifikasi gabungan BIMA + YouTube dalam satu ringkasan
 - Pengecekan berkala yang bisa disesuaikan: 30 menit saat masa kritis, 3 jam saat masa normal
-- Cache metadata terpisah untuk BIMA dan YouTube dengan optimasi inspeksi
+- Cache metadata terpisah untuk BIMA dan YouTube; riwayat lama tetap dipertahankan
 - Bisa dijalankan lokal atau hosting gratis di GitHub Actions
 
 ## Cara Kerja
@@ -44,7 +44,7 @@ Implementasi publik proyek ini dapat dilihat di channel Telegram **Dikti News**:
  youtube_cache.json]
         │
         ▼
-[Ada baru atau status berubah?] ──Ya──► [Kirim ringkasan Telegram]
+[Ada item baru yang eligible?] ──Ya──► [Kirim ringkasan Telegram]
         │                           [Unggah lampiran BIMA jika aktif]
         │
        Tidak
@@ -315,24 +315,17 @@ schedule:
    📎 Pengumuman Pendanaan Program Penelitian Multitahun Lanjutan TA 2026.pdf
    🔗 https://bima.kemdiktisaintek.go.id/pengumuman
 
-3. ▶️ Sosialisasi Peraturan tentang Petunjuk Teknis PEKERTI AA
+3. Sosialisasi Peraturan tentang Petunjuk Teknis PEKERTI AA
    📺 Kementerian Pendidikan Tinggi, Sains dan Teknologi
-   🔴 STATUS: LIVE SEKARANG
-   📆 2026-04-16T04:05:14+00:00
+   📆 Publikasi (RSS): 2026-04-16T04:05:14+00:00
    📝 Sosialisasi Peraturan tentang Petunjuk Teknis PEKERTI AA (Pimpinan PT dan Kepala LLDIKTI)
    🔗 https://www.youtube.com/watch?v=pSgfm5BB-aI
-
-4. ▶️ Webinar Pemanfaatan AI untuk Riset
-   📺 Kementerian Pendidikan Tinggi, Sains dan Teknologi
-   ⏳ STATUS: UPCOMING (Rencana Tayang)
-   📅 Jadwal: 22 April 2026, 13:00 WIB
-   🔗 https://www.youtube.com/watch?v=Y22Dc0MdmU8
 
 ━━━━━━━━━━━━━━━━━━━━
 Bot Notifikasi BIMA
 ```
 
-> Semua waktu notifikasi menggunakan **WIB (UTC+7)**.
+> Waktu pembuatan notifikasi menggunakan **WIB (UTC+7)**. Publikasi RSS mempertahankan zona waktu sumber dan bukan bukti waktu mulai siaran.
 > Jika `TELEGRAM_SEND_FILES=true`, setelah pesan utama bot akan mengunggah dokumen lampiran satu per satu untuk item **BIMA saja**.
 > Item YouTube hanya mengirim ringkasan teks dan tautan video, tanpa lampiran.
 > Jika tidak ada item baru, bot hanya menulis log `[OK] No new items` tanpa mengirim pesan ke Telegram.
@@ -343,6 +336,20 @@ Bot Notifikasi BIMA
 ### Reliabilitas dan Dry-run (Fase 1)
 
 Gunakan `python run_github.py --dry-run` untuk membaca sumber dan melihat preview tanpa mengirim Telegram, membaca secrets, atau mengubah cache/jurnal. Pengujian otomatis: `pip install -r requirements-dev.txt`, `playwright install chromium`, lalu `python -m pytest`.
+
+### Cutover YouTube RSS-only
+
+Perubahan ini memerlukan review dan persetujuan cutover terpisah; tidak mengubah
+state produksi otomatis. ID cache/jurnal historis menjadi baseline dikenal,
+bukan bukti delivered. Notifikasi transisi LIVE/VOD tidak lagi dibuat.
+
+Sebelum aktivasi versi ini, bandingkan RSS dengan snapshot cache dan jurnal
+terbaru. Tinjau ID yang belum dikenal serta batch pending lama. Setelah disetujui,
+siapkan metadata `youtube_rss_cutover` dalam jurnal dengan batas waktu eksplisit
+dan `baseline_ids` yang sudah ditinjau. Jangan membuat batch delivered sintetis.
+Tanpa marker, ID belum dikenal ditahan dan dilaporkan FAILED; BIMA valid tetap
+dapat diproses. Detail rancangan dan proposal murni ada di
+[laporan reliabilitas](docs/reliability-phase1.md#youtube-rss-only).
 
 Cache mencatat **deteksi**, sedangkan `delivery_state.json` mencatat **pengiriman terkonfirmasi** dan bagian yang perlu diulang. Kegagalan sumber atau pengiriman menghasilkan status gagal di GitHub Actions. Jika commit/push state gagal, periksa recovery artifact sebelum menjalankan retry. Duplikasi tetap mungkin jika Telegram sudah menerima pesan tetapi checkpoint/commit belum tersimpan; sistem tidak menjamin exactly-once.
 

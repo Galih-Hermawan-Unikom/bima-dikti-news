@@ -92,11 +92,10 @@ def test_outbox_failure_does_not_advance_detection(tmp_path, config, monitors, n
     telegram.assert_not_called()
 
 
-def test_bima_zero_failure_other_source_still_sends(tmp_path, config, monitors, notifier, telegram, monkeypatch):
+def test_bima_zero_failure_other_source_still_sends(tmp_path, config, monitors, notifier, telegram, monkeypatch, rss_video, approved_cutover):
     monkeypatch.setattr(monitors[0], "fetch_announcements", lambda: [])
-    video = {"source": "youtube", "title": "Live fixture", "video_id": "video1", "url": "https://example.invalid/video"}
+    video = rss_video
     monkeypatch.setattr(monitors[1], "fetch_videos", lambda: [deepcopy(video)])
-    monkeypatch.setattr(monitors[1], "_analyze_video_type", lambda video_id: {"status": "LIVE"})
     result = run(tmp_path, config, monitors, notifier)
     assert result.exit_code == 1 and result.sources[0].status == "FAILED"
     assert result.sources[1].status == "NEW_ITEMS"
@@ -174,51 +173,6 @@ def test_rss_fixture(fixtures, monkeypatch):
     videos = monitor.fetch_videos()
     assert videos[0]["video_id"] == "fixture1234"
     assert videos[0]["description"] == "Informasi penelitian"
-
-
-@pytest.mark.parametrize("details,live,expected", [
-    ({"isLiveContent": False}, {}, "VOD"),
-    ({"isLiveContent": True}, {"isLiveNow": True}, "LIVE"),
-    ({"isLiveContent": True}, {"startTimestamp": "2099-01-01T00:00:00Z"}, "UPCOMING"),
-    ({"isLiveContent": True}, {"startTimestamp": "2020-01-01T00:00:00Z"}, "UPCOMING"),
-    ({"isLiveContent": True}, {"endTimestamp": "2026-01-01T00:00:00Z"}, "VOD"),
-    ({"isLiveContent": True}, {}, "UNKNOWN"),
-    ({}, {}, "UNKNOWN"),
-])
-def test_video_states(details, live, expected, monkeypatch):
-    monitor = YouTubeMonitor()
-    player = {"videoDetails": details, "microformat": {"playerMicroformatRenderer": {"liveBroadcastDetails": live}}}
-    response = Mock(text="ytInitialPlayerResponse = " + json.dumps(player) + ";")
-    monkeypatch.setattr(monitor.session, "get", lambda *a, **k: response)
-    assert monitor._analyze_video_type("fixture")["status"] == expected
-
-
-@pytest.mark.parametrize("failure", ["timeout", "missing", "malformed"])
-def test_inspection_failure_is_unknown(monkeypatch, failure):
-    monitor = YouTubeMonitor()
-    response = Mock(text="no player" if failure == "missing" else "ytInitialPlayerResponse = invalid;")
-    request = Mock(return_value=response)
-    if failure == "timeout":
-        request.side_effect = requests.Timeout()
-    monkeypatch.setattr(monitor.session, "get", request)
-    assert monitor._analyze_video_type("fixture")["status"] == "UNKNOWN"
-
-
-def test_upcoming_unknown_live_preserves_transition(tmp_path, monkeypatch):
-    monitor = YouTubeMonitor(cache_file=tmp_path / "youtube_cache.json")
-    video = {"source": "youtube", "title": "Stream", "video_id": "fixture", "status": "UPCOMING"}
-    atomic_json(monitor.cache_file, [video])
-    monkeypatch.setattr(monitor, "fetch_videos", lambda: [dict(video)])
-    monkeypatch.setattr(monitor, "_analyze_video_type", lambda _: {"status": "UNKNOWN"})
-    assert monitor.check_new_videos() == []
-    assert monitor.proposed_cache[0]["last_known_status"] == "UPCOMING"
-    monitor.save_cache(monitor.proposed_cache)
-    monkeypatch.setattr(monitor, "_analyze_video_type", lambda _: {"status": "LIVE"})
-    items = monitor.check_new_videos()
-    assert len(items) == 1 and items[0]["is_status_update"]
-    monitor.save_cache(monitor.proposed_cache)
-    monkeypatch.setattr(monitor, "_analyze_video_type", lambda _: {"status": "VOD"})
-    assert monitor.check_new_videos() == []
 
 
 def test_dry_run_no_send_no_state_write(tmp_path, config, monitors, notifier, telegram, announcement):
@@ -333,19 +287,6 @@ def test_atomic_cache_replace_failure_preserves_history(tmp_path, monkeypatch):
     assert not list(tmp_path.glob("*.tmp"))
 
 
-def test_unknown_video_rechecked_outside_rss(tmp_path, monkeypatch):
-    monitor = YouTubeMonitor(cache_file=tmp_path / "youtube_cache.json")
-    atomic_json(monitor.cache_file, [{"title": "Stream", "video_id": "fixture", "status": "UNKNOWN"}])
-    monkeypatch.setattr(monitor, "fetch_videos", lambda: [])
-    analyze = Mock(return_value={"status": "VOD"})
-    monkeypatch.setattr(monitor, "_analyze_video_type", analyze)
-    recovered = monitor.check_new_videos()
-    assert len(recovered) == 1 and recovered[0]["status"] == "VOD"
-    assert not recovered[0].get("is_status_update")
-    analyze.assert_called_once_with("fixture")
-    assert monitor.proposed_cache[0]["status"] == "VOD"
-
-
 def test_real_cache_migration_in_temporary_copy_only(tmp_path, fixtures):
     source = fixtures / "bima_history_89.json"
     original = source.read_bytes()
@@ -366,27 +307,7 @@ def test_production_cron_unchanged():
     assert "cron: '0 */3 * * *'" in workflow
 
 
-def test_degraded_inspection_visible_without_losing_detection(tmp_path, config, monitors, notifier, telegram, monkeypatch):
-    monkeypatch.setattr(monitors[1], "fetch_videos", lambda: [{"source": "youtube", "title": "Unknown stream", "video_id": "new"}])
-    monkeypatch.setattr(monitors[1], "_analyze_video_type", lambda _: {"status": "UNKNOWN"})
-    result = run(tmp_path, config, monitors, notifier)
-    assert result.exit_code == 1 and result.sources[1].status == "DEGRADED"
-    assert read_json(tmp_path / "youtube_cache.json", [])[0]["status"] == "UNKNOWN"
-
-
 def test_legacy_surat_identity_no_replay_before_migration(tmp_path, config, monitors, notifier, telegram, announcement):
     atomic_json(tmp_path / "announcements_cache.json", [dict(announcement, surat=announcement["surat"] + "16")])
     assert run(tmp_path, config, monitors, notifier).exit_code == 0
     telegram.assert_not_called()
-
-
-def test_new_unknown_then_live_notifies_recovered_status(tmp_path, monkeypatch):
-    monitor = YouTubeMonitor(cache_file=tmp_path / "youtube_cache.json")
-    video = {"source": "youtube", "title": "Stream", "video_id": "fixture"}
-    monkeypatch.setattr(monitor, "fetch_videos", lambda: [dict(video)])
-    monkeypatch.setattr(monitor, "_analyze_video_type", lambda _: {"status": "UNKNOWN"})
-    assert monitor.check_new_videos()[0]["status"] == "UNKNOWN"
-    monitor.save_cache(monitor.proposed_cache)
-    monkeypatch.setattr(monitor, "_analyze_video_type", lambda _: {"status": "LIVE"})
-    recovered = monitor.check_new_videos()[0]
-    assert recovered["status"] == "LIVE" and not recovered.get("is_status_update")

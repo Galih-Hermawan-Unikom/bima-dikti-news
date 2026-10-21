@@ -281,14 +281,13 @@ def test_ambiguity_blocks_pending_bima_without_advancing_history(tmp_path, confi
     telegram.assert_not_called()
 
 
-def test_ambiguous_bima_does_not_block_other_source(tmp_path, config, monitors, notifier, telegram, monkeypatch):
+def test_ambiguous_bima_does_not_block_other_source(tmp_path, config, monitors, notifier, telegram, monkeypatch, rss_video, approved_cutover):
     old = record()
     atomic_json(tmp_path / "announcements_cache.json", [old])
     before = (tmp_path / "announcements_cache.json").read_bytes()
     monkeypatch.setattr(monitors[0], "fetch_announcements", lambda: [dict(old, title="Tidak Pasti", documents=[])])
-    video = {"source": "youtube", "title": "Synthetic fixture", "video_id": "fixture", "url": "https://example.invalid"}
+    video = rss_video
     monkeypatch.setattr(monitors[1], "fetch_videos", lambda: [deepcopy(video)])
-    monkeypatch.setattr(monitors[1], "_analyze_video_type", lambda _: {"status": "VOD"})
     result = execute(tmp_path, config, monitors, notifier)
     assert result.exit_code == 1 and result.sources[0].status == "FAILED"
     assert result.sources[1].status == "NEW_ITEMS" and telegram.call_count == 1
