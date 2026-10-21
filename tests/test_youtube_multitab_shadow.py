@@ -384,3 +384,91 @@ def test_workflow_lineage_must_match(synthetic, baseline, tmp_path):
     trust["artifacts"]["second.zip"]["workflow_id"] = "999"
     with pytest.raises(SourceError, match="LINEAGE"):
         offline.validate_trust(trust)
+
+
+@pytest.mark.parametrize("failures", [(), ("videos",), ("streams",), TABS])
+def test_tab_intervals_recorded_on_success_and_failure(synthetic, baseline, failures):
+    times = [*synthetic["tab_timings_example"]["videos"].values(),
+             *synthetic["tab_timings_example"]["streams"].values(), "2026-10-22T00:00:04+00:00"]
+    clock = Mock(side_effect=[datetime.fromisoformat(t) for t in times])
+    reader = Mock()
+    def fetch(tab):
+        assert clock.call_count == (1 if tab == "videos" else 3)
+        if tab in failures:
+            raise requests.Timeout("DO_NOT_LOG")
+        return page(synthetic, tab)
+    reader.fetch.side_effect = fetch
+    value = collector.collect_snapshot(reader, baseline,
+        collector.run_metadata(collector.REPOSITORY, "a" * 40, "101", 1),
+        {f: "b" * 64 for f in collector.STATE_FILES}, now=clock)
+    assert value["tab_timings"] == synthetic["tab_timings_example"]
+    assert value["observed_at_utc"] == times[-1] and clock.call_count == 5
+    assert reader.fetch.call_count == 2
+    result = offline.reconcile([value])
+    assert len(result["shadow"]["videos"]) == (0 if failures else 3)
+
+
+@pytest.mark.parametrize("tab", TABS)
+@pytest.mark.parametrize("field", ["started_at_utc", "finished_at_utc"])
+@pytest.mark.parametrize("invalid", [None, "invalid", "2026-10-22T00:00:00", "2026-10-22T07:00:00+07:00"])
+def test_invalid_tab_timestamp_rejected(synthetic, baseline, tab, field, invalid):
+    value = snapshot(synthetic, baseline)
+    value["tab_timings"][tab][field] = invalid
+    with pytest.raises(SourceError):
+        collector.validate_snapshot(collector.seal(value))
+
+
+@pytest.mark.parametrize("mutation", ["missing_map", "missing_tab", "missing_field", "extra_tab",
+                                     "reverse_interval", "overlap", "after_global"])
+def test_tab_timing_shape_and_order_fail_closed(synthetic, baseline, mutation):
+    value = snapshot(synthetic, baseline)
+    value["tab_timings"] = deepcopy(synthetic["tab_timings_example"])
+    value["observed_at_utc"] = "2026-10-22T00:00:04+00:00"
+    if mutation == "missing_map":
+        del value["tab_timings"]
+    elif mutation == "missing_tab":
+        del value["tab_timings"]["streams"]
+    elif mutation == "missing_field":
+        del value["tab_timings"]["videos"]["finished_at_utc"]
+    elif mutation == "extra_tab":
+        value["tab_timings"]["shorts"] = deepcopy(value["tab_timings"]["videos"])
+    elif mutation == "reverse_interval":
+        value["tab_timings"]["videos"]["started_at_utc"] = "2026-10-22T00:00:02+00:00"
+    elif mutation == "overlap":
+        value["tab_timings"]["streams"]["started_at_utc"] = "2026-10-22T00:00:00+00:00"
+    else:
+        value["observed_at_utc"] = "2026-10-22T00:00:02+00:00"
+    with pytest.raises(SourceError):
+        collector.validate_snapshot(collector.seal(value))
+
+
+def test_offline_artifact_timing_validation(synthetic, baseline, tmp_path):
+    value = snapshot(synthetic, baseline)
+    value["tab_timings"]["streams"]["finished_at_utc"] = "2026-10-23T00:00:00+00:00"
+    path, trust = trust_zip(tmp_path, collector.seal(value))
+    with pytest.raises(SourceError, match="ARTIFACT_INVALID"):
+        offline.read_artifact(path, trust)
+
+
+def test_collector_clock_regression_and_naive_clock_rejected(synthetic, baseline):
+    run = collector.run_metadata(collector.REPOSITORY, "a" * 40, "101", 1)
+    reader = Mock()
+    reader.fetch.side_effect = lambda tab: page(synthetic, tab)
+    with pytest.raises(SourceError):
+        collector.collect_snapshot(reader, baseline, run, {f: "b" * 64 for f in collector.STATE_FILES},
+            now=lambda: datetime(2026, 10, 22))
+    times = [datetime(2026, 10, 22, 0, 0, s, tzinfo=timezone.utc) for s in [2, 1, 3, 4, 5]]
+    with pytest.raises(SourceError, match="OUT_OF_ORDER"):
+        collector.collect_snapshot(reader, baseline, run, {f: "b" * 64 for f in collector.STATE_FILES},
+            now=Mock(side_effect=times))
+
+
+def test_aware_clock_normalized_to_utc(synthetic, baseline):
+    reader = Mock()
+    reader.fetch.side_effect = lambda tab: page(synthetic, tab)
+    value = collector.collect_snapshot(reader, baseline,
+        collector.run_metadata(collector.REPOSITORY, "a" * 40, "101", 1),
+        {f: "b" * 64 for f in collector.STATE_FILES},
+        now=lambda: datetime.fromisoformat("2026-10-22T07:00:00+07:00"))
+    assert value["observed_at_utc"] == "2026-10-22T00:00:00+00:00"
+    assert all(set(t.values()) == {value["observed_at_utc"]} for t in value["tab_timings"].values())

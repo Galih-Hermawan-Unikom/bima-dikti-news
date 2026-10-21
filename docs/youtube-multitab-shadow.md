@@ -35,6 +35,7 @@ Root fields are strict and include:
 | github_run_id / github_run_attempt | Run identity, including explicit reruns |
 | snapshot_id | `gh-multitab-<run>-attempt-<attempt>` |
 | observed_at_utc | Monitor observation time after both requests, never publication time |
+| tab_timings | Per-tab started_at_utc and finished_at_utc, including failed fetch attempts |
 | channel_id / requested_tabs | Expected channel and exactly videos, streams |
 | pages | Independent health, HTTP status, counts, parsing errors, continuation, empty proof, error category |
 | overall_health / is_partial | Truth table below |
@@ -54,6 +55,25 @@ identity: line endings or unrelated BIMA updates need not invalidate that identi
 Canonical JSON hashing uses sorted keys, ASCII escapes, compact separators and
 UTF-8, exactly the existing `digest()` helper. This hash is not the SHA-256 of
 the pretty-printed JSON bytes, and neither is the ZIP artifact SHA-256.
+
+Each attempted tab records its interval around the adapter fetch, including HTTP
+and parsing. The finished timestamp is recorded in finally even if the fetch
+raises. All timestamps are timezone-aware UTC. Validation requires
+videos.start <= videos.finish <= streams.start <= streams.finish <= observed_at_utc;
+equal timestamps are allowed for clock resolution. Invalid/missing timing or a
+backwards wall clock fails closed, not by fabricating or clamping timestamps.
+These are monitor execution times, never video publication/schedule times. A global
+timestamp alone cannot expose the gap between tabs or locate a failed attempt.
+If setup fails before fetching, failure.json remains a diagnostic, not a snapshot.
+This mandatory field completes the unreleased Phase 4.3B schema: pre-review snapshots
+without it are rejected, not upgraded by inference. No Phase 3 schema changes.
+
+```json
+{"tab_timings": {
+  "videos": {"started_at_utc": "2026-10-22T00:00:00+00:00", "finished_at_utc": "2026-10-22T00:00:01+00:00"},
+  "streams": {"started_at_utc": "2026-10-22T00:00:02+00:00", "finished_at_utc": "2026-10-22T00:00:03+00:00"}
+}, "observed_at_utc": "2026-10-22T00:00:04+00:00"}
+```
 
 Titles and raw relative schedule/badge text remain source text. Schedule timezone
 stays null. No inferred published_at, playback status, WIB schedule or delivery

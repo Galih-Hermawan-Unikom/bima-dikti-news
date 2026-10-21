@@ -22,7 +22,7 @@ FAILURES = ERRORS | {"LOCKUP_METADATA_INVALID", "INVALID_RESULT_OR_INTERNAL_FAIL
 FIELDS = {"schema_version", "source", "repository", "commit_sha", "github_run_id",
           "github_run_attempt", "snapshot_id", "workflow_path", "observed_at_utc",
           "channel_id", "requested_tabs", "pages", "overall_health", "is_partial",
-          "baseline", "source_state_fingerprint", "observations", "sha256"}
+          "baseline", "source_state_fingerprint", "observations", "tab_timings", "sha256"}
 ROW_FIELDS = {"source", "observation_format", "video_id", "title", "channel_title", "url",
               "thumbnail", "source_tabs", "titles_by_tab", "metadata_by_tab", "knowledge",
               "title_conflict"}
@@ -83,7 +83,18 @@ def validate_snapshot(value):
     run = run_metadata(value["repository"], value["commit_sha"], value["github_run_id"],
                        value["github_run_attempt"])
     require(all(value[k] == v for k, v in run.items()), "PROVENANCE_INVALID")
-    utc_time(value["observed_at_utc"])
+    observed = utc_time(value["observed_at_utc"])
+    timings = value["tab_timings"]
+    require(isinstance(timings, dict) and set(timings) == set(TABS), "TAB_TIMINGS_INVALID")
+    previous_finish = None
+    for tab in TABS:
+        timing = timings[tab]
+        require(isinstance(timing, dict) and set(timing) == {"started_at_utc", "finished_at_utc"},
+                "TAB_TIMINGS_INVALID")
+        started, finished = utc_time(timing["started_at_utc"]), utc_time(timing["finished_at_utc"])
+        require(started <= finished <= observed and (previous_finish is None or previous_finish <= started),
+                "TAB_TIMINGS_OUT_OF_ORDER")
+        previous_finish = finished
     validate_multitab_baseline(value["baseline"])
     require(value["sha256"] == seal(value)["sha256"], "CHECKSUM_INVALID")
     fp = value["source_state_fingerprint"]
@@ -141,24 +152,33 @@ def collect_snapshot(reader, baseline, run, state_fingerprint, now=None):
     validate_multitab_baseline(baseline)
     require(run == run_metadata(run.get("repository"), run.get("commit_sha"), run.get("github_run_id"),
                                 run.get("github_run_attempt")), "RUN_METADATA_INVALID")
-    empty = {}
+    empty, timings = {}, {}
+    clock = now or (lambda: datetime.now(timezone.utc))
+
+    def timestamp():
+        when = clock()
+        require(isinstance(when, datetime) and when.tzinfo is not None and when.utcoffset() is not None,
+                "OBSERVATION_TIME_INVALID")
+        return when.astimezone(timezone.utc).isoformat()
 
     class RecordingReader:
         def fetch(self, tab):
-            page = reader.fetch(tab)
-            empty[tab] = page.empty_verified
-            return page
+            timings[tab] = {"started_at_utc": timestamp()}
+            try:
+                page = reader.fetch(tab)
+                empty[tab] = page.empty_verified
+                return page
+            finally:
+                # Preserve the completed attempt interval even when fetch/parsing raises.
+                timings[tab]["finished_at_utc"] = timestamp()
 
     result = read_channel_tabs(RecordingReader(), baseline["known"]["ids"])
     for tab, page in result["pages"].items():
         page["empty_verified"] = empty.get(tab, False) if page["health"] == "HEALTHY" else False
         if page["health"] == "FAILED" and page["error_category"] not in FAILURES:
             page["error_category"] = "INVALID_RESULT_OR_INTERNAL_FAILURE"
-    when = (now or (lambda: datetime.now(timezone.utc)))()
-    require(isinstance(when, datetime) and when.tzinfo is not None and when.utcoffset() is not None,
-            "OBSERVATION_TIME_INVALID")
     value = {"schema_version": 1, "source": SOURCE, **run, "channel_id": CHANNEL_ID,
-             "observed_at_utc": when.astimezone(timezone.utc).isoformat(), "requested_tabs": list(TABS),
+             "observed_at_utc": timestamp(), "tab_timings": timings, "requested_tabs": list(TABS),
              "pages": result["pages"], "overall_health": result["health"],
              "is_partial": sum(p["health"] == "HEALTHY" for p in result["pages"].values()) == 1,
              "baseline": baseline, "source_state_fingerprint": state_fingerprint,

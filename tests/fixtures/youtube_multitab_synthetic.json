@@ -1,5 +1,9 @@
 {
   "description": "Synthetic observations, never publication or delivery evidence",
+  "tab_timings_example": {
+    "videos": {"started_at_utc": "2026-10-22T00:00:00+00:00", "finished_at_utc": "2026-10-22T00:00:01+00:00"},
+    "streams": {"started_at_utc": "2026-10-22T00:00:02+00:00", "finished_at_utc": "2026-10-22T00:00:03+00:00"}
+  },
   "historical_ids": ["knownvid001", "shortold001"],
   "videos": [
     {"video_id": "knownvid001", "title": "Synthetic research update"},
