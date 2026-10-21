@@ -109,9 +109,8 @@ def test_short_message_keeps_existing_html_format(notifier, announcement):
     rendered_chunks(chunks)
 
 
-def test_large_mixed_summary_payloads_sent_under_limit(notifier, announcement, telegram):
-    video = {"source": "youtube", "title": "Video <baru>", "channel_title": "Kemdiktisaintek",
-             "status": "LIVE", "url": "https://example.invalid/video", "description": "Rangkuman & panduan"}
+def test_large_mixed_summary_payloads_sent_under_limit(notifier, announcement, telegram, rss_video):
+    video = dict(rss_video, title="Video <baru>", description="Rangkuman & panduan")
     announcement["documents"] = [{"name": f"Dokumen {i:03d}.pdf"} for i in range(250)]
     items = [announcement, video]
     chunks = notifier._build_summary_chunks(items)

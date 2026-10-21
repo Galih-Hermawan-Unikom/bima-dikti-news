@@ -229,7 +229,6 @@ def test_operational_cache_growth_does_not_change_frozen_baselines(fixtures, tmp
     monitor = YouTubeMonitor(cache_file=tmp_path / "youtube_cache.json")
     atomic_json(monitor.cache_file, cache)
     monkeypatch.setattr(monitor, "fetch_videos", lambda: [])
-    monkeypatch.setattr(monitor, "_analyze_video_type", lambda _: {"status": "UPCOMING"})
     assert monitor.check_new_videos() == []
     assert len(monitor.proposed_cache) == len(cache)
     assert len(history) == 89 and len(videos) == 125

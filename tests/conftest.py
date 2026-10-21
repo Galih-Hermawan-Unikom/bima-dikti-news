@@ -79,3 +79,20 @@ def telegram(monkeypatch):
 @pytest.fixture
 def notifier(config):
     return Notifier(config)
+
+
+@pytest.fixture
+def rss_video():
+    return {"source": "youtube", "kind": "video", "delivery_format": "youtube-rss-v1",
+            "video_id": "fixture1234", "title": "Synthetic RSS video", "channel_title": "Fixture channel",
+            "published": "2026-04-16T00:00:00Z", "date": "2026-04-16T00:00:00Z",
+            "url": "https://www.youtube.com/watch?v=fixture1234", "documents": []}
+
+
+@pytest.fixture
+def approved_cutover(tmp_path):
+    from reliability import atomic_json
+    state = {"version": 1, "batches": [], "youtube_rss_cutover": {
+        "version": 1, "cutover_at": "2026-04-01T00:00:00Z", "baseline_ids": []}}
+    atomic_json(tmp_path / "delivery_state.json", state)
+    return state

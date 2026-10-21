@@ -1,5 +1,10 @@
 # Audit Reliabilitas Fase 1
 
+**Catatan versi:** bagian inspeksi player, severity historis dan UNKNOWN safety
+di bawah mencatat implementasi sebelumnya. Rancangan pada bagian
+[YouTube RSS-only](#youtube-rss-only) menggantikan perilaku YouTube tersebut;
+mekanisme BIMA, PDF, checkpoint dan persistensi tetap berlaku.
+
 Branch: `fix/reliability-phase1`. Dasar audit: `91145df` (`origin/master`).
 Perubahan dilakukan pada worktree terpisah `BIMA_DIKTI_NEWS_reliability`.
 Tidak ada deployment, perubahan cron, merge, atau pengiriman Telegram produksi.
@@ -538,3 +543,99 @@ yang sah, batch pending campuran/parsial yang immutable, guard pemanggilan notif
 Telegram/persist/checkpoint gagal, RSS gagal, serta sembilan kategori diagnostik.
 Jaringan eksternal dan .env diblokir; pemeriksaan hash cache operasional lulus.
 Tidak ada pengiriman nyata atau perubahan state produksi pada pekerjaan PR ini.
+
+## YouTube RSS-only
+
+Branch: `fix/reliability-youtube-rss-only`, berbasis master
+`924663a38e6960a09abd9d0174b33f68b4b4ed91`.
+Ini perubahan pengembangan, bukan aktivasi atau migrasi produksi.
+
+### Perilaku
+
+Satu-satunya sumber YouTube adalah RSS publik channel
+`UCGo_6l_6kp8H8OHcKcSIeDw`. Tidak ada request halaman watch, parser player,
+login, API key, atau pemeriksaan/transisi status. Playwright tetap untuk BIMA.
+Feed valid menghasilkan NEW_ITEMS atau NO_NEW_ITEMS; HTTP/XML/metadata RSS
+gagal tetap FAILED. Tidak ada DEGRADED/WARNING dari inspeksi player.
+BIMA valid dan video RSS eligible lain tetap diproses meski ada item ditahan.
+
+Format netral: **VIDEO BARU — YOUTUBE KEMDIKTISAINTEK**, judul, nama kanal,
+`Publikasi (RSS)`, dan tautan; deskripsi opsional. Publikasi bukan bukti
+siaran dimulai atau video bisa ditonton. Ringkasan gabungan BIMA tetap didukung.
+
+### Baseline dan keputusan operator
+
+Cache lama dipertahankan lengkap, termasuk status lama, duplikasi dan urutan.
+ID dari cache dan seluruh event/item jurnal adalah baseline dikenal, bukan
+pernyataan bahwa setiap video sudah delivered. Tidak ada deduplikasi destruktif.
+Event initial historis, terutama `youtube:video:K94OBen4CiU:initial` (pesan 271),
+tetap utuh dan tidak menghasilkan initial atau update baru.
+
+Metadata opsional berikut hanya boleh diterapkan pada tahap cutover terpisah
+setelah operator meninjau snapshot final, backup, dan seluruh ID ambigu:
+
+```json
+{
+  "youtube_rss_cutover": {
+    "version": 1,
+    "cutover_at": "<waktu cutover berzona waktu yang disetujui>",
+    "baseline_ids": ["<ID historis yang ditinjau>"]
+  }
+}
+```
+
+Ini field tambahan tingkat jurnal, bukan batch delivered/pending sintetis.
+Runtime tidak membuat marker otomatis. `plan_rss_cutover(cache, journal, rss,
+cutover_at)` adalah fungsi proposal murni: mengembalikan baseline dikenal dan
+daftar ID belum dikenal untuk keputusan operator, tanpa file/network/delivery.
+Jangan menerapkan timestamp contoh atau waktu pengembangan sebagai cutover.
+
+Tanpa marker, ID RSS belum dikenal ditahan (FAILED, rekonsiliasi diperlukan).
+Dengan marker sah, ID belum dikenal hanya eligible bila publikasi valid dan
+setelah cutover; publikasi sebelum/tepat cutover atau ambigu tetap ditahan.
+Tanggal ini hanya gerbang cutover, bukan bukti delivery. Item ditahan tidak
+ditambahkan diam-diam ke cache atau diakui delivered. Daftar ID ditahan tersedia
+pada `YouTubeMonitor.held_items`; proposal mencantumkan ID/judul/publikasi.
+
+Snapshot read-only master dasar: BIMA 90 entri, YouTube 129 entri, satu batch
+delivered dan nol pending. RSS aktual 15 entri, 11 ID dikenal. Empat ID berikut
+belum dikenal; riwayat pengirimannya belum diverifikasi, **jangan kirim massal**:
+
+| ID | Judul | Publikasi RSS (UTC) |
+|---|---|---|
+| vH4lgwut_wI | Sudah mengajukan permintaan informasi publik? | 20 Oktober 2026 03:00:24 |
+| SPzLQ-H4Fcw | Butuh informasi publik dari Kemdiktisaintek? | 19 Oktober 2026 02:00:39 |
+| 4ZlcLMqtPYI | Butuh informasi publik tanpa ribet? | 18 Oktober 2026 02:00:33 |
+| oC6JCsrKdoc | Informasi publik adalah hak semua orang | 16 Oktober 2026 23:46:45 |
+
+Saat cutover nanti, operator perlu mengulangi inventaris, memeriksa riwayat
+pengiriman dan memutuskan baseline/reconciliation keempat ID serta item baru
+lain yang muncul. Tidak ada keputusan atau perubahan produksi pada PR ini.
+
+### Retry dan keterbatasan
+
+Event RSS baru selalu `youtube:video:<id>:initial`. Jurnal retry disimpan sebelum
+cache maju; item cache bukan pengganti bukti konfirmasi. Batch RSS baru
+memakai penanda `delivery_format=youtube-rss-v1`, tanpa field status.
+Retry tetap memakai chunk tersimpan, melewati chunk terkonfirmasi, dan bisa
+berlanjut walau item keluar dari jendela RSS. Batch pending YouTube versi lama
+(termasuk campuran/parsial) ditahan utuh untuk operator, bukan diformat ulang
+atau diakui sukses. BIMA dan batch RSS independen tetap dapat berjalan.
+
+Telegram, checkpoint, cache/jurnal, commit/push gagal tetap kritis; recovery
+artifact tidak diubah. Exactly-once tidak dijamin bila Telegram menerima pesan
+namun checkpoint/push gagal. Jangan retry atau rollback buta.
+RSS berjendela terbatas: video yang tidak pernah terlihat antar-run dapat
+terlewat; tidak ada fallback atau janji inventaris kanal lengkap.
+
+Test player/status sebelumnya digantikan dengan regresi RSS dan cutover, bukan
+di-skip. Fixture baseline 89 BIMA/125 video tetap stabil; test BIMA, PDF, chunk,
+checkpoint, persistensi workflow dan preflight tetap dijalankan. Semua network
+pengujian dimock dan pembacaan .env dilarang.
+Validasi lokal seluruh suite: **232 passed, 0 failed**. Jumlah berubah dari 290
+karena kasus player/status yang fiturnya dihapus diganti kasus RSS/cutover,
+bukan karena pengujian BIMA/persistensi dihapus atau di-skip.
+Mencakup retry RSS di luar feed, chunk parsial, Telegram gagal, checkpoint/cache/
+jurnal gagal, marker rusak, 15 item historis ditahan, pesan 271 tanpa replay,
+serta tiga run lanjutan setelah satu initial delivered. Integritas cache
+operasional kedua worktree diperiksa fixture SHA-256 dan tetap lulus.

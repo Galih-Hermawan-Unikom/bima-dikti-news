@@ -1,11 +1,15 @@
-import json
+"""Public RSS discovery only; publication is not evidence of playback status."""
+from copy import deepcopy
+from datetime import datetime, timezone
 import re
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta, timezone
 
 import requests
 
 from reliability import SourceError, atomic_json, read_json
+
+RSS_FORMAT = "youtube-rss-v1"
+DEFAULT_CHANNEL = "UCGo_6l_6kp8H8OHcKcSIeDw"
 
 
 def normalize_text(value):
@@ -15,282 +19,135 @@ def normalize_text(value):
 def youtube_identity(item):
     if not isinstance(item, dict):
         return ""
-
     video_id = normalize_text(item.get("video_id", ""))
-    if video_id:
-        return f"video:{video_id}"
-
-    link = normalize_text(item.get("url", ""))
-    if link:
-        return f"url:{link}"
-
-    return ""
+    return "video:" + video_id if video_id else ""
 
 
-def historical_unavailable(previous, unavailable, now):
-    if not previous or not unavailable:
-        return False
+def publication_time(value):
     try:
-        start = datetime.fromisoformat(previous.get("scheduled_start", "").replace("Z", "+00:00"))
-        return start.tzinfo is not None and now - start >= timedelta(days=7)
-    except (ValueError, TypeError, AttributeError):
-        return False
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return parsed.astimezone(timezone.utc) if parsed.tzinfo is not None else None
+    except (ValueError, AttributeError, TypeError):
+        return None
+
+
+def known_video_ids(cache, delivery):
+    ids = {i["video_id"] for i in cache if youtube_identity(i)}
+    for batch in delivery.get("batches", []):
+        ids.update(i["video_id"] for i in batch["items"] if i.get("source") == "youtube" and youtube_identity(i))
+        for key in batch["event_keys"]:
+            match = re.fullmatch(r"youtube:video:([^:]+):[^:]+", key)
+            if match:
+                ids.add(match.group(1))
+    return ids
+
+
+def validate_cutover(value):
+    if value is None:
+        return None
+    if (not isinstance(value, dict) or value.get("version") != 1
+            or publication_time(value.get("cutover_at")) is None
+            or not isinstance(value.get("baseline_ids"), list)
+            or any(not isinstance(i, str) or not i.strip() for i in value["baseline_ids"])
+            or len(set(value["baseline_ids"])) != len(value["baseline_ids"])):
+        raise ValueError("Invalid YouTube RSS cutover baseline; operator review required")
+    return value
+
+
+def plan_rss_cutover(cache, delivery, current, cutover_at):
+    """Pure proposal only: no writes, delivery acknowledgement or automatic approval."""
+    if publication_time(cutover_at) is None:
+        raise ValueError("Explicit timezone-aware cutover required")
+    known = known_video_ids(cache, delivery)
+    return {"proposed_marker": {"version": 1, "cutover_at": cutover_at, "baseline_ids": sorted(known)},
+            "known_current_ids": [i["video_id"] for i in current if i["video_id"] in known],
+            "requires_operator_review": [{k: i.get(k) for k in ("video_id", "title", "published")}
+                                         for i in current if i["video_id"] not in known]}
 
 
 class YouTubeMonitor:
-    def __init__(
-        self,
-        channel_id="UCGo_6l_6kp8H8OHcKcSIeDw",
-        channel_url="https://www.youtube.com/@kemdiktisaintek",
-        cache_file="youtube_cache.json",
-    ):
-        self.channel_id = normalize_text(channel_id)
-        self.channel_url = normalize_text(channel_url)
+    def __init__(self, channel_id=DEFAULT_CHANNEL, channel_url="https://www.youtube.com/@kemdiktisaintek",
+                 cache_file="youtube_cache.json"):
+        self.channel_id = normalize_text(channel_id) or DEFAULT_CHANNEL
+        self.channel_url = channel_url
         self.cache_file = cache_file
+        self.delivery_state = {"version": 1, "batches": []}
         self.session = requests.Session()
-        self.session.headers.update(
-            {
-                "User-Agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/120.0.0.0 Safari/537.36"
-                )
-            }
-        )
+        self.session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                                     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"})
 
     def load_cache(self):
         items = read_json(self.cache_file, [])
-        if not isinstance(items, list) or any(not isinstance(i, dict) for i in items):
-            raise ValueError("YouTube cache must be a list of objects")
+        if not isinstance(items, list) or any(not youtube_identity(i) for i in items):
+            raise ValueError("YouTube cache must contain stable video IDs")
         return items
 
     def save_cache(self, items):
         atomic_json(self.cache_file, items)
 
-    def _resolve_channel_id(self):
-        if self.channel_id:
-            return self.channel_id
-
-        if not self.channel_url:
-            return ""
-
-        try:
-            response = self.session.get(self.channel_url, timeout=15)
-            response.raise_for_status()
-        except requests.RequestException:
-            raise SourceError("YouTube channel lookup failed") from None
-
-        patterns = [
-            r'"channelId":"(UC[a-zA-Z0-9_-]{22})"',
-            r'"externalId":"(UC[a-zA-Z0-9_-]{22})"',
-        ]
-
-        for pattern in patterns:
-            match = re.search(pattern, response.text)
-            if match:
-                self.channel_id = match.group(1)
-                return self.channel_id
-
-        return ""
-
-    def _analyze_video_type(self, video_id):
-        try:
-            response = self.session.get(f"https://www.youtube.com/watch?v={video_id}", timeout=15)
-            response.raise_for_status()
-            match = re.search(r"ytInitialPlayerResponse\s*=\s*", response.text)
-            if not match:
-                return self._unknown(video_id, "PLAYER_RESPONSE_MISSING")
-            try:
-                data, _ = json.JSONDecoder().raw_decode(response.text[match.end():].lstrip())
-            except ValueError:
-                return self._unknown(video_id, "PLAYER_JSON_INVALID")
-            details = data.get("videoDetails", {})
-            playability = data.get("playabilityStatus", {})
-            # Only explicit unavailable-player evidence can lower severity.
-            if (not details and playability.get("status") == "ERROR"
-                    and normalize_text(playability.get("reason", "")).casefold() in {
-                        "video unavailable", "this video is unavailable",
-                        "video tidak tersedia", "video ini tidak tersedia"}):
-                return self._unknown(video_id, "PLAYABILITY_DENIED", unavailable=True)
-            if playability.get("status", "OK") not in {"OK", "LIVE_STREAM_OFFLINE"}:
-                return self._unknown(video_id, "PLAYABILITY_DENIED")
-            if not details:
-                return self._unknown(video_id, "VIDEO_DETAILS_MISSING")
-            live = data.get("microformat", {}).get("playerMicroformatRenderer", {}).get("liveBroadcastDetails", {})
-            start = live.get("startTimestamp", "")
-            end = live.get("endTimestamp", "")
-            if live.get("isLiveNow") or details.get("isLive"):
-                status = "LIVE"
-            elif end:
-                status = "VOD"
-            elif details.get("isUpcoming") or (details.get("isLiveContent") and start):
-                # A scheduled start in the past does not prove the stream ended.
-                status = "UPCOMING"
-            elif details.get("isLiveContent"):
-                status = "UNKNOWN"
-            elif details.get("isLiveContent") is False:
-                status = "VOD"
-            else:
-                status = "UNKNOWN"
-            if status == "UNKNOWN":
-                return self._unknown(video_id, "STATUS_METADATA_INSUFFICIENT")
-            return {"status": status, "scheduled_start": start, "actual_end": end}
-        except requests.Timeout:
-            return self._unknown(video_id, "TIMEOUT")
-        except requests.HTTPError:
-            return self._unknown(video_id, "HTTP_ERROR")
-        except requests.RequestException:
-            return self._unknown(video_id, "NETWORK_ERROR")
-        except Exception:
-            return self._unknown(video_id, "OTHER")
-
-    def _unknown(self, video_id, category, *, unavailable=False):
-        # Runtime-only diagnostics: no response, URL, exception or cache field.
-        if not hasattr(self, "inspection_diagnostics"):
-            self.inspection_diagnostics = {}
-        self.inspection_diagnostics[video_id] = category
-        safe_id = video_id if re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id) else "invalid-id"
-        print(f"[YouTube inspection] video={safe_id}; category={category}")
-        return {"status": "UNKNOWN", **({"unavailable": True} if unavailable else {})}
-
     def fetch_videos(self):
-        channel_id = self._resolve_channel_id()
-        if not channel_id:
-            raise SourceError("YouTube channel ID not found")
-
-        url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
-        print(f"  [YouTube] Mengambil RSS: {url}")
-
-        response = self.session.get(url, timeout=15)
+        if not re.fullmatch(r"UC[A-Za-z0-9_-]{22}", self.channel_id):
+            raise SourceError("Invalid YouTube RSS channel ID")
+        response = self.session.get("https://www.youtube.com/feeds/videos.xml?channel_id=" + self.channel_id, timeout=15)
         response.raise_for_status()
-
         try:
             root = ET.fromstring(response.content)
         except ET.ParseError:
             raise SourceError("Invalid YouTube RSS XML") from None
-
-        ns = {
-            "atom": "http://www.w3.org/2005/Atom",
-            "yt": "http://www.youtube.com/xml/schemas/2015",
-            "media": "http://search.yahoo.com/mrss/",
-        }
-
+        ns = {"atom": "http://www.w3.org/2005/Atom", "yt": "http://www.youtube.com/xml/schemas/2015",
+              "media": "http://search.yahoo.com/mrss/"}
         if root.tag != "{" + ns["atom"] + "}feed":
             raise SourceError("Invalid YouTube feed root")
-
-        channel_title = normalize_text(root.findtext("atom:title", default="", namespaces=ns))
-        items = []
-
+        channel = normalize_text(root.findtext("atom:title", "", ns))
+        items, seen = [], set()
         for entry in root.findall("atom:entry", ns):
-            link_el = entry.find("atom:link", ns)
-            link = normalize_text(link_el.attrib.get("href", "")) if link_el is not None else ""
-            if "/shorts/" in link:
-                continue
-
-            video_id = normalize_text(entry.findtext("yt:videoId", default="", namespaces=ns))
-            if not video_id or not entry.findtext("atom:title", default="", namespaces=ns):
-                raise SourceError("YouTube entry missing identity or title")
-
-            media_group = entry.find("media:group", ns)
-            description = ""
-            thumbnail = ""
-            if media_group is not None:
-                description = media_group.findtext("media:description", default="", namespaces=ns)
-                thumb_el = media_group.find("media:thumbnail", ns)
-                thumbnail = normalize_text(thumb_el.attrib.get("url", "")) if thumb_el is not None else ""
-
-            published = normalize_text(
-                entry.findtext("atom:published", default="", namespaces=ns)
-            )
-
-            # Catatan: status video TIDAK diambil di sini.
-            # _analyze_video_type hanya dipanggil di check_new_videos untuk
-            # video baru atau yang masih berstatus UPCOMING di cache.
-            items.append(
-                {
-                    "source": "youtube",
-                    "kind": "video",
-                    "channel_title": channel_title or "Kemdiktisaintek",
-                    "title": normalize_text(
-                        entry.findtext("atom:title", default="", namespaces=ns)
-                    ),
-                    "video_id": video_id,
-                    "date": published,
-                    "published": published,
-                    "description": (description or "").strip()[:1000],
-                    "thumbnail": thumbnail,
-                    "url": link or f"https://www.youtube.com/watch?v={video_id}",
-                    "documents": [],
-                    "scraped_at": datetime.now().isoformat(),
-                    "status": "",
-                    "scheduled_start": "",
-                    "actual_end": "",
-                }
-            )
-
+            video_id = normalize_text(entry.findtext("yt:videoId", "", ns))
+            title = normalize_text(entry.findtext("atom:title", "", ns))
+            published = normalize_text(entry.findtext("atom:published", "", ns))
+            if not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id) or not title or publication_time(published) is None:
+                raise SourceError("YouTube RSS entry missing identity, title or publication time")
+            if video_id in seen:
+                raise SourceError("Duplicate YouTube RSS video ID")
+            seen.add(video_id)
+            group = entry.find("media:group", ns)
+            description = group.findtext("media:description", "", ns) if group is not None else ""
+            thumb = group.find("media:thumbnail", ns) if group is not None else None
+            items.append({"source": "youtube", "kind": "video", "delivery_format": RSS_FORMAT,
+                          "channel_title": channel or "Kemdiktisaintek", "video_id": video_id,
+                          "title": title, "date": published, "published": published,
+                          "description": (description or "").strip()[:1000],
+                          "url": "https://www.youtube.com/watch?v=" + video_id,
+                          "thumbnail": thumb.get("url", "") if thumb is not None else "",
+                          "documents": [], "scraped_at": datetime.now(timezone.utc).isoformat()})
         return items
 
     def check_new_videos(self):
-        self.inspection_failed = False
-        self.inspection_diagnostics = {}
-        self.historical_warning_count = 0
-        self.rss_error = ""
         self.proposed_cache = None
+        self.reconciliation_error = ""
+        self.held_items = []
         cached = self.load_cache()
-        try:
-            current = self.fetch_videos()
-        except (requests.RequestException, SourceError) as exc:
-            # RSS discovers videos; its outage must not block known video IDs.
-            detail = str(exc) if isinstance(exc, SourceError) else type(exc).__name__
-            response = getattr(exc, "response", None)
-            if response is not None:
-                detail += f" HTTP {response.status_code}"
-            self.rss_error = "YouTube RSS failed: " + detail
-            if not cached:
-                raise SourceError(self.rss_error) from None
-            current = []
-        old = {youtube_identity(i): dict(i) for i in cached}
+        current = self.fetch_videos()
         self.current_items = current
-        new_items = []
-        updated = {}
-        now = datetime.now(timezone.utc)
-        # Recheck unresolved streams even after they leave the short RSS window.
-        current_keys = {youtube_identity(v) for v in current}
-        missing = [dict(i) for i in cached if i.get("status", "") in {"UNKNOWN", "UPCOMING", "LIVE", ""}
-                   and youtube_identity(i) not in current_keys]
-        self.current_items = current + missing
-        for item in current + missing:
-            key = youtube_identity(item)
-            previous = old.get(key)
-            previous_status = previous.get("status", "") if previous else ""
-            if previous is None or previous_status in {"", "UNKNOWN", "UPCOMING", "LIVE"}:
-                analysis = dict(self._analyze_video_type(item["video_id"]))
-                unavailable = analysis.pop("unavailable", False) is True
-                status = analysis.get("status", "UNKNOWN")
-                if status == "UNKNOWN":
-                    if historical_unavailable(previous, unavailable, now):
-                        self.historical_warning_count += 1
-                    else:
-                        self.inspection_failed = True
-                    item["last_known_status"] = (previous or {}).get("last_known_status", previous_status)
-                    if previous and previous.get("scheduled_start") and not analysis.get("scheduled_start"):
-                        analysis["scheduled_start"] = previous["scheduled_start"]
-                else:
-                    item["last_known_status"] = status
-                item.update(analysis)
+        marker = validate_cutover(self.delivery_state.get("youtube_rss_cutover"))
+        known = known_video_ids(cached, self.delivery_state)
+        if marker:
+            known.update(marker["baseline_ids"])
+        cutoff = publication_time(marker["cutover_at"]) if marker else None
+        eligible = []
+        for item in current:
+            if item["video_id"] in known:
+                continue
+            published = publication_time(item.get("published"))
+            if cutoff is None or published is None or published <= cutoff:
+                self.held_items.append(item)
+                reason = "NO_APPROVED_CUTOVER" if cutoff is None else "PRE_CUTOVER_OR_INVALID_PUBLICATION"
+                if re.fullmatch(r"[A-Za-z0-9_-]{11}", item["video_id"]):
+                    print(f"[RSS CUTOVER] held video={item['video_id']} reason={reason}")
             else:
-                item.update({name: previous.get(name, "") for name in
-                             ("status", "scheduled_start", "actual_end", "last_known_status")})
-            last_known = (previous or {}).get("last_known_status") or (previous_status if previous_status != "UNKNOWN" else "")
-            if previous is None:
-                new_items.append(item)
-            elif last_known == "UPCOMING" and item["status"] in {"LIVE", "VOD"}:
-                item["is_status_update"] = True
-                new_items.append(item)
-            elif previous_status == "UNKNOWN" and not last_known and item["status"] in {"UPCOMING", "LIVE", "VOD"}:
-                # Recovery is an initial event; the delivery journal decides whether it was already sent.
-                item.pop("is_status_update", None)
-                new_items.append(item)
-            updated[key] = item
-        self.proposed_cache = [updated.pop(youtube_identity(i), i) for i in cached] + list(updated.values())
-        return new_items
+                eligible.append(item)
+            known.add(item["video_id"])
+        if self.held_items:
+            self.reconciliation_error = f"YouTube RSS cutover reconciliation required: {len(self.held_items)} unknown historical/unapproved IDs"
+        # Preserve all old rows, metadata and ordering, including old status fields.
+        self.proposed_cache = deepcopy(cached) + deepcopy(eligible)
+        return eligible

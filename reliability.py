@@ -12,7 +12,11 @@ class SourceError(RuntimeError):
 
 
 def awaiting_youtube_verification(item):
-    return item.get("source") == "youtube" and item.get("status") not in {"UPCOMING", "LIVE", "VOD"}
+    # Legacy player payloads must not silently enter RSS delivery/retry.
+    return item.get("source") == "youtube" and not (
+        item.get("delivery_format") == "youtube-rss-v1" and item.get("video_id")
+        and item.get("title") and item.get("published") and item.get("url")
+        and "status" not in item and not item.get("is_status_update"))
 
 
 def read_json(path, default):

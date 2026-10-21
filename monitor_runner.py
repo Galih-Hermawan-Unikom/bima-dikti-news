@@ -8,7 +8,7 @@ from reliability import (RunResult, SourceError, SourceResult, atomic_json, read
                          awaiting_youtube_verification)
 from scraper import (BimaIdentityError, BimaScraper, announcement_identity,
                      match_announcement, new_announcements)
-from youtube_monitor import YouTubeMonitor, youtube_identity
+from youtube_monitor import YouTubeMonitor, youtube_identity, validate_cutover
 
 
 def item_key(item):
@@ -18,8 +18,7 @@ def item_key(item):
 
 
 def event_key(item):
-    suffix = item.get("status", "UNKNOWN") if item.get("is_status_update") else "initial"
-    return item_key(item) + ":" + suffix
+    return item_key(item) + ":initial"
 
 
 def stable_item(item):
@@ -34,6 +33,7 @@ def load_delivery(path):
     state = read_json(path, {"version": 1, "batches": []})
     if not isinstance(state, dict) or state.get("version") != 1 or not isinstance(state.get("batches"), list):
         raise ValueError("Invalid delivery state; restore verified backup")
+    validate_cutover(state.get("youtube_rss_cutover"))
     for batch in state["batches"]:
         if not isinstance(batch, dict) or not all(k in batch for k in
                 ("event_keys", "items", "chunks", "sent_chunks", "sent_documents", "delivered", "send_files", "attempts")):
@@ -61,6 +61,13 @@ def run_once(config, *, dry_run=False, state_dir=".", scraper=None, youtube=None
                                         channel_url=config.get("youtube_channel_url", ""))
     youtube.cache_file = str(root / "youtube_cache.json")
     notifier = notifier or Notifier(config)
+    path = root / "delivery_state.json"
+    try:
+        state = load_delivery(path)
+    except Exception as exc:
+        result.errors.append("delivery state: " + type(exc).__name__)
+        return result
+    youtube.delivery_state = state
     sources = [("bima", scraper, scraper.check_new_announcements)]
     if config.get("youtube_monitor_enabled", True):
         sources.append(("youtube", youtube, youtube.check_new_videos))
@@ -71,14 +78,10 @@ def run_once(config, *, dry_run=False, state_dir=".", scraper=None, youtube=None
     for name, monitor, check in sources:
         try:
             items = check()
-            rss_error = getattr(monitor, "rss_error", "") if name == "youtube" else ""
-            inspection_error = "Video inspection unresolved" if getattr(monitor, "inspection_failed", False) else ""
-            warning_count = getattr(monitor, "historical_warning_count", 0) if name == "youtube" else 0
-            warning = f"Historical unavailable inspections: {warning_count}" if warning_count else ""
-            status = "FAILED" if rss_error else ("DEGRADED" if inspection_error else
-                     ("WARNING" if warning else ("NEW_ITEMS" if items else "NO_NEW_ITEMS")))
+            reconciliation = getattr(monitor, "reconciliation_error", "") if name == "youtube" else ""
+            status = "FAILED" if reconciliation else ("NEW_ITEMS" if items else "NO_NEW_ITEMS")
             result.sources.append(SourceResult(name, status, items,
-                                 "; ".join(error for error in (rss_error, inspection_error, warning) if error)))
+                                              reconciliation))
             candidates.extend(items)
             successful.append(monitor)
             fresh.update({item_key(i): i for i in monitor.current_items})
@@ -91,12 +94,6 @@ def run_once(config, *, dry_run=False, state_dir=".", scraper=None, youtube=None
                 detail += f" HTTP {response.status_code}"
             result.sources.append(SourceResult(name, "FAILED", error=detail))
 
-    path = root / "delivery_state.json"
-    try:
-        state = load_delivery(path)
-    except Exception as exc:
-        result.errors.append("delivery state: " + type(exc).__name__)
-        return result
     # Old journals retain their exact chunks/keys. Match their BIMA items, not a
     # global letter alias, even if detection-cache persistence previously failed.
     if not bima_identity_failed:
@@ -117,12 +114,8 @@ def run_once(config, *, dry_run=False, state_dir=".", scraper=None, youtube=None
         candidates = [i for i in candidates if i.get("source") == "youtube"]
         successful = [m for m in successful if m is not scraper]
     known = {key for batch in state["batches"] for key in batch["event_keys"]}
-    delivered_unknown_initials = {
-        item_key(i) for batch in state["batches"] if batch["delivered"] for i in batch["items"]
-        if awaiting_youtube_verification(i) and item_key(i) + ":initial" in batch["event_keys"]}
-    result.awaiting_verification = sum(awaiting_youtube_verification(i) for i in fresh.values())
-    candidates = [i for i in candidates if not awaiting_youtube_verification(i)
-                  and not (i.get("is_status_update") and item_key(i) in delivered_unknown_initials)]
+    result.awaiting_verification = len(getattr(youtube, "held_items", []))
+    candidates = [i for i in candidates if not awaiting_youtube_verification(i)]
     new = []
     for item in candidates:
         key = event_key(item)
