@@ -1,0 +1,30 @@
+{
+  "metadata": {"channelMetadataRenderer": {"title": "Kemdiktisaintek Fixture", "externalId": "UCGo_6l_6kp8H8OHcKcSIeDw"}},
+  "header": {"pageHeaderRenderer": {"pageTitle": "Kemdiktisaintek Fixture"}},
+  "contents": {"twoColumnBrowseResultsRenderer": {"tabs": [
+    {"tabRenderer": {"title": "Video", "selected": true,
+      "endpoint": {"commandMetadata": {"webCommandMetadata": {"url": "/@kemdiktisaintek/videos"}}},
+      "content": {"richGridRenderer": {"contents": [
+        {"richItemRenderer": {"content": {"lockupViewModel": {
+          "contentId": "K94OBen4CiU", "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+          "metadata": {"lockupMetadataViewModel": {
+            "title": {"content": "Video reguler & penelitian {bagian 1};"},
+            "metadata": {"contentMetadataViewModel": {"metadataRows": [
+              {"metadataParts": [{"text": {"content": "2 hari yang lalu"}}]}
+            ]}}
+          }},
+          "contentImage": {"thumbnailViewModel": {"image": {"sources": [
+            {"url": "https://i.ytimg.com/vi/K94OBen4CiU/hqdefault.jpg"}
+          ]}}}
+        }}}},
+        {"richItemRenderer": {"content": {"lockupViewModel": {
+          "contentId": "newvideo001", "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+          "metadata": {"lockupMetadataViewModel": {"title": {"content": "Video sintetis kedua"}}},
+          "contentImage": {"thumbnailViewModel": {"image": {"sources": [
+            {"url": "https://i.ytimg.com/vi/newvideo001/hqdefault.jpg"}
+          ]}}}
+        }}}},
+        {"continuationItemRenderer": {"continuationEndpoint": {}}}
+      ]}}}}
+  ]}}
+}
