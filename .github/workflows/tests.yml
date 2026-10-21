@@ -15,5 +15,9 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install -r requirements-dev.txt
+      - name: Compare one YouTube player response (read only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/fix/reliability-youtube-player-status' && github.repository == 'Galih-Hermawan-Unikom/bima-dikti-news'
+        timeout-minutes: 1
+        run: python -B scripts/youtube_player_status.py
       - run: playwright install --with-deps chromium
       - run: python -m pytest
