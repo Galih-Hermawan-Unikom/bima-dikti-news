@@ -177,6 +177,45 @@ def test_dry_run_cli_never_loads_secrets(monkeypatch):
     config_loader.assert_called_once_with(load_env=False, include_secrets=False)
 
 
+def test_review_preview_cli_only_loads_review_secrets(monkeypatch):
+    import run_github
+    config_loader = Mock(return_value={})
+    from reliability import RunResult
+    monkeypatch.setattr(run_github, "load_config", config_loader)
+    monkeypatch.setattr(run_github, "run_once", Mock(return_value=RunResult()))
+    assert run_github.main(["--dry-run", "--youtube-eligibility", "--youtube-review-preview"]) == 0
+    config_loader.assert_called_once_with(load_env=True, include_secrets=False,
+                                          include_review_secrets=True)
+
+
+def test_durable_state_initialization_isolated_from_telegram_and_sources(monkeypatch, tmp_path):
+    import run_github
+    import youtube_state_backend
+    from unittest.mock import Mock
+    config = {
+        "youtube_state_initialize": True, "youtube_observation_enabled": False,
+        "youtube_delivery_enabled": False, "youtube_delivery_send_enabled": False,
+        "youtube_policy_approved": False, "youtube_activation_at": "2026-10-22T00:00:00+00:00",
+        "youtube_policy_version": "state-init-test", "youtube_channel_id": "UCGo_6l_6kp8H8OHcKcSIeDw",
+        "youtube_state_branch": "youtube-state", "youtube_state_token": "synthetic-state-token",
+    }
+    loader = Mock(return_value=config)
+    monkeypatch.setattr(run_github, "load_config", loader)
+    run = Mock(side_effect=AssertionError("initialization must not run sources"))
+    monkeypatch.setattr(run_github, "run_once", run)
+    persisted = []
+
+    class Backend:
+        def __init__(self, *args, **kwargs): pass
+        def load(self, path): return False
+        def persist(self, path): persisted.append(path.read_bytes())
+
+    monkeypatch.setattr(youtube_state_backend, "GitHubStateBranch", Backend)
+    assert run_github.main(["--initialize-youtube-state", "--state-dir", str(tmp_path)]) == 0
+    loader.assert_called_once_with(load_env=False, include_secrets=False, include_state_secrets=True)
+    assert persisted and run.call_count == 0
+
+
 def test_corrupt_cache_does_not_replay(tmp_path, config, monitors, notifier, telegram):
     path = tmp_path / "announcements_cache.json"
     path.write_text("broken")

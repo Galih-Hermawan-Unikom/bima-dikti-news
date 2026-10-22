@@ -49,7 +49,8 @@ def _read_bool(value, default):
     return default
 
 
-def load_config(config_path="config.json", load_env=True, include_secrets=True):
+def load_config(config_path="config.json", load_env=True, include_secrets=True,
+                include_review_secrets=False, include_state_secrets=False):
     if load_env:
         load_env_file()
 
@@ -80,6 +81,10 @@ def load_config(config_path="config.json", load_env=True, include_secrets=True):
         "youtube_ttl_seconds": _read_int(file_config.get("youtube_ttl_seconds"), None),
         "youtube_skew_seconds": _read_int(file_config.get("youtube_skew_seconds"), None),
         "youtube_capture_interval_seconds": _read_int(file_config.get("youtube_capture_interval_seconds"), None),
+        "youtube_state_branch": file_config.get("youtube_state_branch", "youtube-state"),
+        "youtube_state_initialize": _read_bool(file_config.get("youtube_state_initialize", False), False),
+        "youtube_review_source_hosts": file_config.get("youtube_review_source_hosts", []),
+        "youtube_review_key_id": file_config.get("youtube_review_key_id", "operator"),
         "youtube_channel_url": file_config.get(
             "youtube_channel_url", "https://www.youtube.com/@kemdiktisaintek"
         ),
@@ -91,6 +96,14 @@ def load_config(config_path="config.json", load_env=True, include_secrets=True):
         ),
         "telegram_bot_token": os.environ.get("TELEGRAM_BOT_TOKEN", "") if include_secrets else "",
         "telegram_chat_id": os.environ.get("TELEGRAM_CHAT_ID", "") if include_secrets else "",
+        "youtube_state_token": os.environ.get("YOUTUBE_STATE_TOKEN", "")
+            if include_secrets or include_state_secrets else "",
+        "youtube_review_hmac_key": os.environ.get("YOUTUBE_REVIEW_HMAC_KEY", "")
+            if include_secrets or include_review_secrets else "",
+        "youtube_review_evidence_json": os.environ.get("YOUTUBE_REVIEW_EVIDENCE_JSON", "")
+            if include_secrets or include_review_secrets else "",
+        "youtube_experiment_chat_id": os.environ.get("YOUTUBE_EXPERIMENT_CHAT_ID", "") if include_secrets else "",
+        "youtube_experiment_chat_id_sha256": os.environ.get("YOUTUBE_EXPERIMENT_CHAT_ID_SHA256", "") if include_secrets else "",
     }
 
     if os.environ.get("NOTIFICATION_METHOD"):
@@ -111,6 +124,39 @@ def load_config(config_path="config.json", load_env=True, include_secrets=True):
 
     if os.environ.get("YOUTUBE_CHANNEL_ID"):
         config["youtube_channel_id"] = os.environ["YOUTUBE_CHANNEL_ID"]
+
+    for key, env_key in (
+        ("youtube_observation_enabled", "YOUTUBE_OBSERVATION_ENABLED"),
+        ("youtube_delivery_enabled", "YOUTUBE_DELIVERY_ENABLED"),
+        ("youtube_delivery_send_enabled", "YOUTUBE_DELIVERY_SEND_ENABLED"),
+        ("youtube_state_initialize", "YOUTUBE_STATE_INITIALIZE"),
+        ("youtube_policy_approved", "YOUTUBE_POLICY_APPROVED"),
+    ):
+        if os.environ.get(env_key) is not None:
+            config[key] = _read_bool(os.environ[env_key], config[key])
+
+    for key, env_key in (
+        ("youtube_window_seconds", "YOUTUBE_WINDOW_SECONDS"),
+        ("youtube_ttl_seconds", "YOUTUBE_TTL_SECONDS"),
+        ("youtube_skew_seconds", "YOUTUBE_SKEW_SECONDS"),
+        ("youtube_capture_interval_seconds", "YOUTUBE_CAPTURE_INTERVAL_SECONDS"),
+    ):
+        if os.environ.get(env_key) is not None:
+            config[key] = _read_int(os.environ[env_key], config[key])
+
+    for key, env_key in (
+        ("youtube_activation_at", "YOUTUBE_ACTIVATION_AT"),
+        ("youtube_policy_version", "YOUTUBE_POLICY_VERSION"),
+        ("youtube_state_branch", "YOUTUBE_STATE_BRANCH"),
+        ("youtube_review_key_id", "YOUTUBE_REVIEW_KEY_ID"),
+    ):
+        if os.environ.get(env_key):
+            config[key] = os.environ[env_key]
+
+    if os.environ.get("YOUTUBE_REVIEW_SOURCE_HOSTS"):
+        config["youtube_review_source_hosts"] = [
+            host.strip().lower() for host in os.environ["YOUTUBE_REVIEW_SOURCE_HOSTS"].split(",") if host.strip()
+        ]
 
     if os.environ.get("TELEGRAM_SEND_FILES"):
         config["telegram_send_files"] = _read_bool(

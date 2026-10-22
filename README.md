@@ -351,10 +351,11 @@ Gunakan `python run_github.py --dry-run` untuk membaca sumber dan melihat previe
 
 Runner memakai `/videos` dan `/streams` saja untuk laporan eligibility YouTube.
 Classifier dan adapter tidak membaca RSS. Persistent observation dan outbox
-tersedia sebagai fitur opt-in, tetapi observation, reservation, dan sending
-masing-masing default-disabled; GitHub Actions tetap tidak mengirim kandidat
-YouTube. Baseline 133 ID dan jurnal lama dibaca sebagai identitas historis;
-tidak ada migrasi atau backfill otomatis.
+tersedia sebagai fitur opt-in; observation, reservation, dan sending
+masing-masing default-disabled. Saat diaktifkan secara eksplisit, Actions
+menyimpan state pada branch durable khusus dengan compare-and-swap; branch itu
+tidak berisi migrasi cache atau jurnal. Baseline 133 ID dan jurnal lama dibaca
+sebagai identitas historis; tidak ada backfill otomatis.
 
 `first_seen_at` adalah waktu observasi tab pertama setelah activation fence; ia
 bukan `published_at`. Capture awal, capture parsial/gagal, bukti basi, kategori
@@ -363,7 +364,7 @@ Shorts ditolak. Lihat [panduan classifier tabs-only](docs/youtube-eligibility-of
 [integrasi channel-tabs](docs/youtube-channel-tabs.md), dan
 [persistent observations/outbox](docs/youtube-persistent-outbox.md).
 
-Cache mencatat **deteksi**, sedangkan `delivery_state.json` mencatat **pengiriman terkonfirmasi** dan bagian yang perlu diulang. Kegagalan sumber atau pengiriman menghasilkan status gagal di GitHub Actions. Jika commit/push state gagal, periksa recovery artifact sebelum menjalankan retry. Duplikasi tetap mungkin jika Telegram sudah menerima pesan tetapi checkpoint/commit belum tersimpan; sistem tidak menjamin exactly-once.
+Cache mencatat **deteksi**, sedangkan `delivery_state.json` mencatat **pengiriman BIMA yang terkonfirmasi**. Outbox YouTube terpisah dan checkpoint `sending` yang durable harus sukses sebelum satu percobaan Telegram; hasil ambigu tidak dikirim ulang otomatis. Kegagalan state branch menghentikan jalur YouTube sebelum pengiriman. Jalur BIMA tetap memakai jurnal dan mekanisme retry yang sudah ada.
 
 Migrasi nomor surat tersedia melalui `migrate_cache.py`, diawali preview dan backup terverifikasi sebelum `--apply`. Jangan menghapus cache atau jurnal untuk mengatasi kegagalan karena dapat memicu pengiriman ulang. Prosedur dan batasan lengkap: [Audit Reliabilitas Fase 1](docs/reliability-phase1.md).
 

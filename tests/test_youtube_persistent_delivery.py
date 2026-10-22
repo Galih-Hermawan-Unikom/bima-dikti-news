@@ -241,11 +241,11 @@ def test_runner_outbox_end_to_end_notifier_mock_and_duplicate_run(tmp_path, monk
     store = store_at(db, policy=policy.version)
     reader = Mock(); present = {"videos": [], "streams": []}
     reader.fetch.side_effect = lambda tab: _page(tab, present[tab])
-    verifier = SignedReviewVerifier({"test": KEY}, frozenset({"www.youtube.com"}))
 
     class SpyNotifier:
         config = {"telegram_send_files": False}
         def __init__(self): self.yt_calls, self.bima_calls = [], 0; self.last_delivery_receipts = []
+        def validate_youtube_experiment_destination(self): return True
         def _build_summary_chunks(self, items): return ["one synthetic summary"]
         def send_notification(self, items, progress=None, checkpoint=None): self.bima_calls += 1; return True
         def _document_name(self, item): return item.get("name", "")
@@ -258,13 +258,18 @@ def test_runner_outbox_end_to_end_notifier_mock_and_duplicate_run(tmp_path, monk
     config = {"youtube_monitor_enabled": True, "youtube_observation_enabled": True,
         "youtube_delivery_enabled": True, "youtube_delivery_send_enabled": True,
         "youtube_channel_id": tabs.CHANNEL_ID, "notification_method": "telegram",
-        "telegram_send_files": False}
+        "youtube_review_hmac_key": KEY.decode(), "youtube_review_source_hosts": ["www.youtube.com"],
+        "youtube_review_key_id": "test",
+        "youtube_review_evidence_json": "", "telegram_send_files": False}
 
-    def run(reviews=None):
-        adapter = ChannelTabsAdapter(tabs_reader=reader, policy=policy, reviews=reviews,
-            review_verifier=verifier, clock=lambda: clock[0], observation_store=store_at(db, policy=policy.version))
+    def run(reviews=None, experiment_only=False):
+        config["youtube_review_evidence_json"] = json.dumps({"reviews": list((reviews or {}).values())})
+        adapter = ChannelTabsAdapter(tabs_reader=reader, policy=policy, clock=lambda: clock[0],
+            observation_store=store_at(db, policy=policy.version))
         return run_once(config, dry_run=False, state_dir=tmp_path, scraper=monitors[0],
-            notifier=notifier, youtube_adapter=adapter)
+            notifier=notifier, youtube_adapter=adapter,
+            youtube_send_limit=1 if experiment_only else None,
+            youtube_experiment_only=experiment_only)
 
     run()  # healthy empty startup inventory; BIMA uses its own mocked send path
     assert notifier.bima_calls == 1 and notifier.yt_calls == []
@@ -275,7 +280,7 @@ def test_runner_outbox_end_to_end_notifier_mock_and_duplicate_run(tmp_path, monk
     signed = _review(ChannelTabsAdapter(policy=policy), cache,
         json.loads((tmp_path / "delivery_state.json").read_text(encoding="utf-8")), clock[0], first_seen)
     clock[0] += timedelta(minutes=12)
-    delivered = run({VID: signed})
+    delivered = run({VID: signed}, experiment_only=True)
     event = f"youtube:video:{VID}:initial"
     assert delivered.youtube_eligibility["outbox"][0]["status"] == "delivered"
     assert len(notifier.yt_calls) == 1 and notifier.yt_calls[0][1].event_key == event
@@ -295,9 +300,29 @@ def test_default_feature_flags_are_disabled(monkeypatch):
     assert cfg["youtube_delivery_send_enabled"] is False
 
 
+def test_review_preview_loads_only_review_secrets(monkeypatch):
+    from app_config import load_config
+    monkeypatch.setenv("YOUTUBE_REVIEW_HMAC_KEY", "synthetic-review-key-material-long-enough")
+    monkeypatch.setenv("YOUTUBE_REVIEW_EVIDENCE_JSON", '{"reviews": []}')
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "NEVER_READ_FOR_DRY_RUN")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "NEVER_READ_FOR_DRY_RUN")
+    cfg = load_config(config_path="missing-test-config.json", load_env=False,
+                      include_secrets=False, include_review_secrets=True)
+    assert cfg["youtube_review_hmac_key"] == "synthetic-review-key-material-long-enough"
+    assert cfg["youtube_review_evidence_json"] == '{"reviews": []}'
+    assert cfg["telegram_bot_token"] == ""
+    assert cfg["telegram_chat_id"] == ""
+
+
 def test_notifier_requires_atomic_ticket_and_records_api_receipt(config, monkeypatch):
     import requests
     from dataclasses import replace
+    config.update({
+        "youtube_delivery_enabled": True,
+        "youtube_delivery_send_enabled": True,
+        "youtube_experiment_chat_id": "synthetic-experiment-chat",
+        "youtube_experiment_chat_id_sha256": hashlib.sha256(b"synthetic-experiment-chat").hexdigest(),
+    })
     notifier = Notifier(config)
     item = delivery_item()
     raw = json.dumps(item, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -315,3 +340,47 @@ def test_notifier_requires_atomic_ticket_and_records_api_receipt(config, monkeyp
         "ok": True, "message_id": 991}]
     assert notifier.send_youtube_outbox_notification(item, replace(ticket, payload_sha256="0" * 64)) is False
     assert post.call_count == 1
+    config["youtube_experiment_chat_id_sha256"] = "0" * 64
+    assert notifier.send_youtube_outbox_notification(item, ticket) is False
+    assert post.call_count == 1
+
+
+def test_experiment_allowlist_rejects_production_destination(config, monkeypatch):
+    experiment_id = "synthetic-experiment-chat"
+    config.update({
+        "youtube_experiment_chat_id": experiment_id,
+        "youtube_experiment_chat_id_sha256": hashlib.sha256(experiment_id.encode()).hexdigest(),
+        "telegram_chat_id": "synthetic-production-chat",
+    })
+    notifier = Notifier(config)
+    assert notifier.validate_youtube_experiment_destination() is True
+    config["youtube_experiment_chat_id"] = config["telegram_chat_id"]
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    assert notifier.validate_youtube_experiment_destination() is False
+
+
+def test_experiment_preflight_checks_channel_and_post_permission(config, monkeypatch):
+    import requests
+    experiment_id = "synthetic-experiment-chat"
+    config.update({
+        "youtube_experiment_chat_id": experiment_id,
+        "youtube_experiment_chat_id_sha256": hashlib.sha256(experiment_id.encode()).hexdigest(),
+        "telegram_chat_id": "synthetic-production-chat",
+        "telegram_bot_token": "TEST_ONLY_TOKEN",
+    })
+    responses = []
+    for body in (
+        {"ok": True, "result": {"id": experiment_id, "type": "channel"}},
+        {"ok": True, "result": {"id": 7}},
+        {"ok": True, "result": {"status": "administrator", "can_post_messages": True}},
+    ):
+        response = Mock(status_code=200)
+        response.json.return_value = body
+        responses.append(response)
+    get = Mock(side_effect=responses)
+    post = Mock(side_effect=AssertionError("preflight must not send"))
+    monkeypatch.setattr(requests, "get", get)
+    monkeypatch.setattr(requests, "post", post)
+    assert Notifier(config).preflight_youtube_experiment_destination() is True
+    assert get.call_count == 3
+    assert post.call_count == 0

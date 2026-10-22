@@ -60,7 +60,8 @@ class DeliveryTicket:
 class YouTubeStateStore:
     """Atomic first-seen history, capture memberships, and one-shot outbox."""
 
-    def __init__(self, path, *, activation_at, policy_version, send_lease=DEFAULT_SEND_LEASE):
+    def __init__(self, path, *, activation_at, policy_version, send_lease=DEFAULT_SEND_LEASE,
+                 commit_hook=None):
         self.path = Path(path)
         self.activation_at = _iso(activation_at)
         if not isinstance(policy_version, str) or not policy_version.strip():
@@ -69,8 +70,23 @@ class YouTubeStateStore:
             raise ValueError("Invalid outbox lease")
         self.policy_version = policy_version
         self.send_lease = send_lease
+        self._commit_hook = commit_hook
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
+
+    def set_commit_hook(self, hook):
+        if hook is not None and not callable(hook):
+            raise TypeError("Commit hook must be callable")
+        self._commit_hook = hook
+
+    def flush(self):
+        """Durably checkpoint the initialized database before any observation."""
+        if self._commit_hook is not None:
+            self._commit_hook(self.path)
+
+    def _checkpoint_after_commit(self):
+        if self._commit_hook is not None:
+            self._commit_hook(self.path)
 
     def _connect(self):
         conn = sqlite3.connect(self.path, timeout=15, isolation_level=None)
@@ -175,6 +191,7 @@ class YouTubeStateStore:
             conn.execute("UPDATE meta SET value=? WHERE key='capture_seq'", (str(seq),))
             conn.execute("UPDATE meta SET value=? WHERE key='last_capture_at'", (stamp,))
             conn.commit()
+            self._checkpoint_after_commit()
             return seq
         except Exception:
             conn.rollback()
@@ -245,6 +262,7 @@ class YouTubeStateStore:
                     raise ValueError("Idempotency key payload conflict")
                 result = {"created": False, "status": row["status"], "event_key": event_key}
             conn.commit()
+            self._checkpoint_after_commit()
             return result
         except Exception:
             conn.rollback()
@@ -293,6 +311,7 @@ class YouTubeStateStore:
             ticket = DeliveryTicket(event_key, payload["video_id"], token,
                 hashlib.sha256(row["payload_json"].encode("utf-8")).hexdigest())
             conn.commit()
+            self._checkpoint_after_commit()
         except Exception:
             conn.rollback()
             raise
@@ -317,6 +336,7 @@ class YouTubeStateStore:
                 message_id=?,last_error=? WHERE event_key=? AND owner_token=?""",
                 (status, _iso(datetime.now(timezone.utc)), message_id, error or (None if confirmed else "UNCONFIRMED_SEND_RESULT"), event_key, token))
             conn.commit()
+            self._checkpoint_after_commit()
             return status
         except Exception:
             conn.rollback()
@@ -334,6 +354,7 @@ class YouTubeStateStore:
                 last_error='SEND_OUTCOME_UNKNOWN_AFTER_RESTART',updated_at=?
                 WHERE status='sending' AND lease_until<=?""", (stamp, stamp)).rowcount
             conn.commit()
+            self._checkpoint_after_commit()
             return changed
         except Exception:
             conn.rollback()
