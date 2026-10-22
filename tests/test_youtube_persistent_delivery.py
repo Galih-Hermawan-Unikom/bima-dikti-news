@@ -264,8 +264,10 @@ def test_runner_outbox_end_to_end_notifier_mock_and_duplicate_run(tmp_path, monk
 
     def run(reviews=None, experiment_only=False):
         config["youtube_review_evidence_json"] = json.dumps({"reviews": list((reviews or {}).values())})
+        observation_store = store_at(db, policy=policy.version)
+        observation_store.set_commit_hook(lambda path: None)  # mock durable checkpoint for Actions environment
         adapter = ChannelTabsAdapter(tabs_reader=reader, policy=policy, clock=lambda: clock[0],
-            observation_store=store_at(db, policy=policy.version))
+            observation_store=observation_store)
         return run_once(config, dry_run=False, state_dir=tmp_path, scraper=monitors[0],
             notifier=notifier, youtube_adapter=adapter,
             youtube_send_limit=1 if experiment_only else None,
@@ -275,7 +277,8 @@ def test_runner_outbox_end_to_end_notifier_mock_and_duplicate_run(tmp_path, monk
     assert notifier.bima_calls == 1 and notifier.yt_calls == []
     clock[0] += timedelta(minutes=12); present["videos"] = [VID]
     first = run()
-    assert first.sources[1].status == "ELIGIBILITY_PREVIEW", first.sources
+    youtube_source = next(source for source in first.sources if source.source == "youtube")
+    assert youtube_source.status == "ELIGIBILITY_PREVIEW", first.sources
     assert first.youtube_eligibility.get("outbox", []) == [], first.sources
     first_seen = datetime.fromisoformat(store_at(db, policy=policy.version).observation(VID)["first_seen_at"])
     signed = _review(ChannelTabsAdapter(policy=policy), cache,
