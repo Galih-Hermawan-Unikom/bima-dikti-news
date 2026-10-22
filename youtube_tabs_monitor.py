@@ -39,12 +39,13 @@ class ChannelTabsAdapter:
     inventory. No inventory or first_seen is persisted into historical state.
     """
     def __init__(self, *, channel_id=DEFAULT_CHANNEL, tabs_reader=None, policy=None,
-                 reviews=None, review_verifier=None, clock=None):
+                 reviews=None, review_verifier=None, clock=None, observation_store=None):
         self.policy = policy or e.Policy(channel_id, "tabs-only-v1")
         self.tabs_reader = tabs_reader
         self.reviews = deepcopy(reviews or {})
         self.review_verifier = review_verifier
         self.clock = clock or (lambda: datetime.now(timezone.utc))
+        self.observation_store = observation_store
         self._cycles, self._first_seen = [], {}
         self._inventory, self._primed, self._epoch = set(), False, None
 
@@ -71,7 +72,7 @@ class ChannelTabsAdapter:
             return TabsEvaluation((), (), {}, ("HISTORICAL_STATE_OR_CHANNEL_UNVERIFIED",))
         epoch = (history.fingerprint, self.policy.version, self.policy.scope,
                  self.policy.activation_at, self.policy.approved)
-        if epoch != self._epoch:
+        if self.observation_store is None and epoch != self._epoch:
             self._cycles, self._inventory, self._primed = [], set(), False
             self._epoch = epoch
         reader, owned = self.tabs_reader, self.tabs_reader is None
@@ -92,23 +93,33 @@ class ChannelTabsAdapter:
             self._primed = False
             return TabsEvaluation((), (), health, ("CAPTURE_TIME_UNVERIFIED",))
         current = {o["video_id"]: o for o in snapshot["observations"]}
-        if not healthy or not self._primed:
-            self._inventory.update(current)
-        for vid in current:
-            self._first_seen[vid] = min(self._first_seen.get(vid, at), at)
-        previous = self._cycles[-1]["observations"] if self._cycles else {}
-        self._cycles = (self._cycles + [{"at": at, "observations": current, "healthy": healthy}])[-2:]
-        # A failed gap cannot establish novelty; the next healthy inventory is
-        # quarantined again. Approving a policy never auto-admits startup rows.
-        activation = self.policy.activation_at
-        timing_valid = (type(activation) is datetime and activation.tzinfo is not None
-            and type(self.policy.ttl) is timedelta and type(self.policy.skew) is timedelta)
-        self._primed = bool(healthy and self.policy.approved and timing_valid
-            and at > activation and -self.policy.skew <= now - at <= self.policy.ttl)
+        if self.observation_store is None:
+            if not healthy or not self._primed:
+                self._inventory.update(current)
+            for vid in current:
+                self._first_seen[vid] = min(self._first_seen.get(vid, at), at)
+            previous = self._cycles[-1]["observations"] if self._cycles else {}
+            self._cycles = (self._cycles + [{"at": at, "observations": current, "healthy": healthy}])[-2:]
+            activation = self.policy.activation_at
+            timing_valid = (type(activation) is datetime and activation.tzinfo is not None
+                and type(self.policy.ttl) is timedelta and type(self.policy.skew) is timedelta)
+            self._primed = bool(healthy and self.policy.approved and timing_valid
+                and at > activation and -self.policy.skew <= now - at <= self.policy.ttl)
+            persistent_ids = set()
+        else:
+            try:
+                self.observation_store.record_capture(list(current.values()), at, healthy=healthy)
+                persistent_ids = set(self.observation_store.observation_ids())
+            except Exception:
+                return TabsEvaluation((), (), health, ("PERSISTENT_OBSERVATION_STATE_FAILED",))
+            previous = {}
         decisions, previews, evidence = [], [], []
-        for vid in sorted(current.keys() | previous.keys() | history.journal_ids):
+        for vid in sorted(current.keys() | previous.keys() | history.journal_ids | persistent_ids):
             observed = current.get(vid) or previous.get(vid)
-            first_seen = self._first_seen.get(vid, at)
+            persistent = self.observation_store.observation(vid) if self.observation_store is not None else None
+            first_seen = parse_timestamp(persistent["first_seen_at"]) if persistent else self._first_seen.get(vid, at)
+            if first_seen is None:
+                first_seen = at
             review, invalid_review = ReviewedEvidence(), False
             if vid in self.reviews:
                 try:
@@ -120,13 +131,21 @@ class ChannelTabsAdapter:
                 except ReviewVerificationError:
                     invalid_review = True
             proof = lambda ref, time: e.Proof(vid, self.policy.channel_id, ref, time, self.policy.scope, True)
-            captures = tuple(e.TabCapture(proof("direct-tabs:"+c["at"].isoformat(),c["at"]),
-                frozenset(c["observations"].get(vid,{}).get("source_tabs",[])), c["healthy"], c["healthy"],
-                partial=not c["healthy"], title_conflict=c["observations"].get(vid,{}).get("title_conflict",False))
-                for c in self._cycles)
+            if persistent is not None:
+                captures = tuple(e.TabCapture(proof("persistent-tabs:"+str(c["seq"]),
+                    parse_timestamp(c["observed_at"]) or at), frozenset(c["tabs"]), c["healthy"], c["healthy"],
+                    partial=not c["healthy"]) for c in persistent["captures"])
+                observed = current.get(vid) or persistent["video"]
+                initial_inventory = persistent["initial_inventory"]
+            else:
+                captures = tuple(e.TabCapture(proof("direct-tabs:"+c["at"].isoformat(),c["at"]),
+                    frozenset(c["observations"].get(vid,{}).get("source_tabs",[])), c["healthy"], c["healthy"],
+                    partial=not c["healthy"], title_conflict=c["observations"].get(vid,{}).get("title_conflict",False))
+                    for c in self._cycles)
+                initial_inventory = vid in self._inventory
             video = e.VideoEvidence(proof("direct-video:"+at.isoformat(),at),observed["title"],observed["url"]) if observed else None
             item = e.EligibilityInput(vid, history,
-                e.TimeEvidence(now, first_seen, True, vid in self._inventory), self.policy,
+                e.TimeEvidence(now, first_seen, True, initial_inventory), self.policy,
                 video, captures, self._journal(vid,journal), review.category, review.release, review.admission)
             d = e.classify(item)
             if d.eligibility not in {e.Eligibility.REJECTED,e.Eligibility.ALREADY_DELIVERED} and (not healthy or invalid_review):
@@ -134,7 +153,7 @@ class ChannelTabsAdapter:
                     reason_codes=d.reason_codes+("REVIEW_EVIDENCE_UNVERIFIED" if invalid_review else "PARTIAL_OR_FAILED_SOURCE_CYCLE",))
             decisions.append(d)
             evidence.append({"video_id":vid,"tabs":current.get(vid,{}).get("source_tabs",[]),
-                "first_seen_at":first_seen.isoformat(),"initial_inventory":vid in self._inventory,
+                "first_seen_at":first_seen.isoformat(),"initial_inventory":initial_inventory,
                 "category":review.category.category.value,"readiness":review.release.readiness.value})
             if d.eligibility is e.Eligibility.ELIGIBLE and vid in current:
                 previews.append({"source":"youtube","kind":"video","video_id":vid,"title":observed["title"],

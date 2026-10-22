@@ -32,6 +32,7 @@ nul
 
 # Cache & Data
 *.log
+youtube_delivery.sqlite3*
 
 # Playwright
 .playwright/

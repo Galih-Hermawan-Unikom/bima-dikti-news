@@ -350,16 +350,18 @@ Gunakan `python run_github.py --dry-run` untuk membaca sumber dan melihat previe
 ### YouTube tabs-only (dry-run)
 
 Runner memakai `/videos` dan `/streams` saja untuk laporan eligibility YouTube.
-Classifier dan adapter tidak membaca RSS, tidak membuat outbox, dan tidak
-mengirim kandidat YouTube. Aktivasi tetap nonaktif sampai ada perubahan kebijakan
-dan delivery yang ditinjau terpisah. Baseline 133 ID dan jurnal lama dibaca sebagai
-identitas historis; tidak ada migrasi atau backfill otomatis.
+Classifier dan adapter tidak membaca RSS. Persistent observation dan outbox
+tersedia sebagai fitur opt-in, tetapi observation, reservation, dan sending
+masing-masing default-disabled; GitHub Actions tetap tidak mengirim kandidat
+YouTube. Baseline 133 ID dan jurnal lama dibaca sebagai identitas historis;
+tidak ada migrasi atau backfill otomatis.
 
 `first_seen_at` adalah waktu observasi tab pertama setelah activation fence; ia
 bukan `published_at`. Capture awal, capture parsial/gagal, bukti basi, kategori
 tak dikenal, upcoming/LIVE, dan replay tanpa bukti kesiapan tetap ditahan.
-Shorts ditolak. Lihat [panduan classifier tabs-only](docs/youtube-eligibility-offline.md)
-dan [integrasi channel-tabs](docs/youtube-channel-tabs.md).
+Shorts ditolak. Lihat [panduan classifier tabs-only](docs/youtube-eligibility-offline.md),
+[integrasi channel-tabs](docs/youtube-channel-tabs.md), dan
+[persistent observations/outbox](docs/youtube-persistent-outbox.md).
 
 Cache mencatat **deteksi**, sedangkan `delivery_state.json` mencatat **pengiriman terkonfirmasi** dan bagian yang perlu diulang. Kegagalan sumber atau pengiriman menghasilkan status gagal di GitHub Actions. Jika commit/push state gagal, periksa recovery artifact sebelum menjalankan retry. Duplikasi tetap mungkin jika Telegram sudah menerima pesan tetapi checkpoint/commit belum tersimpan; sistem tidak menjamin exactly-once.
 
