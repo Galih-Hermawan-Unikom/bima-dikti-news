@@ -17,14 +17,14 @@ from youtube_monitor import YouTubeMonitor
 
 
 def run(tmp_path, config, monitors, notifier):
-    return run_once(config, state_dir=tmp_path, scraper=monitors[0], youtube=monitors[1], notifier=notifier)
+    return run_once(config, state_dir=tmp_path, scraper=monitors[0], notifier=notifier)
 
 
 def test_no_new_items(tmp_path, config, monitors, notifier, telegram, announcement):
     atomic_json(tmp_path / "announcements_cache.json", [announcement])
     result = run(tmp_path, config, monitors, notifier)
     assert result.exit_code == 0
-    assert all(s.status == "NO_NEW_ITEMS" for s in result.sources)
+    assert all(s.status in {"NO_NEW_ITEMS", "DISABLED"} for s in result.sources)
     telegram.assert_not_called()
 
 
@@ -92,26 +92,8 @@ def test_outbox_failure_does_not_advance_detection(tmp_path, config, monitors, n
     telegram.assert_not_called()
 
 
-def test_bima_zero_failure_other_source_still_sends(tmp_path, config, monitors, notifier, telegram, monkeypatch, rss_video, approved_cutover):
-    monkeypatch.setattr(monitors[0], "fetch_announcements", lambda: [])
-    video = rss_video
-    monkeypatch.setattr(monitors[1], "fetch_videos", lambda: [deepcopy(video)])
-    result = run(tmp_path, config, monitors, notifier)
-    assert result.exit_code == 1 and result.sources[0].status == "FAILED"
-    assert result.sources[1].status == "NEW_ITEMS"
-    assert telegram.called
-    assert not (tmp_path / "announcements_cache.json").exists()
 
 
-def test_rss_404_other_source_still_sends(tmp_path, config, monitors, notifier, telegram, monkeypatch):
-    youtube = YouTubeMonitor()
-    response = Mock(status_code=404)
-    response.raise_for_status.side_effect = requests.HTTPError("404")
-    monkeypatch.setattr(youtube.session, "get", lambda *a, **k: response)
-    result = run(tmp_path, config, (monitors[0], youtube), notifier)
-    assert result.exit_code == 1 and result.sources[1].status == "FAILED"
-    assert telegram.called
-    assert not (tmp_path / "youtube_cache.json").exists()
 
 
 @pytest.mark.parametrize("text,expected", [
@@ -179,7 +161,7 @@ def test_dry_run_no_send_no_state_write(tmp_path, config, monitors, notifier, te
     atomic_json(tmp_path / "youtube_cache.json", [])
     before = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
     result = run_once(config, dry_run=True, state_dir=tmp_path,
-                      scraper=monitors[0], youtube=monitors[1], notifier=notifier)
+                      scraper=monitors[0], notifier=notifier)
     assert result.pending == 1
     assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == before
     telegram.assert_not_called()

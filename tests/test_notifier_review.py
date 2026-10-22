@@ -17,7 +17,7 @@ def test_summary_stops_at_failed_chunk_and_retry_preserves_order(
     ok = Mock(status_code=200, json=lambda: {"ok": True})
     failed = Mock(status_code=status, json=lambda: body)
     telegram.side_effect = [ok] * (failed_index - 1) + [failed, ok, ok]
-    run_kwargs = dict(state_dir=tmp_path, scraper=monitors[0], youtube=monitors[1], notifier=notifier)
+    run_kwargs = dict(state_dir=tmp_path, scraper=monitors[0], notifier=notifier)
 
     result = run_once(config, **run_kwargs)
     assert result.exit_code == 1

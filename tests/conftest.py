@@ -48,7 +48,7 @@ def fixtures():
 def config():
     return {"notification_method": "telegram", "telegram_bot_token": "TEST_ONLY_TOKEN",
             "telegram_chat_id": "TEST_ONLY_CHAT", "telegram_send_files": False,
-            "youtube_monitor_enabled": True}
+            "youtube_monitor_enabled": False}
 
 
 @pytest.fixture

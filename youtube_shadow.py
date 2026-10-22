@@ -5,7 +5,7 @@ import json
 import re
 
 from reliability import SourceError
-from youtube_monitor import publication_time
+from youtube_history import parse_timestamp as publication_time
 from youtube_videos_parser import VideosPage
 
 MIN_STABLE_SECONDS = 60

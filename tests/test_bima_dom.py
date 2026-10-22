@@ -212,7 +212,7 @@ def test_valid_page_without_news_is_healthy_and_dry_run_has_no_writes(page, fixt
     scraper = BimaScraper()
     monkeypatch.setattr(scraper, "fetch_announcements", lambda: deepcopy(current))
     result = run_once(dict(config, youtube_monitor_enabled=False), dry_run=True, state_dir=tmp_path, scraper=scraper, notifier=notifier)
-    assert result.exit_code == 0 and result.sources[-1].status == "NO_NEW_ITEMS" and result.pending == 0
+    assert result.exit_code == 0 and result.sources[-1].status == "DISABLED" and result.pending == 0
     assert path.read_bytes() == before and not (tmp_path / "delivery_state.json").exists()
     telegram.assert_not_called()
 

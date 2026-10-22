@@ -38,7 +38,7 @@ def old_batch(item, *, delivered=False):
 
 
 def execute(tmp_path, config, monitors, notifier):
-    return run_once(config, state_dir=tmp_path, scraper=monitors[0], youtube=monitors[1], notifier=notifier)
+    return run_once(config, state_dir=tmp_path, scraper=monitors[0], notifier=notifier)
 
 
 def test_september_collision_is_two_announcements(september):
@@ -281,18 +281,16 @@ def test_ambiguity_blocks_pending_bima_without_advancing_history(tmp_path, confi
     telegram.assert_not_called()
 
 
-def test_ambiguous_bima_does_not_block_other_source(tmp_path, config, monitors, notifier, telegram, monkeypatch, rss_video, approved_cutover):
+def test_ambiguous_bima_does_not_fall_back_to_legacy_youtube(tmp_path, config, monitors, notifier, telegram, monkeypatch, rss_video, approved_cutover):
     old = record()
     atomic_json(tmp_path / "announcements_cache.json", [old])
     before = (tmp_path / "announcements_cache.json").read_bytes()
     monkeypatch.setattr(monitors[0], "fetch_announcements", lambda: [dict(old, title="Tidak Pasti", documents=[])])
-    video = rss_video
-    monkeypatch.setattr(monitors[1], "fetch_videos", lambda: [deepcopy(video)])
     result = execute(tmp_path, config, monitors, notifier)
     assert result.exit_code == 1 and result.sources[0].status == "FAILED"
-    assert result.sources[1].status == "NEW_ITEMS" and telegram.call_count == 1
+    assert result.sources[1].status == "DISABLED" and telegram.call_count == 0
     assert (tmp_path / "announcements_cache.json").read_bytes() == before
-    assert all(i.get("source") == "youtube" for b in read_json(tmp_path / "delivery_state.json", {})["batches"] for i in b["items"])
+    assert read_json(tmp_path / "delivery_state.json", {})["batches"] == []
 
 
 def test_ambiguous_mixed_pending_batch_is_deferred_intact(tmp_path, config, monitors, notifier, telegram, monkeypatch):

@@ -229,7 +229,7 @@ def test_metadata_filenames_keep_partial_retry_checkpoints_and_dedup(
 
     monkeypatch.setattr(notifier, "_download_file", download)
     telegram.side_effect = post
-    kwargs = dict(state_dir=tmp_path, scraper=monitors[0], youtube=monitors[1], notifier=notifier)
+    kwargs = dict(state_dir=tmp_path, scraper=monitors[0], notifier=notifier)
     first = run_once(config, **kwargs)
     assert first.exit_code == 1 and first.pending == 1
     batch = read_json(tmp_path / "delivery_state.json", {})["batches"][0]
