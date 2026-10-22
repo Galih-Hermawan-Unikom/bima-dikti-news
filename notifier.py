@@ -1,10 +1,13 @@
+import mimetypes
 import os
 import re
 import sys
 import tempfile
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from html import escape
 from html.parser import HTMLParser
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import requests
 
@@ -19,6 +22,31 @@ WIB = timezone(timedelta(hours=7))
 
 def now_wib():
     return datetime.now(WIB)
+
+
+def _upload_filename(name):
+    # Metadata may contain either Windows or POSIX paths, regardless of this host.
+    name = name if isinstance(name, str) else ""
+    name = name.replace("\\", "/").rsplit("/", 1)[-1]
+    name = "".join(char for char in name if not unicodedata.category(char).startswith("C"))
+    name = re.sub(r'[<>:"/\\|?*]', "_", name).strip(" .")
+    return name or "dokumen"
+
+
+def _format_rss_publication(value):
+    # Presentation only: leave invalid/naive values unchanged, without a guessed zone.
+    if not isinstance(value, str):
+        return str(value)
+    try:
+        published = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if published.tzinfo is None or published.utcoffset() is None:
+            return value
+        local = published.astimezone(ZoneInfo("Asia/Jakarta"))
+    except (ValueError, OverflowError, ZoneInfoNotFoundError):
+        return value
+    months = ("Januari", "Februari", "Maret", "April", "Mei", "Juni",
+              "Juli", "Agustus", "September", "Oktober", "November", "Desember")
+    return f"{local.day} {months[local.month - 1]} {local.year}, {local:%H:%M} WIB"
 
 
 def _message_length(text):
@@ -151,7 +179,7 @@ class Notifier:
             message = f"<b>{index}. {escape(ann['title'])}</b>\n"
             message += f"   📺 {escape(channel_title)}\n"
             if ann.get("published"):
-                message += f"   📆 Publikasi (RSS): {escape(ann['published'])}\n"
+                message += f"   📆 Publikasi (RSS): {escape(_format_rss_publication(ann['published']))}\n"
 
             if ann.get("description"):
                 message += f"   📝 {escape(ann['description'][:300])}...\n"
@@ -192,7 +220,7 @@ class Notifier:
         if youtube_count:
             header += f"📺 YouTube: {youtube_count}\n"
         header += "\n"
-        footer = "━━━━━━━━━━━━━━━━━━━━\n<i>Bot Notifikasi BIMA</i>"
+        footer = "━━━━━━━━━━━━━━━━━━━━\n<i>Bot Dikti News</i>"
 
         message = header + "".join(self._format_html_item(index, ann)
                                   for index, ann in enumerate(items, 1)) + footer
@@ -234,7 +262,7 @@ class Notifier:
                     print(f"     📺 {ann['channel_title']}")
                 
                 if ann.get("published"):
-                    print(f"     📆 Publikasi (RSS): {ann['published']}")
+                    print(f"     📆 Publikasi (RSS): {_format_rss_publication(ann['published'])}")
                     
                 if ann.get("description"):
                     print(f"     📝 {ann['description'][:300]}...")
@@ -350,12 +378,14 @@ class Notifier:
     def _send_document(self, bot_token, chat_id, file_path, file_name):
         url = f"https://api.telegram.org/bot{bot_token}/sendDocument"
         caption = f"📎 {file_name}"
+        upload_name = _upload_filename(file_name)
+        content_type = mimetypes.guess_type(upload_name)[0] or "application/octet-stream"
 
         with open(file_path, "rb") as file:
             response = requests.post(
                 url,
                 data={"chat_id": chat_id, "caption": caption},
-                files={"document": file},
+                files={"document": (upload_name, file, content_type)},
                 timeout=120,
             )
 
