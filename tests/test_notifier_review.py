@@ -67,7 +67,7 @@ def test_one_item_many_attachments_stays_readable_and_complete(notifier, announc
         assert any(document["name"] in "".join(ET.fromstring("<root>" + chunk + "</root>").itertext())
                    for chunk in chunks), "Keep ordinary attachment names on one message"
     assert "Dokumen: 180 file" in visible
-    assert visible.endswith("Bot Notifikasi BIMA")
+    assert visible.endswith("Bot Dikti News")
 
 
 @pytest.mark.parametrize("field", ["title", "document", "surat", "url", "channel_title"])
@@ -105,7 +105,7 @@ def test_short_message_keeps_existing_html_format(notifier, announcement):
     assert len(chunks) == 1
     assert notifier._format_html_item(1, announcement) in chunks[0]
     assert chunks[0].startswith("<b>")
-    assert chunks[0].endswith("<i>Bot Notifikasi BIMA</i>")
+    assert chunks[0].endswith("<i>Bot Dikti News</i>")
     rendered_chunks(chunks)
 
 
