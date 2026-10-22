@@ -1,6 +1,7 @@
 """Detection is persisted only after durable retry records exist."""
 
 from copy import deepcopy
+from datetime import timedelta, timezone, datetime
 from pathlib import Path
 
 from notifier import Notifier
@@ -8,6 +9,33 @@ from reliability import RunResult, SourceError, SourceResult, atomic_json, read_
 from scraper import (BimaIdentityError, BimaScraper, announcement_identity,
                      match_announcement, new_announcements)
 from youtube_history import DEFAULT_CHANNEL, youtube_identity, validate_baseline_marker
+
+
+def _youtube_policy(config, channel):
+    from youtube_eligibility import Policy
+    from youtube_history import parse_timestamp
+    def duration(key):
+        value = config.get(key)
+        return timedelta(seconds=value) if type(value) is int and value > 0 else None
+    activation = parse_timestamp(config.get("youtube_activation_at"))
+    return Policy(channel, config.get("youtube_policy_version", "tabs-only-v1"),
+        activation_at=activation, window=duration("youtube_window_seconds"),
+        ttl=duration("youtube_ttl_seconds"), skew=timedelta(seconds=config["youtube_skew_seconds"])
+        if type(config.get("youtube_skew_seconds")) is int and config["youtube_skew_seconds"] >= 0 else None,
+        capture_interval=duration("youtube_capture_interval_seconds"),
+        approved=config.get("youtube_policy_approved", False))
+
+
+def _youtube_sender(notifier):
+    from youtube_delivery import SendConfirmation
+    def send(item, ticket):
+        sent = notifier.send_youtube_outbox_notification(item, ticket)
+        receipts = getattr(notifier, "last_delivery_receipts", ())
+        if sent is True and len(receipts) == 1:
+            receipt = receipts[0]
+            return SendConfirmation(receipt.get("http_status"), receipt.get("ok"), receipt.get("message_id"))
+        return None
+    return send
 
 
 def item_key(item):
@@ -63,7 +91,19 @@ def run_once(config, *, dry_run=False, state_dir=".", scraper=None, notifier=Non
     if type(enabled) is not bool or "youtube_eligibility_dry_run" in config:
         result.errors.append("Use tabs-only YouTube with a boolean youtube_monitor_enabled; hybrid selection was removed")
         return result
-    evaluate_youtube = enabled and dry_run
+    observation_enabled = config.get("youtube_observation_enabled", False)
+    delivery_enabled = config.get("youtube_delivery_enabled", False)
+    send_enabled = config.get("youtube_delivery_send_enabled", False)
+    if any(type(v) is not bool for v in (observation_enabled, delivery_enabled, send_enabled)):
+        result.errors.append("YouTube persistent feature flags must be booleans")
+        observation_enabled = delivery_enabled = send_enabled = False
+    if delivery_enabled and not observation_enabled:
+        result.errors.append("YouTube outbox planning requires persistent observation")
+        delivery_enabled = send_enabled = False
+    if send_enabled and not delivery_enabled:
+        result.errors.append("YouTube sending requires outbox planning")
+        send_enabled = False
+    evaluate_youtube = enabled and (dry_run or observation_enabled)
     root = Path(state_dir)
     scraper = scraper or BimaScraper()
     scraper.data_file = str(root / "announcements_cache.json")
@@ -77,13 +117,41 @@ def run_once(config, *, dry_run=False, state_dir=".", scraper=None, notifier=Non
     sources = [("bima", scraper, scraper.check_new_announcements)]
     if evaluate_youtube:
         from youtube_tabs_monitor import ChannelTabsAdapter
+        from youtube_delivery import YouTubeStateStore
         try:
             channel = config.get("youtube_channel_id") or DEFAULT_CHANNEL
-            adapter = youtube_adapter or ChannelTabsAdapter(channel_id=channel)
+            adapter = youtube_adapter or ChannelTabsAdapter(channel_id=channel,
+                policy=_youtube_policy(config, channel))
             if adapter.policy.channel_id != channel:
                 raise ValueError("Channel-tabs does not match runner configuration")
+            store = getattr(adapter, "observation_store", None)
+            if observation_enabled and store is None:
+                store = YouTubeStateStore(root / "youtube_delivery.sqlite3",
+                    activation_at=adapter.policy.activation_at, policy_version=adapter.policy.version)
+                adapter.observation_store = store
+            if delivery_enabled:
+                if store is None:
+                    raise ValueError("Persistent observation store unavailable")
+                store.recover_expired_sends(now=adapter.clock())
             evaluation = adapter.evaluate(read_json(root / "youtube_cache.json", None), state)
             result.youtube_eligibility = evaluation.report()
+            outbox = []
+            if delivery_enabled and not evaluation.errors:
+                decisions = {d.video_id: d for d in evaluation.decisions}
+                for item in evaluation.preview_items:
+                    decision = decisions.get(item.get("video_id"))
+                    if decision is None or decision.eligibility.value != "ELIGIBLE":
+                        continue
+                    if len(notifier._build_summary_chunks([item])) != 1:
+                        outbox.append({"event_key": decision.event_key, "status": "held_single_message_limit"})
+                        continue
+                    reservation = store.reserve(decision, item, now=adapter.clock())
+                    entry = {"event_key": decision.event_key, **reservation}
+                    if send_enabled and not dry_run and reservation["status"] == "reserved":
+                        entry["status"] = store.send_once(decision.event_key, _youtube_sender(notifier),
+                            enabled=True, now=adapter.clock())
+                    outbox.append(entry)
+            result.youtube_eligibility["outbox"] = outbox
             failed = bool(evaluation.errors or any(v.get("health") == "FAILED" for v in evaluation.health.values()))
             status = "FAILED" if failed else "ELIGIBILITY_PREVIEW"
             result.sources.append(SourceResult("youtube", status, list(evaluation.preview_items),

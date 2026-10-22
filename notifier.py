@@ -124,8 +124,10 @@ class _SummaryHTMLSplitter(HTMLParser):
 class Notifier:
     def __init__(self, config=None, config_path="config.json"):
         self.config = load_config(config_path=config_path) if config is None else config
+        self.last_delivery_receipts = []
 
     def send_notification(self, items, progress=None, checkpoint=None):
+        self.last_delivery_receipts = []
         if any(awaiting_youtube_verification(i)
                for group in (items or [], (progress or {}).get("items", [])) for i in group):
             print("  Notification blocked: YouTube payload awaiting verification")
@@ -144,6 +146,36 @@ class Notifier:
             self._send_console(items)
             return self._send_telegram(items, progress, checkpoint)
         return False
+
+    def send_youtube_outbox_notification(self, item, ticket):
+        """Send one reserved tabs item; generic YouTube delivery remains blocked."""
+        self.last_delivery_receipts = []
+        try:
+            from youtube_delivery import DeliveryTicket
+            import hashlib
+            import json
+            payload = json.dumps(item, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            if (type(ticket) is not DeliveryTicket or ticket.attempt != 1
+                    or not re.fullmatch(r"[a-f0-9]{32}", ticket.attempt_token)
+                    or ticket.video_id != item.get("video_id")
+                    or ticket.event_key != f"youtube:video:{ticket.video_id}:initial"
+                    or hashlib.sha256(payload.encode("utf-8")).hexdigest() != ticket.payload_sha256
+                    or item.get("source") != "youtube"
+                    or item.get("delivery_format") != "youtube-tabs-preview-v1"
+                    or item.get("url") != f"https://www.youtube.com/watch?v={ticket.video_id}"
+                    or item.get("documents") or self.config.get("notification_method") != "telegram"
+                    or len(self._build_summary_chunks([item])) != 1):
+                return False
+            bot_token = self.config.get("telegram_bot_token", "")
+            chat_id = self.config.get("telegram_chat_id", "")
+            if not bot_token or not chat_id:
+                return False
+            return self._send_summary_message(
+                bot_token, chat_id, [item], progress={}, checkpoint=lambda: None,
+                reserved_youtube=True,
+            )
+        except (AttributeError, TypeError, ValueError):
+            return False
 
     def _item_source(self, item):
         source = (item or {}).get("source", "bima")
@@ -331,8 +363,9 @@ class Notifier:
             print(f"  Error download file: {type(e).__name__}")
             return None
 
-    def _send_summary_message(self, bot_token, chat_id, items, progress=None, checkpoint=None):
-        if any(awaiting_youtube_verification(i)
+    def _send_summary_message(self, bot_token, chat_id, items, progress=None, checkpoint=None,
+                              reserved_youtube=False):
+        if not reserved_youtube and any(awaiting_youtube_verification(i)
                for group in (items or [], (progress or {}).get("items", [])) for i in group):
             print("  Telegram blocked: YouTube payload awaiting verification")
             return False
@@ -359,7 +392,13 @@ class Notifier:
 
             try:
                 response = requests.post(url, json=payload, timeout=15)
-                if response.status_code == 200 and response.json().get("ok") is True:
+                result = response.json()
+                if response.status_code == 200 and result.get("ok") is True:
+                    message = result.get("result")
+                    message_id = message.get("message_id") if isinstance(message, dict) else None
+                    if type(message_id) is int and message_id > 0:
+                        self.last_delivery_receipts.append({"method": "sendMessage", "http_status": 200,
+                            "ok": True, "message_id": message_id})
                     progress["sent_chunks"].append(index)
                     checkpoint()
                     print(f"  Ringkasan Telegram terkirim ({index})")

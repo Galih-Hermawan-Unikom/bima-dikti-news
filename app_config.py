@@ -63,6 +63,23 @@ def load_config(config_path="config.json", load_env=True, include_secrets=True):
         "youtube_monitor_enabled": _read_bool(
             file_config.get("youtube_monitor_enabled", True), True
         ),
+        # New observation/outbox path is opt-in; no production value is set.
+        "youtube_observation_enabled": _read_bool(
+            file_config.get("youtube_observation_enabled", False), False
+        ),
+        "youtube_delivery_enabled": _read_bool(
+            file_config.get("youtube_delivery_enabled", False), False
+        ),
+        "youtube_delivery_send_enabled": _read_bool(
+            file_config.get("youtube_delivery_send_enabled", False), False
+        ),
+        "youtube_activation_at": file_config.get("youtube_activation_at"),
+        "youtube_policy_version": file_config.get("youtube_policy_version", "tabs-only-v1"),
+        "youtube_policy_approved": _read_bool(file_config.get("youtube_policy_approved", False), False),
+        "youtube_window_seconds": _read_int(file_config.get("youtube_window_seconds"), None),
+        "youtube_ttl_seconds": _read_int(file_config.get("youtube_ttl_seconds"), None),
+        "youtube_skew_seconds": _read_int(file_config.get("youtube_skew_seconds"), None),
+        "youtube_capture_interval_seconds": _read_int(file_config.get("youtube_capture_interval_seconds"), None),
         "youtube_channel_url": file_config.get(
             "youtube_channel_url", "https://www.youtube.com/@kemdiktisaintek"
         ),
