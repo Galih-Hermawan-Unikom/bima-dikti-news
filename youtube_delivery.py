@@ -136,6 +136,18 @@ class YouTubeStateStore:
                         or not isinstance(item.get("title"), str)
                         or item.get("url") != "https://www.youtube.com/watch?v=" + video_id):
                     raise ValueError("Invalid YouTube capture observation")
+                metadata = item.get("metadata_by_tab")
+                if metadata is not None and (not isinstance(metadata, dict)
+                        or any(tab not in item["tabs"] for tab in metadata)
+                        or any(not isinstance(value, dict)
+                            or set(value) != {"relative_text", "badges", "schedule_timezone"}
+                            or value["schedule_timezone"] is not None
+                            or any(not isinstance(value.get(key), list)
+                                or any(not isinstance(text, str) or not text.strip() for text in value[key])
+                                for key in ("relative_text", "badges")) for value in metadata.values())):
+                    raise ValueError("Invalid YouTube source metadata")
+                if "title_conflict" in item and type(item["title_conflict"]) is not bool:
+                    raise ValueError("Invalid YouTube title conflict marker")
         if state["capture_seq"] < last_seq:
             raise ValueError("Invalid YouTube capture sequence")
         for event_key, record in state["outbox"].items():
@@ -211,7 +223,9 @@ class YouTubeStateStore:
                         or not isinstance(title, str) or not title.strip()
                         or url != "https://www.youtube.com/watch?v=" + video_id):
                     raise ValueError("Invalid channel-tabs observation")
-                normalized[video_id] = {"tabs": sorted(set(tabs)), "title": title, "url": url}
+                normalized[video_id] = {"tabs": sorted(set(tabs)), "title": title, "url": url,
+                    "metadata_by_tab": deepcopy(item.get("metadata_by_tab")),
+                    "title_conflict": item.get("title_conflict", False)}
         current_at = _parse(stamp)
         previous_at = _parse(self._state.get("last_capture_at"))
         if previous_at is not None and current_at <= previous_at:
@@ -246,7 +260,9 @@ class YouTubeStateStore:
             item = capture["observations"].get(video_id)
             captures.append({"seq": capture["seq"], "observed_at": capture["observed_at"],
                 "healthy": capture["healthy"], "tabs": item["tabs"] if item else [],
-                "title": item["title"] if item else None, "url": item["url"] if item else None})
+                "title": item["title"] if item else None, "url": item["url"] if item else None,
+                "metadata_by_tab": deepcopy(item.get("metadata_by_tab")) if item else None,
+                "title_conflict": item.get("title_conflict", False) if item else False})
         last_visible = next((capture for capture in reversed(captures) if capture["tabs"]), None)
         return {"first_seen_at": record["first_seen_at"],
                 "initial_inventory": record["initial_inventory"], "captures": captures,

@@ -119,6 +119,7 @@ class ReleaseEvidence:
     readiness: Readiness = Readiness.UNKNOWN
     proof: Proof | None = None
     ended_at: datetime | None = None
+    completion_verified: bool = False
 
 
 @dataclass(frozen=True)
@@ -151,6 +152,7 @@ class Policy:
     skew: timedelta | None = None
     capture_interval: timedelta | None = None
     approved: bool = False
+    automatic_tabs_verification: bool = False
 
 
 @dataclass(frozen=True)
@@ -296,9 +298,14 @@ def _classify(item):
         return hold("NOT_VISIBLE_IN_CAPTURE_NOT_DELETED")
     if len(times) < 2 or not all(c.tabs for c in item.captures) or times[-1] - times[0] < p.capture_interval:
         return hold("INSUFFICIENT_STABLE_CAPTURES")
-    if item.category.category is Category.UNKNOWN or item.category.method is CategoryMethod.TAB_SURROGATE:
+    automatic = (p.automatic_tabs_verification
+                 and item.category.method is CategoryMethod.TAB_SURROGATE)
+    if item.category.category is Category.UNKNOWN or (item.category.method is CategoryMethod.TAB_SURROGATE and not automatic):
         return hold("CATEGORY_UNVERIFIED")
-    for proof in (item.category.proof, item.release.proof, item.admission.proof):
+    proofs = (item.category.proof, item.release.proof)
+    if not automatic:
+        proofs += (item.admission.proof,)
+    for proof in proofs:
         error = proof_error(proof)
         if error:
             return hold(error)
@@ -310,10 +317,13 @@ def _classify(item):
     if stream:
         if (item.category.category is not Category.STREAM
                 or item.release.readiness is not Readiness.COMPLETED_REPLAY
-                or not _aware(item.release.ended_at) or item.release.ended_at > t.now):
+                or not (item.release.completion_verified
+                        or (_aware(item.release.ended_at) and item.release.ended_at <= t.now))):
             return hold("COMPLETED_PUBLIC_REPLAY_UNVERIFIED")
     elif item.release.readiness is not Readiness.PUBLIC_RELEASED:
         return hold("PUBLIC_RELEASE_UNVERIFIED")
+    if automatic:
+        return result(Eligibility.ELIGIBLE, "AUTOMATIC_TABS_POLICY_ELIGIBLE_NOT_AUTHORIZED")
     a = item.admission
     if (not a.approved or not a.reviewer.strip() or not a.history_review_reference.strip()
             or a.policy_version != p.version or a.state_fingerprint != h.fingerprint):

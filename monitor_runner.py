@@ -25,7 +25,8 @@ def _youtube_policy(config, channel):
         ttl=duration("youtube_ttl_seconds"), skew=timedelta(seconds=config["youtube_skew_seconds"])
         if type(config.get("youtube_skew_seconds")) is int and config["youtube_skew_seconds"] >= 0 else None,
         capture_interval=duration("youtube_capture_interval_seconds"),
-        approved=config.get("youtube_policy_approved", False))
+        approved=config.get("youtube_policy_approved", False),
+        automatic_tabs_verification=config.get("youtube_automatic_tabs_verification_enabled", False))
 
 
 def _youtube_sender(notifier):
