@@ -50,7 +50,7 @@ def delivery_item(video_id=VID):
 
 
 def test_startup_inventory_persists_and_never_becomes_new(tmp_path):
-    path = tmp_path / "youtube_delivery.sqlite3"
+    path = tmp_path / "youtube_delivery.json"
     store_at(path).record_capture([observation(VID)], NOW, healthy=True)
     first = store_at(path).observation(VID)
     assert first["first_seen_at"] == NOW.isoformat()
@@ -64,7 +64,7 @@ def test_startup_inventory_persists_and_never_becomes_new(tmp_path):
 
 
 def test_post_inventory_first_seen_and_two_captures_survive_restart(tmp_path):
-    path = tmp_path / "youtube_delivery.sqlite3"
+    path = tmp_path / "youtube_delivery.json"
     store_at(path).record_capture([], NOW, healthy=True)
     store_at(path).record_capture([observation(VID)], NOW + timedelta(minutes=12), healthy=True)
     first_seen = store_at(path).observation(VID)["first_seen_at"]
@@ -78,7 +78,7 @@ def test_post_inventory_first_seen_and_two_captures_survive_restart(tmp_path):
 
 
 def test_unhealthy_gap_breaks_stability_and_quarantines_new_ids(tmp_path):
-    store = store_at(tmp_path / "state.sqlite3")
+    store = store_at(tmp_path / "state.json")
     store.record_capture([], NOW, healthy=True)
     store.record_capture([observation(VID)], NOW + timedelta(minutes=10), healthy=True)
     store.record_capture([], NOW + timedelta(minutes=20), healthy=False)
@@ -93,7 +93,7 @@ def test_unhealthy_gap_breaks_stability_and_quarantines_new_ids(tmp_path):
 
 
 def test_non_monotonic_capture_fails_without_state_mutation(tmp_path):
-    path = tmp_path / "state.sqlite3"
+    path = tmp_path / "state.json"
     store = store_at(path)
     store.record_capture([], NOW, healthy=True)
     before = store.observation_ids()
@@ -103,7 +103,7 @@ def test_non_monotonic_capture_fails_without_state_mutation(tmp_path):
 
 
 def test_reservation_is_atomic_idempotent_and_only_for_eligible_decision(tmp_path):
-    store = store_at(tmp_path / "state.sqlite3")
+    store = store_at(tmp_path / "state.json")
     with ThreadPoolExecutor(max_workers=8) as pool:
         results = list(pool.map(lambda _: store.reserve(decision(), delivery_item(), now=NOW), range(8)))
     assert sum(result["created"] for result in results) == 1
@@ -115,7 +115,7 @@ def test_reservation_is_atomic_idempotent_and_only_for_eligible_decision(tmp_pat
 
 
 def test_disabled_send_does_not_call_sender_and_delivered_is_never_replayed(tmp_path):
-    store = store_at(tmp_path / "state.sqlite3")
+    store = store_at(tmp_path / "state.json")
     store.reserve(decision(), delivery_item(), now=NOW)
     sender = Mock(return_value=SendConfirmation(200, True, 44))
     assert store.send_once(decision().event_key, sender, now=NOW) == "disabled"
@@ -128,7 +128,7 @@ def test_disabled_send_does_not_call_sender_and_delivered_is_never_replayed(tmp_
 
 @pytest.mark.parametrize("sender_result", [None, SendConfirmation(503, False, None), SendConfirmation(200, True, None)])
 def test_unconfirmed_network_result_becomes_terminal_ambiguous(tmp_path, sender_result):
-    store = store_at(tmp_path / "state.sqlite3")
+    store = store_at(tmp_path / "state.json")
     store.reserve(decision(), delivery_item(), now=NOW)
     sender = Mock(return_value=sender_result)
     assert store.send_once(decision().event_key, sender, enabled=True, now=NOW) == "ambiguous"
@@ -137,7 +137,7 @@ def test_unconfirmed_network_result_becomes_terminal_ambiguous(tmp_path, sender_
 
 
 def test_network_exception_is_ambiguous_and_never_retried(tmp_path):
-    store = store_at(tmp_path / "state.sqlite3")
+    store = store_at(tmp_path / "state.json")
     store.reserve(decision(), delivery_item(), now=NOW)
     sender = Mock(side_effect=TimeoutError("synthetic timeout"))
     assert store.send_once(decision().event_key, sender, enabled=True, now=NOW) == "ambiguous"
@@ -147,7 +147,7 @@ def test_network_exception_is_ambiguous_and_never_retried(tmp_path):
 
 
 def test_crash_after_claim_recovers_as_ambiguous_without_resend(tmp_path):
-    path = tmp_path / "state.sqlite3"
+    path = tmp_path / "state.json"
     store = store_at(path)
     store.reserve(decision(), delivery_item(), now=NOW)
     sender = Mock(side_effect=SystemExit())
@@ -185,7 +185,7 @@ def _review(adapter, cache, journal, now, first_seen):
 def test_adapter_uses_persisted_observation_after_restart_and_pending_journal_holds(tmp_path, monkeypatch):
     clock = [NOW]
     monkeypatch.setattr(tabs, "datetime", SimpleNamespace(now=lambda tz: clock[0]))
-    path = tmp_path / "state.sqlite3"
+    path = tmp_path / "state.json"
     cache = []
     journal = {"version": 1, "batches": [], "youtube_rss_cutover": {
         "version": 1, "cutover_at": "2026-10-21T00:00:00Z", "baseline_ids": []}}
@@ -228,7 +228,7 @@ def test_adapter_uses_persisted_observation_after_restart_and_pending_journal_ho
 def test_runner_outbox_end_to_end_notifier_mock_and_duplicate_run(tmp_path, monkeypatch, monitors, announcement):
     clock = [NOW]
     monkeypatch.setattr(tabs, "datetime", SimpleNamespace(now=lambda tz: clock[0]))
-    db = tmp_path / "youtube_delivery.sqlite3"
+    db = tmp_path / "youtube_delivery.json"
     cache = []
     journal = {"version": 1, "batches": [], "youtube_rss_cutover": {
         "version": 1, "cutover_at": "2026-10-21T00:00:00Z", "baseline_ids": []}}
@@ -241,11 +241,11 @@ def test_runner_outbox_end_to_end_notifier_mock_and_duplicate_run(tmp_path, monk
     store = store_at(db, policy=policy.version)
     reader = Mock(); present = {"videos": [], "streams": []}
     reader.fetch.side_effect = lambda tab: _page(tab, present[tab])
-    verifier = SignedReviewVerifier({"test": KEY}, frozenset({"www.youtube.com"}))
 
     class SpyNotifier:
         config = {"telegram_send_files": False}
         def __init__(self): self.yt_calls, self.bima_calls = [], 0; self.last_delivery_receipts = []
+        def validate_youtube_experiment_destination(self): return True
         def _build_summary_chunks(self, items): return ["one synthetic summary"]
         def send_notification(self, items, progress=None, checkpoint=None): self.bima_calls += 1; return True
         def _document_name(self, item): return item.get("name", "")
@@ -258,24 +258,33 @@ def test_runner_outbox_end_to_end_notifier_mock_and_duplicate_run(tmp_path, monk
     config = {"youtube_monitor_enabled": True, "youtube_observation_enabled": True,
         "youtube_delivery_enabled": True, "youtube_delivery_send_enabled": True,
         "youtube_channel_id": tabs.CHANNEL_ID, "notification_method": "telegram",
-        "telegram_send_files": False}
+        "youtube_review_hmac_key": KEY.decode(), "youtube_review_source_hosts": ["www.youtube.com"],
+        "youtube_review_key_id": "test",
+        "youtube_review_evidence_json": "", "telegram_send_files": False}
 
-    def run(reviews=None):
-        adapter = ChannelTabsAdapter(tabs_reader=reader, policy=policy, reviews=reviews,
-            review_verifier=verifier, clock=lambda: clock[0], observation_store=store_at(db, policy=policy.version))
+    def run(reviews=None, experiment_only=False):
+        config["youtube_review_evidence_json"] = json.dumps({"reviews": list((reviews or {}).values())})
+        observation_store = store_at(db, policy=policy.version)
+        observation_store.set_commit_hook(lambda path: None)  # mock durable checkpoint for Actions environment
+        adapter = ChannelTabsAdapter(tabs_reader=reader, policy=policy, clock=lambda: clock[0],
+            observation_store=observation_store)
         return run_once(config, dry_run=False, state_dir=tmp_path, scraper=monitors[0],
-            notifier=notifier, youtube_adapter=adapter)
+            notifier=notifier, youtube_adapter=adapter,
+            youtube_send_limit=1 if experiment_only else None,
+            youtube_experiment_only=experiment_only)
 
     run()  # healthy empty startup inventory; BIMA uses its own mocked send path
     assert notifier.bima_calls == 1 and notifier.yt_calls == []
     clock[0] += timedelta(minutes=12); present["videos"] = [VID]
     first = run()
-    assert first.youtube_eligibility["outbox"] == []
+    youtube_source = next(source for source in first.sources if source.source == "youtube")
+    assert youtube_source.status == "ELIGIBILITY_PREVIEW", first.sources
+    assert first.youtube_eligibility.get("outbox", []) == [], first.sources
     first_seen = datetime.fromisoformat(store_at(db, policy=policy.version).observation(VID)["first_seen_at"])
     signed = _review(ChannelTabsAdapter(policy=policy), cache,
         json.loads((tmp_path / "delivery_state.json").read_text(encoding="utf-8")), clock[0], first_seen)
     clock[0] += timedelta(minutes=12)
-    delivered = run({VID: signed})
+    delivered = run({VID: signed}, experiment_only=True)
     event = f"youtube:video:{VID}:initial"
     assert delivered.youtube_eligibility["outbox"][0]["status"] == "delivered"
     assert len(notifier.yt_calls) == 1 and notifier.yt_calls[0][1].event_key == event
@@ -295,9 +304,29 @@ def test_default_feature_flags_are_disabled(monkeypatch):
     assert cfg["youtube_delivery_send_enabled"] is False
 
 
+def test_review_preview_loads_only_review_secrets(monkeypatch):
+    from app_config import load_config
+    monkeypatch.setenv("YOUTUBE_REVIEW_HMAC_KEY", "synthetic-review-key-material-long-enough")
+    monkeypatch.setenv("YOUTUBE_REVIEW_EVIDENCE_JSON", '{"reviews": []}')
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "NEVER_READ_FOR_DRY_RUN")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "NEVER_READ_FOR_DRY_RUN")
+    cfg = load_config(config_path="missing-test-config.json", load_env=False,
+                      include_secrets=False, include_review_secrets=True)
+    assert cfg["youtube_review_hmac_key"] == "synthetic-review-key-material-long-enough"
+    assert cfg["youtube_review_evidence_json"] == '{"reviews": []}'
+    assert cfg["telegram_bot_token"] == ""
+    assert cfg["telegram_chat_id"] == ""
+
+
 def test_notifier_requires_atomic_ticket_and_records_api_receipt(config, monkeypatch):
     import requests
     from dataclasses import replace
+    config.update({
+        "youtube_delivery_enabled": True,
+        "youtube_delivery_send_enabled": True,
+        "youtube_experiment_chat_id": "synthetic-experiment-chat",
+        "youtube_experiment_chat_id_sha256": hashlib.sha256(b"synthetic-experiment-chat").hexdigest(),
+    })
     notifier = Notifier(config)
     item = delivery_item()
     raw = json.dumps(item, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -315,3 +344,47 @@ def test_notifier_requires_atomic_ticket_and_records_api_receipt(config, monkeyp
         "ok": True, "message_id": 991}]
     assert notifier.send_youtube_outbox_notification(item, replace(ticket, payload_sha256="0" * 64)) is False
     assert post.call_count == 1
+    config["youtube_experiment_chat_id_sha256"] = "0" * 64
+    assert notifier.send_youtube_outbox_notification(item, ticket) is False
+    assert post.call_count == 1
+
+
+def test_experiment_allowlist_rejects_production_destination(config, monkeypatch):
+    experiment_id = "synthetic-experiment-chat"
+    config.update({
+        "youtube_experiment_chat_id": experiment_id,
+        "youtube_experiment_chat_id_sha256": hashlib.sha256(experiment_id.encode()).hexdigest(),
+        "telegram_chat_id": "synthetic-production-chat",
+    })
+    notifier = Notifier(config)
+    assert notifier.validate_youtube_experiment_destination() is True
+    config["youtube_experiment_chat_id"] = config["telegram_chat_id"]
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    assert notifier.validate_youtube_experiment_destination() is False
+
+
+def test_experiment_preflight_checks_channel_and_post_permission(config, monkeypatch):
+    import requests
+    experiment_id = "synthetic-experiment-chat"
+    config.update({
+        "youtube_experiment_chat_id": experiment_id,
+        "youtube_experiment_chat_id_sha256": hashlib.sha256(experiment_id.encode()).hexdigest(),
+        "telegram_chat_id": "synthetic-production-chat",
+        "telegram_bot_token": "TEST_ONLY_TOKEN",
+    })
+    responses = []
+    for body in (
+        {"ok": True, "result": {"id": experiment_id, "type": "channel"}},
+        {"ok": True, "result": {"id": 7}},
+        {"ok": True, "result": {"status": "administrator", "can_post_messages": True}},
+    ):
+        response = Mock(status_code=200)
+        response.json.return_value = body
+        responses.append(response)
+    get = Mock(side_effect=responses)
+    post = Mock(side_effect=AssertionError("preflight must not send"))
+    monkeypatch.setattr(requests, "get", get)
+    monkeypatch.setattr(requests, "post", post)
+    assert Notifier(config).preflight_youtube_experiment_destination() is True
+    assert get.call_count == 3
+    assert post.call_count == 0

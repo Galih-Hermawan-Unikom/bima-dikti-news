@@ -164,10 +164,13 @@ class Notifier:
                     or item.get("delivery_format") != "youtube-tabs-preview-v1"
                     or item.get("url") != f"https://www.youtube.com/watch?v={ticket.video_id}"
                     or item.get("documents") or self.config.get("notification_method") != "telegram"
+                    or self.config.get("youtube_delivery_enabled") is not True
+                    or self.config.get("youtube_delivery_send_enabled") is not True
+                    or not self.validate_youtube_experiment_destination()
                     or len(self._build_summary_chunks([item])) != 1):
                 return False
             bot_token = self.config.get("telegram_bot_token", "")
-            chat_id = self.config.get("telegram_chat_id", "")
+            chat_id = self.config.get("youtube_experiment_chat_id", "")
             if not bot_token or not chat_id:
                 return False
             return self._send_summary_message(
@@ -175,6 +178,56 @@ class Notifier:
                 reserved_youtube=True,
             )
         except (AttributeError, TypeError, ValueError):
+            return False
+
+    def validate_youtube_experiment_destination(self):
+        """Require a separate, allowlisted experiment ID and reject production ID."""
+        import hashlib
+        import hmac
+        experiment_id = self.config.get("youtube_experiment_chat_id", "")
+        allowlisted_hash = self.config.get("youtube_experiment_chat_id_sha256", "")
+        if (not isinstance(experiment_id, str) or not experiment_id
+                or not isinstance(allowlisted_hash, str)
+                or not re.fullmatch(r"[a-f0-9]{64}", allowlisted_hash)):
+            return False
+        actual_hash = hashlib.sha256(experiment_id.encode("utf-8")).hexdigest()
+        production_id = self.config.get("telegram_chat_id", "")
+        production_conflict = (os.environ.get("GITHUB_ACTIONS", "").lower() == "true"
+            and production_id and hmac.compare_digest(experiment_id, str(production_id)))
+        return hmac.compare_digest(actual_hash, allowlisted_hash) and not production_conflict
+
+    def preflight_youtube_experiment_destination(self):
+        """Read-only Telegram identity/rights check; never sends a message."""
+        if not self.validate_youtube_experiment_destination():
+            return False
+        token = self.config.get("telegram_bot_token", "")
+        chat_id = self.config.get("youtube_experiment_chat_id", "")
+        if not token:
+            return False
+        base = f"https://api.telegram.org/bot{token}"
+        try:
+            chat_response = requests.get(base + "/getChat", params={"chat_id": chat_id}, timeout=15)
+            chat_result = chat_response.json()
+            chat = chat_result.get("result") if isinstance(chat_result, dict) else None
+            if (chat_response.status_code != 200 or chat_result.get("ok") is not True
+                    or not isinstance(chat, dict) or str(chat.get("id")) != chat_id
+                    or chat.get("type") != "channel"):
+                return False
+            me_response = requests.get(base + "/getMe", timeout=15)
+            me_result = me_response.json()
+            me = me_result.get("result") if isinstance(me_result, dict) else None
+            if (me_response.status_code != 200 or me_result.get("ok") is not True
+                    or not isinstance(me, dict) or type(me.get("id")) is not int):
+                return False
+            member_response = requests.get(base + "/getChatMember", params={
+                "chat_id": chat_id, "user_id": me["id"]}, timeout=15)
+            member_result = member_response.json()
+            member = member_result.get("result") if isinstance(member_result, dict) else None
+            if member_response.status_code != 200 or member_result.get("ok") is not True or not isinstance(member, dict):
+                return False
+            status = member.get("status")
+            return status == "creator" or (status == "administrator" and member.get("can_post_messages") is True)
+        except (requests.RequestException, ValueError, TypeError, AttributeError):
             return False
 
     def _item_source(self, item):
