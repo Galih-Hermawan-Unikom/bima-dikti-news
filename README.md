@@ -2,7 +2,7 @@
 
 Bot otomatis untuk mengecek dan mengirim notifikasi ketika ada update baru dari:
 - halaman [BIMA Kemdiktisaintek](https://bima.kemdiktisaintek.go.id/pengumuman)
-- kanal YouTube Kemdiktisaintek melalui RSS feed
+- tab kanal YouTube Kemdiktisaintek `/videos` dan `/streams` untuk evaluasi eligibility dry-run
 
 Implementasi publik proyek ini dapat dilihat di channel Telegram **Dikti News**:
 [https://t.me/dikti_news](https://t.me/dikti_news)
@@ -15,12 +15,12 @@ Implementasi publik proyek ini dapat dilihat di channel Telegram **Dikti News**:
 
 - Scraping otomatis halaman pengumuman BIMA menggunakan Playwright + Chromium
 - Deteksi dokumen lampiran beserta URL unduhan file
-- Monitoring kanal YouTube Kemdiktisaintek hanya melalui RSS publik, tanpa login atau API key
+- Evaluasi YouTube hanya dari `/videos` dan `/streams`; kandidat YouTube belum terhubung ke delivery
 - Notifikasi netral **VIDEO BARU — YOUTUBE KEMDIKTISAINTEK**, tanpa klaim status tayang
 - Deduplikasi berdasarkan ID video, baseline historis, dan jurnal pengiriman
 - Notifikasi via Telegram dan Console
 - Opsi kirim ringkasan saja atau ringkasan + file ke Telegram
-- Notifikasi gabungan BIMA + YouTube dalam satu ringkasan
+- Notifikasi BIMA tetap berjalan melalui runner; hasil YouTube hanya laporan dry-run
 - Pengecekan berkala yang bisa disesuaikan: 30 menit saat masa kritis, 3 jam saat masa normal
 - Cache metadata terpisah untuk BIMA dan YouTube; riwayat lama tetap dipertahankan
 - Bisa dijalankan lokal atau hosting gratis di GitHub Actions
@@ -28,7 +28,7 @@ Implementasi publik proyek ini dapat dilihat di channel Telegram **Dikti News**:
 ## Cara Kerja
 
 ```
-[GitHub Actions / Lokal] 
+[GitHub Actions / Lokal — dry-run YouTube]
         │
         ▼
 [Playwright buka halaman BIMA]
@@ -36,7 +36,12 @@ Implementasi publik proyek ini dapat dilihat di channel Telegram **Dikti News**:
         ▼
 [Ekstrak daftar pengumuman + dokumen]
         │
-        ├──────────────► [Ambil RSS YouTube Kemdiktisaintek]
+        ├──────────────► [Baca tab /videos dan /streams]
+        │                              │
+        │                              ▼
+        │                 [Classifier: KNOWN / HOLD / REJECTED]
+        │                              │
+        │                   [Laporan dry-run saja]
         │
         ▼
 [Bandingkan cache:
@@ -186,7 +191,9 @@ bima-dikti-news/
 ├── scraper.py                 # Web scraper (cross-platform)
 ├── notifier.py                # Notifikasi Console + Telegram
 ├── run_github.py              # Entry point GitHub Actions
-├── youtube_monitor.py         # Monitor RSS YouTube + cache video
+├── youtube_monitor.py         # Pembaca RSS legacy, tidak dipakai runner baru
+├── youtube_tabs_monitor.py    # Adapter /videos + /streams dan evaluasi dry-run
+├── youtube_eligibility.py     # Classifier tabs-only, tanpa enqueue/delivery
 ├── config.json                # Konfigurasi non-secret
 ├── .env                       # Secret lokal (tidak di-commit)
 ├── requirements.txt           # Python dependencies
@@ -216,7 +223,7 @@ bima-dikti-news/
 | `check_interval_minutes` | Angka (menit) | Frekuensi pengecekan |
 | `youtube_monitor_enabled` | `true`, `false` | Aktifkan monitoring YouTube |
 | `youtube_channel_url` | URL channel | URL kanal YouTube target |
-| `youtube_channel_id` | Channel ID | ID kanal YouTube untuk RSS |
+| `youtube_channel_id` | Channel ID | ID kanal YouTube target untuk tab |
 | `telegram_send_files` | `true`, `false` | Kirim lampiran dokumen ke Telegram |
 
 ### .env (Lokal)
@@ -259,7 +266,7 @@ YOUTUBE_CHANNEL_ID=UCGo_6l_6kp8H8OHcKcSIeDw
 | `CHECK_INTERVAL_MINUTES` | `30` | Override interval konfigurasi |
 | `YOUTUBE_MONITOR_ENABLED` | `true` | `false` untuk menonaktifkan monitor YouTube |
 | `YOUTUBE_CHANNEL_URL` | `https://www.youtube.com/@kemdiktisaintek` | URL kanal YouTube target |
-| `YOUTUBE_CHANNEL_ID` | `UCGo_6l_6kp8H8OHcKcSIeDw` | Channel ID untuk RSS YouTube |
+| `YOUTUBE_CHANNEL_ID` | `UCGo_6l_6kp8H8OHcKcSIeDw` | Channel ID YouTube target |
 
 ## Jadwal Pengecekan
 
@@ -293,7 +300,10 @@ schedule:
 >
 > Jika kuota habis, workflow berhenti sampai bulan berikutnya (tidak kena biaya).
 
-## Contoh Notifikasi Telegram
+## Contoh Notifikasi Telegram historis
+
+Contoh berikut merekam format pesan dari integrasi sebelumnya. YouTube saat ini
+hanya menghasilkan laporan tabs-only dry-run dan tidak masuk ke pesan Telegram.
 
 ```
 📢 UPDATE BARU BIMA + YOUTUBE KEMDIKTISAINTEK
@@ -337,19 +347,19 @@ Bot Notifikasi BIMA
 
 Gunakan `python run_github.py --dry-run` untuk membaca sumber dan melihat preview tanpa mengirim Telegram, membaca secrets, atau mengubah cache/jurnal. Pengujian otomatis: `pip install -r requirements-dev.txt`, `playwright install chromium`, lalu `python -m pytest`.
 
-### Cutover YouTube RSS-only
+### YouTube tabs-only (dry-run)
 
-Perubahan ini memerlukan review dan persetujuan cutover terpisah; tidak mengubah
-state produksi otomatis. ID cache/jurnal historis menjadi baseline dikenal,
-bukan bukti delivered. Notifikasi transisi LIVE/VOD tidak lagi dibuat.
+Runner memakai `/videos` dan `/streams` saja untuk laporan eligibility YouTube.
+Classifier dan adapter tidak membaca RSS, tidak membuat outbox, dan tidak
+mengirim kandidat YouTube. Aktivasi tetap nonaktif sampai ada perubahan kebijakan
+dan delivery yang ditinjau terpisah. Baseline 133 ID dan jurnal lama dibaca sebagai
+identitas historis; tidak ada migrasi atau backfill otomatis.
 
-Sebelum aktivasi versi ini, bandingkan RSS dengan snapshot cache dan jurnal
-terbaru. Tinjau ID yang belum dikenal serta batch pending lama. Setelah disetujui,
-siapkan metadata `youtube_rss_cutover` dalam jurnal dengan batas waktu eksplisit
-dan `baseline_ids` yang sudah ditinjau. Jangan membuat batch delivered sintetis.
-Tanpa marker, ID belum dikenal ditahan dan dilaporkan FAILED; BIMA valid tetap
-dapat diproses. Detail rancangan dan proposal murni ada di
-[laporan reliabilitas](docs/reliability-phase1.md#youtube-rss-only).
+`first_seen_at` adalah waktu observasi tab pertama setelah activation fence; ia
+bukan `published_at`. Capture awal, capture parsial/gagal, bukti basi, kategori
+tak dikenal, upcoming/LIVE, dan replay tanpa bukti kesiapan tetap ditahan.
+Shorts ditolak. Lihat [panduan classifier tabs-only](docs/youtube-eligibility-offline.md)
+dan [integrasi channel-tabs](docs/youtube-channel-tabs.md).
 
 Cache mencatat **deteksi**, sedangkan `delivery_state.json` mencatat **pengiriman terkonfirmasi** dan bagian yang perlu diulang. Kegagalan sumber atau pengiriman menghasilkan status gagal di GitHub Actions. Jika commit/push state gagal, periksa recovery artifact sebelum menjalankan retry. Duplikasi tetap mungkin jika Telegram sudah menerima pesan tetapi checkpoint/commit belum tersimpan; sistem tidak menjamin exactly-once.
 

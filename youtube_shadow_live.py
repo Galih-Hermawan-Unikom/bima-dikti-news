@@ -9,7 +9,7 @@ import re
 from urllib.parse import urlsplit
 
 from reliability import SourceError, atomic_json, read_json
-from youtube_monitor import publication_time, validate_cutover
+from youtube_history import parse_timestamp as publication_time, validate_baseline_marker as validate_cutover
 from youtube_shadow import new_shadow, observe_snapshot
 from youtube_videos_parser import CHANNEL_ID, VIDEOS_URL, VideosPage, VideosPageError, YouTubeVideosReader
 from youtube_videos_preflight import load_known_ids

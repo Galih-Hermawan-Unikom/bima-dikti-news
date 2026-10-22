@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 
 from reliability import SourceError, read_json
-from youtube_monitor import known_video_ids, validate_cutover, youtube_identity
+from youtube_history import known_video_ids, validate_baseline_marker as validate_cutover, youtube_identity
 from youtube_videos_parser import VideosPageError, YouTubeVideosReader
 
 
