@@ -240,8 +240,9 @@ def run_once(config, *, dry_run=False, state_dir=".", scraper=None, notifier=Non
                                                 "; ".join(evaluation.errors)))
             result.awaiting_verification = sum(d.eligibility.value == "HOLD_FOR_REVIEW"
                                                for d in evaluation.decisions)
-        except Exception:
-            result.sources.append(SourceResult("youtube", "FAILED", error="CHANNEL_TABS_EVALUATION_FAILED"))
+        except Exception as exc:
+            result.sources.append(SourceResult("youtube", "FAILED",
+                error=f"CHANNEL_TABS_EVALUATION_FAILED:{type(exc).__name__}"))
     if youtube_experiment_only:
         result.pending = 0
         return result
