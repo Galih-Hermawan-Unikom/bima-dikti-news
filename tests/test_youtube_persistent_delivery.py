@@ -275,6 +275,7 @@ def test_runner_outbox_end_to_end_notifier_mock_and_duplicate_run(tmp_path, monk
     assert notifier.bima_calls == 1 and notifier.yt_calls == []
     clock[0] += timedelta(minutes=12); present["videos"] = [VID]
     first = run()
+    assert first.sources[1].status == "ELIGIBILITY_PREVIEW", first.sources
     assert first.youtube_eligibility.get("outbox", []) == [], first.sources
     first_seen = datetime.fromisoformat(store_at(db, policy=policy.version).observation(VID)["first_seen_at"])
     signed = _review(ChannelTabsAdapter(policy=policy), cache,
