@@ -1,5 +1,4 @@
 import sys
-import schedule
 import time
 from app_config import load_config
 from monitor_runner import run_once
@@ -23,6 +22,8 @@ def check_announcements():
 
 
 def main():
+    import schedule
+
     config = load_config()
     check_interval = config.get("check_interval_minutes", 30)
 
@@ -47,7 +48,7 @@ def main():
 
 
 if __name__ == "__main__":
-    if "--dry-run" in sys.argv:
+    if "--dry-run" in sys.argv or "--youtube-eligibility" in sys.argv:
         from run_github import main as run_check
         raise SystemExit(run_check())
     main()

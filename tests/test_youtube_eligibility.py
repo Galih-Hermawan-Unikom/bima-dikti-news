@@ -272,14 +272,19 @@ def test_pure_deterministic_and_immutable_no_io(valid_input, monkeypatch):
     assert asdict(decision)["enqueue"] is False
 
 
-def test_module_has_no_transport_persistence_or_runtime_integration():
+def test_classifier_stays_pure_and_delivery_modules_do_not_import_it():
     root = HERE.parent
     tree = ast.parse((root / "youtube_eligibility.py").read_text(encoding="utf-8"))
     imports = {n.module for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)}
     imports |= {a.name for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
     assert imports <= {"dataclasses", "datetime", "enum", "re", "types", "typing"}
     for name in ("monitor_runner.py", "notifier.py", "youtube_monitor.py", "youtube_channel_tabs.py", "youtube_shadow.py"):
-        assert "youtube_eligibility" not in (root / name).read_text(encoding="utf-8")
+        # The runner now has an authorized opt-in dry-run comparison adapter.
+        # Configuration/report field names are not imports or delivery wiring.
+        runtime = ast.parse((root / name).read_text(encoding="utf-8"))
+        dependencies = {n.module for n in ast.walk(runtime) if isinstance(n, ast.ImportFrom)}
+        dependencies |= {a.name for n in ast.walk(runtime) if isinstance(n, ast.Import) for a in n.names}
+        assert "youtube_eligibility" not in dependencies
 
 
 AUDIT = json.loads((HERE / "fixtures/youtube_eligibility_audit_candidates.json").read_text(encoding="utf-8"))
