@@ -1,0 +1,64 @@
+{
+  "source": "Phase 4.4B saved local audit, 22 October 2026; data only, not authenticated admission",
+  "reference_master": "0279ff52d065e9fb6d57b14883bc6dbaa127c7b4",
+  "cutover_at": "2026-10-21T01:32:44.160012+00:00",
+  "tab_observed_at": "2026-10-22T10:10:12.503431+00:00",
+  "rss_observed_at": "2026-10-22T10:11:05.714430+00:00",
+  "original_cache_count": 129,
+  "original_baseline_count": 133,
+  "all_absent_from_cache_journal_baseline": true,
+  "candidates": [
+    {
+      "video_id": "HmVdl-EDkIk",
+      "title": "Di balik perjalanan kuliah, ada cerita perjuangan dan harapan yang terus dijaga",
+      "url": "https://www.youtube.com/watch?v=HmVdl-EDkIk",
+      "published_rss": "2026-10-22T07:16:22+00:00",
+      "tabs": [],
+      "expected": "HOLD_FOR_REVIEW"
+    },
+    {
+      "video_id": "9msMfbY-q_E",
+      "title": "Peluncuran Program Akselerasi Kedokteran Gigi dan Beasiswa PPDS",
+      "url": "https://www.youtube.com/watch?v=9msMfbY-q_E",
+      "published_rss": "2026-10-21T15:31:14+00:00",
+      "tabs": [
+        "streams"
+      ],
+      "expected": "HOLD_FOR_REVIEW"
+    },
+    {
+      "video_id": "rA1i8NhiQJk",
+      "title": "Ditjen Saintek Canangkan Pembangunan Zona Integritas Menuju WBK dan WBBM",
+      "url": "https://www.youtube.com/watch?v=rA1i8NhiQJk",
+      "published_rss": "2026-10-22T06:03:54+00:00",
+      "tabs": [
+        "videos"
+      ],
+      "expected": "HOLD_FOR_REVIEW"
+    },
+    {
+      "video_id": "uokppFuNjDc",
+      "title": "Perluas Kolaborasi, Buka Peluang Riset dan Pendidikan Global",
+      "url": "https://www.youtube.com/watch?v=uokppFuNjDc",
+      "published_rss": "2026-10-22T05:44:50+00:00",
+      "tabs": [],
+      "expected": "HOLD_FOR_REVIEW"
+    },
+    {
+      "video_id": "cRcF7JURRq8",
+      "title": "Perkuat Kolaborasi, Dorong Riset dan Inovasi untuk Papua",
+      "url": "https://www.youtube.com/watch?v=cRcF7JURRq8",
+      "published_rss": "2026-10-22T05:42:09+00:00",
+      "tabs": [],
+      "expected": "HOLD_FOR_REVIEW"
+    },
+    {
+      "video_id": "x8CClGBEVJY",
+      "title": "Permintaan informasi publik ditolak atau belum sesuai?",
+      "url": "https://www.youtube.com/watch?v=x8CClGBEVJY",
+      "published_rss": "2026-10-21T02:46:08+00:00",
+      "tabs": [],
+      "expected": "HOLD_FOR_REVIEW"
+    }
+  ]
+}
