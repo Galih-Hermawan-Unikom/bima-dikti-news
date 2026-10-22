@@ -2,13 +2,19 @@
 
 This feature adds an optional tabs-only delivery path. It is deliberately
 separate from `youtube_cache.json`, the historical 133-ID baseline, and
-`delivery_state.json`. GitHub Actions loads the SQLite snapshot from the
+`delivery_state.json`. GitHub Actions loads a versioned JSON snapshot from the
 dedicated `youtube-state` branch and checkpoints every committed mutation to
-that branch through the GitHub Contents API. The file lives at
-`.bot-state/youtube_delivery.sqlite3`; it is not stored on a disposable runner
+that branch through one GitHub Contents API update guarded by the blob SHA. The
+file lives at `.bot-state/youtube_delivery_state.json`; it is not stored on a disposable runner
 or mixed into historical cache/journal files. No historical JSON is migrated
 or rewritten. The state branch must be explicitly created before observation
 is enabled; a missing branch fails closed.
+
+The JSON document stores `first_seen_at`, initial inventory, captures, event
+identities, outbox payloads, and send status under one schema version. Each
+durable checkpoint replaces that one complete document; there is no companion
+manifest or second file to reconcile. A conflicting SHA fails closed without
+retrying the write.
 
 All three controls default to `false`: `youtube_observation_enabled`,
 `youtube_delivery_enabled`, and `youtube_delivery_send_enabled`. Observation
@@ -37,9 +43,8 @@ approval evidence is used for real operation. A no-send inspection can load only
 the review secrets with `--youtube-review-preview`; Telegram and state-write
 credentials remain unavailable to that dry-run.
 
-Eligible decisions may be reserved in the separate SQLite outbox. Unique event
-keys and `BEGIN IMMEDIATE` make reservation atomic within SQLite. Durable
-compare-and-swap plus workflow serialization protect cross-run state. The
+Eligible decisions may be reserved in the JSON outbox. Unique event keys and
+the remote compare-and-swap make reservation atomic across Actions runs. The
 sender claims the reservation and persists that claim before its single attempt.
 Confirmed Telegram `sendMessage` responses record the message ID and become
 `delivered`. Network errors, incomplete responses, and process recovery after
@@ -89,9 +94,9 @@ git -C $stateRepo remote add origin https://github.com/Galih-Hermawan-Unikom/bim
 git -C $stateRepo push --set-upstream origin youtube-state
 ```
 
-Initialize the empty database separately, with all observation/delivery
-controls off. The command only writes the empty database and its integrity
-manifest; it does not fetch BIMA or YouTube and does not contact Telegram.
+Initialize the empty JSON state separately, with all observation/delivery
+controls off. The command writes the empty versioned document; it does not
+fetch BIMA or YouTube and does not contact Telegram.
 Use an activation timestamp and policy version approved by the operator:
 
 ```powershell

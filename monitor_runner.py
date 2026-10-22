@@ -175,13 +175,13 @@ def run_once(config, *, dry_run=False, state_dir=".", scraper=None, notifier=Non
                 raise ValueError("Channel-tabs does not match runner configuration")
             store = getattr(adapter, "observation_store", None)
             if observation_enabled and store is None:
-                db_path = root / "youtube_delivery.sqlite3"
+                db_path = root / "youtube_delivery_state.json"
                 if os.environ.get("GITHUB_ACTIONS", "").lower() == "true":
                     from youtube_state_backend import GitHubStateBranch
                     backend = GitHubStateBranch(
                         os.environ.get("GITHUB_REPOSITORY", ""),
                         config.get("youtube_state_branch", "youtube-state"),
-                        ".bot-state/youtube_delivery.sqlite3",
+                        ".bot-state/youtube_delivery_state.json",
                         config.get("youtube_state_token", ""), initialize=state_initialize,
                     )
                     backend.load(db_path)

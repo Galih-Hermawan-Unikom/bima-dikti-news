@@ -69,9 +69,9 @@ def main(argv=None):
         root.mkdir(parents=True, exist_ok=True)
         backend = GitHubStateBranch(os.environ.get("GITHUB_REPOSITORY", ""),
             config.get("youtube_state_branch", "youtube-state"),
-            ".bot-state/youtube_delivery.sqlite3", config.get("youtube_state_token", ""),
+            ".bot-state/youtube_delivery_state.json", config.get("youtube_state_token", ""),
             initialize=True)
-        db_path = root / "youtube_delivery.sqlite3"
+        db_path = root / "youtube_delivery_state.json"
         if backend.load(db_path):
             print("[YOUTUBE STATE] already initialized; no state overwritten")
             return 2

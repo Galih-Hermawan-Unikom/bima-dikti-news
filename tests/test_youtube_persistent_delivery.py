@@ -50,7 +50,7 @@ def delivery_item(video_id=VID):
 
 
 def test_startup_inventory_persists_and_never_becomes_new(tmp_path):
-    path = tmp_path / "youtube_delivery.sqlite3"
+    path = tmp_path / "youtube_delivery.json"
     store_at(path).record_capture([observation(VID)], NOW, healthy=True)
     first = store_at(path).observation(VID)
     assert first["first_seen_at"] == NOW.isoformat()
@@ -64,7 +64,7 @@ def test_startup_inventory_persists_and_never_becomes_new(tmp_path):
 
 
 def test_post_inventory_first_seen_and_two_captures_survive_restart(tmp_path):
-    path = tmp_path / "youtube_delivery.sqlite3"
+    path = tmp_path / "youtube_delivery.json"
     store_at(path).record_capture([], NOW, healthy=True)
     store_at(path).record_capture([observation(VID)], NOW + timedelta(minutes=12), healthy=True)
     first_seen = store_at(path).observation(VID)["first_seen_at"]
@@ -78,7 +78,7 @@ def test_post_inventory_first_seen_and_two_captures_survive_restart(tmp_path):
 
 
 def test_unhealthy_gap_breaks_stability_and_quarantines_new_ids(tmp_path):
-    store = store_at(tmp_path / "state.sqlite3")
+    store = store_at(tmp_path / "state.json")
     store.record_capture([], NOW, healthy=True)
     store.record_capture([observation(VID)], NOW + timedelta(minutes=10), healthy=True)
     store.record_capture([], NOW + timedelta(minutes=20), healthy=False)
@@ -93,7 +93,7 @@ def test_unhealthy_gap_breaks_stability_and_quarantines_new_ids(tmp_path):
 
 
 def test_non_monotonic_capture_fails_without_state_mutation(tmp_path):
-    path = tmp_path / "state.sqlite3"
+    path = tmp_path / "state.json"
     store = store_at(path)
     store.record_capture([], NOW, healthy=True)
     before = store.observation_ids()
@@ -103,7 +103,7 @@ def test_non_monotonic_capture_fails_without_state_mutation(tmp_path):
 
 
 def test_reservation_is_atomic_idempotent_and_only_for_eligible_decision(tmp_path):
-    store = store_at(tmp_path / "state.sqlite3")
+    store = store_at(tmp_path / "state.json")
     with ThreadPoolExecutor(max_workers=8) as pool:
         results = list(pool.map(lambda _: store.reserve(decision(), delivery_item(), now=NOW), range(8)))
     assert sum(result["created"] for result in results) == 1
@@ -115,7 +115,7 @@ def test_reservation_is_atomic_idempotent_and_only_for_eligible_decision(tmp_pat
 
 
 def test_disabled_send_does_not_call_sender_and_delivered_is_never_replayed(tmp_path):
-    store = store_at(tmp_path / "state.sqlite3")
+    store = store_at(tmp_path / "state.json")
     store.reserve(decision(), delivery_item(), now=NOW)
     sender = Mock(return_value=SendConfirmation(200, True, 44))
     assert store.send_once(decision().event_key, sender, now=NOW) == "disabled"
@@ -128,7 +128,7 @@ def test_disabled_send_does_not_call_sender_and_delivered_is_never_replayed(tmp_
 
 @pytest.mark.parametrize("sender_result", [None, SendConfirmation(503, False, None), SendConfirmation(200, True, None)])
 def test_unconfirmed_network_result_becomes_terminal_ambiguous(tmp_path, sender_result):
-    store = store_at(tmp_path / "state.sqlite3")
+    store = store_at(tmp_path / "state.json")
     store.reserve(decision(), delivery_item(), now=NOW)
     sender = Mock(return_value=sender_result)
     assert store.send_once(decision().event_key, sender, enabled=True, now=NOW) == "ambiguous"
@@ -137,7 +137,7 @@ def test_unconfirmed_network_result_becomes_terminal_ambiguous(tmp_path, sender_
 
 
 def test_network_exception_is_ambiguous_and_never_retried(tmp_path):
-    store = store_at(tmp_path / "state.sqlite3")
+    store = store_at(tmp_path / "state.json")
     store.reserve(decision(), delivery_item(), now=NOW)
     sender = Mock(side_effect=TimeoutError("synthetic timeout"))
     assert store.send_once(decision().event_key, sender, enabled=True, now=NOW) == "ambiguous"
@@ -147,7 +147,7 @@ def test_network_exception_is_ambiguous_and_never_retried(tmp_path):
 
 
 def test_crash_after_claim_recovers_as_ambiguous_without_resend(tmp_path):
-    path = tmp_path / "state.sqlite3"
+    path = tmp_path / "state.json"
     store = store_at(path)
     store.reserve(decision(), delivery_item(), now=NOW)
     sender = Mock(side_effect=SystemExit())
@@ -185,7 +185,7 @@ def _review(adapter, cache, journal, now, first_seen):
 def test_adapter_uses_persisted_observation_after_restart_and_pending_journal_holds(tmp_path, monkeypatch):
     clock = [NOW]
     monkeypatch.setattr(tabs, "datetime", SimpleNamespace(now=lambda tz: clock[0]))
-    path = tmp_path / "state.sqlite3"
+    path = tmp_path / "state.json"
     cache = []
     journal = {"version": 1, "batches": [], "youtube_rss_cutover": {
         "version": 1, "cutover_at": "2026-10-21T00:00:00Z", "baseline_ids": []}}
@@ -228,7 +228,7 @@ def test_adapter_uses_persisted_observation_after_restart_and_pending_journal_ho
 def test_runner_outbox_end_to_end_notifier_mock_and_duplicate_run(tmp_path, monkeypatch, monitors, announcement):
     clock = [NOW]
     monkeypatch.setattr(tabs, "datetime", SimpleNamespace(now=lambda tz: clock[0]))
-    db = tmp_path / "youtube_delivery.sqlite3"
+    db = tmp_path / "youtube_delivery.json"
     cache = []
     journal = {"version": 1, "batches": [], "youtube_rss_cutover": {
         "version": 1, "cutover_at": "2026-10-21T00:00:00Z", "baseline_ids": []}}

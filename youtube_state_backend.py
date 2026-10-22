@@ -1,20 +1,17 @@
-"""CAS-protected durable state file on a dedicated GitHub branch.
-
-The state branch must be created explicitly. No historical cache or journal is
-read, copied, or migrated by this backend.
-"""
+"""Single-blob GitHub Contents API backend for versioned YouTube JSON state."""
 from __future__ import annotations
 
 import base64
-import hashlib
 import json
 import os
-from pathlib import PurePosixPath
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 from urllib.parse import quote
 
 import requests
+
+
+MAX_STATE_BYTES = 900_000
 
 
 class DurableStateError(RuntimeError):
@@ -26,131 +23,110 @@ class DurableStateConflict(DurableStateError):
 
 
 class GitHubStateBranch:
-    """Store one SQLite snapshot using GitHub Contents API compare-and-swap."""
+    """Load/checkpoint exactly one state file with branch and blob SHA CAS."""
 
-    def __init__(self, repository, branch, path, token, *, initialize=False, session=None,
+    def __init__(self, repo, branch, path, token, *, initialize=False, session=None,
                  api="https://api.github.com"):
         normalized_path = path.replace("\\", "/") if isinstance(path, str) else ""
-        if (not isinstance(repository, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository)
+        if (not isinstance(repo, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo)
                 or not isinstance(branch, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+", branch)
-                or branch.lower() in {"master", "main"}
-                or not normalized_path or normalized_path.startswith("/")
-                or ".." in PurePosixPath(normalized_path).parts
+                or branch.lower() in {"master", "main"} or not normalized_path
+                or normalized_path.startswith("/") or ".." in PurePosixPath(normalized_path).parts
                 or not isinstance(token, str) or not token or type(initialize) is not bool):
             raise ValueError("Invalid durable state backend configuration")
-        self.repository = repository
-        self.branch = branch
-        self.path = normalized_path
-        self.manifest_path = self.path + ".manifest.json"
+        self.repo, self.branch, self.path = repo, branch, normalized_path
         self.initialize = initialize
         self._session = session or requests
         self._api = api.rstrip("/")
-        self._remote_blob_sha = None
-        self._manifest_blob_sha = None
-        self._headers = {
-            "Authorization": "Bearer " + token,
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-        }
+        self._remote_sha = None
+        self._headers = {"Authorization": "Bearer " + token,
+            "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
 
     @classmethod
-    def from_environment(cls, *, state_path=".bot-state/youtube_delivery.sqlite3", session=None):
+    def from_environment(cls, *, state_path=".bot-state/youtube_delivery_state.json", session=None):
+        import os
         return cls(os.environ.get("GITHUB_REPOSITORY", ""),
-                   os.environ.get("YOUTUBE_STATE_BRANCH", "youtube-state"), state_path,
-                   os.environ.get("YOUTUBE_STATE_TOKEN", ""),
-                   initialize=os.environ.get("YOUTUBE_STATE_INITIALIZE", "false").lower() == "true",
-                   session=session)
+            os.environ.get("YOUTUBE_STATE_BRANCH", "youtube-state"), state_path,
+            os.environ.get("YOUTUBE_STATE_TOKEN", ""),
+            initialize=os.environ.get("YOUTUBE_STATE_INITIALIZE", "false").lower() == "true",
+            session=session)
 
     def _url(self, suffix):
-        return f"{self._api}/repos/{self.repository}/{suffix}"
+        return f"{self._api}/repos/{self.repo}/{suffix}"
 
     def _ensure_branch(self):
         branch = quote(self.branch, safe="")
         response = self._session.get(self._url(f"git/ref/heads/{branch}"),
-                                     headers=self._headers, timeout=20)
+            headers=self._headers, timeout=20)
         if response.status_code != 200:
             raise DurableStateError(f"Durable state branch unavailable: HTTP {response.status_code}")
 
-    def _contents_url(self, path):
-        path = quote(path, safe="/")
-        return self._url(f"contents/{path}")
+    def _contents_url(self):
+        return self._url("contents/" + quote(self.path, safe="/"))
 
-    @staticmethod
-    def _git_blob_sha(data):
-        header = f"blob {len(data)}\0".encode("ascii")
-        return hashlib.sha1(header + data).hexdigest()
-
-    def _get_raw(self, path):
-        headers = dict(self._headers)
-        headers["Accept"] = "application/vnd.github.raw"
-        return self._session.get(self._contents_url(path) + "?ref=" + quote(self.branch, safe=""),
-                                 headers=headers, timeout=30)
-
-    def load(self, destination):
-        """Fetch the durable blob into a local scratch path; never fall back stale."""
+    def load(self, dst):
+        """Download JSON into a disposable Actions path; never use stale fallback."""
         self._ensure_branch()
-        response = self._get_raw(self.path)
-        manifest_response = self._get_raw(self.manifest_path)
-        if response.status_code == 404 and manifest_response.status_code == 404:
-            if not self.initialize:
-                raise DurableStateError("Durable state is not initialized; explicit no-send initialization required")
-            self._remote_blob_sha = None
-            self._manifest_blob_sha = None
-            Path(destination).unlink(missing_ok=True)
+        response = self._session.get(self._contents_url() + "?ref=" + quote(self.branch, safe=""),
+            headers=self._headers, timeout=30)
+        if response.status_code == 404 and self.initialize:
+            self._remote_sha = None
+            Path(dst).unlink(missing_ok=True)
             return False
-        if response.status_code != 200 or manifest_response.status_code != 200:
+        if response.status_code != 200:
             raise DurableStateError(f"Durable state download failed: HTTP {response.status_code}")
-        data = response.content
-        if not data or len(data) > 100 * 1024 * 1024:
-            raise DurableStateError("Durable state blob size is invalid")
         try:
-            manifest = json.loads(manifest_response.content.decode("utf-8"))
-        except (UnicodeDecodeError, ValueError):
-            raise DurableStateError("Durable state manifest is invalid") from None
-        if (not isinstance(manifest, dict) or manifest.get("schema_version") != 1
-                or manifest.get("blob_sha") != self._git_blob_sha(data)):
-            raise DurableStateError("Durable state manifest mismatch; recovery required")
-        target = Path(destination)
+            body = response.json()
+            content = base64.b64decode(body["content"], validate=False)
+            sha = body["sha"]
+            state = json.loads(content.decode("utf-8"))
+        except (KeyError, TypeError, ValueError, UnicodeDecodeError):
+            raise DurableStateError("Durable JSON state response is invalid") from None
+        if (not isinstance(sha, str) or len(sha) != 40 or not content
+                or len(content) > MAX_STATE_BYTES or not isinstance(state, dict)
+                or state.get("schema_version") != 1):
+            raise DurableStateError("Durable JSON state schema or size is invalid")
+        from youtube_delivery import YouTubeStateStore
+        try:
+            YouTubeStateStore._validate_state(state)
+        except (TypeError, ValueError, KeyError):
+            raise DurableStateError("Durable JSON state validation failed") from None
+        target = Path(dst)
         target.parent.mkdir(parents=True, exist_ok=True)
-        temporary = target.with_name(target.name + ".download")
+        tmp = target.with_name(target.name + ".download")
         try:
-            temporary.write_bytes(data)
-            os.replace(temporary, target)
+            tmp.write_bytes(content)
+            os.replace(tmp, target)
         finally:
-            temporary.unlink(missing_ok=True)
-        self._remote_blob_sha = self._git_blob_sha(data)
-        self._manifest_blob_sha = self._git_blob_sha(manifest_response.content)
+            tmp.unlink(missing_ok=True)
+        self._remote_sha = sha
         return True
 
-    def _put_raw(self, path, data, expected_sha):
-        params = {
-            "message": "chore: checkpoint YouTube tabs state",
-            "content": base64.b64encode(data).decode("ascii"),
-            "branch": self.branch,
-        }
-        if expected_sha is not None:
-            params["sha"] = expected_sha
-        response = self._session.put(self._contents_url(path), json=params,
-                                     headers=self._headers, timeout=45)
+    def persist(self, src):
+        """One Contents API PUT per full-state checkpoint, guarded by expected SHA."""
+        data = Path(src).read_bytes()
+        if not data or len(data) > MAX_STATE_BYTES:
+            raise DurableStateError("Durable JSON state size is invalid")
+        try:
+            state = json.loads(data.decode("utf-8"))
+            from youtube_delivery import YouTubeStateStore
+            YouTubeStateStore._validate_state(state)
+        except (UnicodeDecodeError, ValueError, TypeError, KeyError):
+            raise DurableStateError("Refusing invalid YouTube JSON checkpoint") from None
+        params = {"message": "chore: checkpoint YouTube tabs JSON state",
+            "content": base64.b64encode(data).decode("ascii"), "branch": self.branch}
+        if self._remote_sha is not None:
+            params["sha"] = self._remote_sha
+        response = self._session.put(self._contents_url(), json=params,
+            headers=self._headers, timeout=45)
         if response.status_code in {409, 422}:
             raise DurableStateConflict("Concurrent durable state update; delivery halted")
         if response.status_code not in {200, 201}:
             raise DurableStateError(f"Durable state checkpoint failed: HTTP {response.status_code}")
-
-    def persist(self, source):
-        """Atomically update the branch file; stale writers fail without retry."""
-        data = Path(source).read_bytes()
-        if not data or len(data) > 100 * 1024 * 1024:
-            raise DurableStateError("Durable state blob size is invalid")
-        blob_sha = self._git_blob_sha(data)
-        if blob_sha == self._remote_blob_sha:
-            return False
-        self._put_raw(self.path, data, self._remote_blob_sha)
-        self._remote_blob_sha = blob_sha
-        manifest_raw = json.dumps({"schema_version": 1, "blob_sha": blob_sha},
-                                  sort_keys=True, separators=(",", ":")).encode("utf-8")
-        manifest_sha = self._git_blob_sha(manifest_raw)
-        self._put_raw(self.manifest_path, manifest_raw, self._manifest_blob_sha)
-        self._manifest_blob_sha = manifest_sha
-        return True
-
+        try:
+            new_sha = response.json()["content"]["sha"]
+        except (KeyError, TypeError, ValueError):
+            raise DurableStateError("Durable checkpoint receipt is invalid") from None
+        if not isinstance(new_sha, str) or len(new_sha) != 40:
+            raise DurableStateError("Durable checkpoint receipt is invalid")
+        self._remote_sha = new_sha
