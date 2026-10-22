@@ -31,6 +31,11 @@ def stable_item(item):
 
 def load_delivery(path):
     state = read_json(path, {"version": 1, "batches": []})
+    return validate_delivery(state)
+
+
+def validate_delivery(state):
+    """Validate supplied history without reading or writing a state file."""
     if not isinstance(state, dict) or state.get("version") != 1 or not isinstance(state.get("batches"), list):
         raise ValueError("Invalid delivery state; restore verified backup")
     validate_cutover(state.get("youtube_rss_cutover"))
@@ -52,8 +57,17 @@ def load_delivery(path):
     return state
 
 
-def run_once(config, *, dry_run=False, state_dir=".", scraper=None, youtube=None, notifier=None):
+def run_once(config, *, dry_run=False, state_dir=".", scraper=None, youtube=None, notifier=None,
+             youtube_adapter=None):
     result = RunResult()
+    flag = config.get("youtube_eligibility_dry_run", False)
+    if type(flag) is not bool:
+        result.errors.append("youtube_eligibility_dry_run must be a boolean")
+        return result
+    hybrid = flag or youtube_adapter is not None
+    if hybrid and not dry_run:
+        result.errors.append("Hybrid eligibility requires dry_run=True; delivery is not integrated")
+        return result
     root = Path(state_dir)
     scraper = scraper or BimaScraper()
     scraper.data_file = str(root / "announcements_cache.json")
@@ -69,11 +83,34 @@ def run_once(config, *, dry_run=False, state_dir=".", scraper=None, youtube=None
         return result
     youtube.delivery_state = state
     sources = [("bima", scraper, scraper.check_new_announcements)]
-    if config.get("youtube_monitor_enabled", True):
+    hybrid_items = []
+    if hybrid and config.get("youtube_monitor_enabled", True):
+        from youtube_hybrid import HybridYouTubeAdapter
+        try:
+            adapter = youtube_adapter or HybridYouTubeAdapter(channel_id=youtube.channel_id)
+            try:
+                if adapter.policy.channel_id != youtube.channel_id:
+                    raise ValueError("Hybrid channel does not match runner configuration")
+                evaluation = adapter.evaluate(youtube.load_cache(), state)
+            finally:
+                if youtube_adapter is None:
+                    adapter.close()
+            result.youtube_eligibility = evaluation.report()
+            hybrid_items = list(evaluation.preview_items)
+            failed = bool(evaluation.errors or any(v == "FAILED" for v in evaluation.health.values()))
+            status = "FAILED" if failed else "ELIGIBILITY_PREVIEW"
+            result.sources.append(SourceResult("youtube", status, hybrid_items,
+                                                "; ".join(evaluation.errors)))
+            result.awaiting_verification = sum(d.eligibility.value == "HOLD_FOR_REVIEW"
+                                               for d in evaluation.decisions)
+        except Exception:
+            # No legacy fallback on adapter failure and no credential-bearing repr.
+            result.sources.append(SourceResult("youtube", "FAILED", error="HYBRID_EVALUATION_FAILED"))
+    elif config.get("youtube_monitor_enabled", True):
         sources.append(("youtube", youtube, youtube.check_new_videos))
     else:
         result.sources.append(SourceResult("youtube", "DISABLED"))
-    candidates, successful, fresh = [], [], {}
+    candidates, successful, fresh = list(hybrid_items), [], {}
     bima_identity_failed = False
     for name, monitor, check in sources:
         try:
@@ -114,7 +151,8 @@ def run_once(config, *, dry_run=False, state_dir=".", scraper=None, youtube=None
         candidates = [i for i in candidates if i.get("source") == "youtube"]
         successful = [m for m in successful if m is not scraper]
     known = {key for batch in state["batches"] for key in batch["event_keys"]}
-    result.awaiting_verification = len(getattr(youtube, "held_items", []))
+    if not hybrid:
+        result.awaiting_verification = len(getattr(youtube, "held_items", []))
     candidates = [i for i in candidates if not awaiting_youtube_verification(i)]
     new = []
     for item in candidates:
@@ -124,7 +162,7 @@ def run_once(config, *, dry_run=False, state_dir=".", scraper=None, youtube=None
             known.add(key)
 
     blocked = {index for index, batch in enumerate(state["batches"]) if not batch["delivered"]
-               and any(awaiting_youtube_verification(i)
+               and any((hybrid and i.get("source") == "youtube") or awaiting_youtube_verification(i)
                        or awaiting_youtube_verification(fresh.get(item_key(i), {})) for i in batch["items"])}
     if blocked:
         result.errors.append("Pending YouTube batch blocked; operator reconciliation required")

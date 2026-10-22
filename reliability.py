@@ -55,6 +55,7 @@ class RunResult:
     errors: list = field(default_factory=list)
     pending: int = 0
     awaiting_verification: int = 0
+    youtube_eligibility: dict = field(default_factory=dict)
 
     @property
     def exit_code(self):
