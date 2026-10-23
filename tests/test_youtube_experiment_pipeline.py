@@ -28,8 +28,16 @@ def _environment(monkeypatch):
 
 
 @pytest.mark.parametrize("preflight_passes", [True, False])
-def test_pipeline_keeps_observation_but_plans_only_after_preflight(tmp_path, monkeypatch, capsys, preflight_passes):
+@pytest.mark.parametrize("switch", [None, "false", "true", "TRUE", "1", "invalid"])
+@pytest.mark.parametrize("send_flag", [False, True])
+def test_pipeline_keeps_observation_but_plans_only_after_preflight(tmp_path, monkeypatch, capsys,
+        preflight_passes, switch, send_flag):
     _environment(monkeypatch)
+    monkeypatch.setenv("YOUTUBE_DELIVERY_SEND_ENABLED", "true" if send_flag else "false")
+    monkeypatch.delenv("YOUTUBE_EXPERIMENT_AUTO_SEND", raising=False)
+    if switch is not None:
+        monkeypatch.setenv("YOUTUBE_EXPERIMENT_AUTO_SEND", switch)
+    expected_sending = preflight_passes and send_flag and switch == "true"
     repo = Path(__file__).resolve().parents[1]
     for name in ("announcements_cache.json", "youtube_cache.json", "delivery_state.json"):
         (tmp_path / name).write_bytes((repo / name).read_bytes())
@@ -74,11 +82,12 @@ def test_pipeline_keeps_observation_but_plans_only_after_preflight(tmp_path, mon
     assert received["config"]["youtube_observation_enabled"] is True
     assert received["config"]["youtube_automatic_tabs_verification_enabled"] is True
     assert received["config"]["youtube_delivery_enabled"] is preflight_passes
-    assert received["config"]["youtube_delivery_send_enabled"] is False
+    assert received["config"]["youtube_delivery_send_enabled"] is expected_sending
     assert received["kwargs"]["youtube_experiment_only"] is True
     assert received["kwargs"]["youtube_send_limit"] == 1
     assert received["kwargs"]["scraper"].check_new_announcements is not None
     output = capsys.readouterr().out
-    assert '"sending": "OFF"' in output
+    assert ('"sending": "ON"' in output) is expected_sending
+    assert '"confirmed_deliveries": 0' in output
     assert ('"preflight": "PASS"' in output) is preflight_passes
     assert 'ALLOWLIST_MISMATCH' in output if not preflight_passes else 'ALLOWLIST_MISMATCH' not in output

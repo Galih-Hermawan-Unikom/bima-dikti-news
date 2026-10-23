@@ -1,4 +1,4 @@
-"""Tabs-only observation and outbox planning, isolated from BIMA and production Telegram."""
+"""Tabs-only experiment delivery, gated by runtime preflight and an opt-in kill switch."""
 from __future__ import annotations
 
 from datetime import timedelta
@@ -41,12 +41,12 @@ def _require_config(config):
             or config.get("youtube_delivery_enabled") is not True
             or config.get("youtube_state_initialize") is not False
             or config.get("youtube_policy_approved") is not True
-            or config.get("youtube_delivery_send_enabled") is not False
+            or type(config.get("youtube_delivery_send_enabled")) is not bool
             or config.get("youtube_activation_at") != ACTIVATION_FENCE
             or config.get("youtube_policy_version") != POLICY_VERSION
             or config.get("youtube_state_branch") != "youtube-state"
             or config.get("youtube_channel_id") != CHANNEL_ID):
-        raise RuntimeError("Experiment pipeline policy or send-off configuration is invalid")
+        raise RuntimeError("Experiment pipeline policy or feature configuration is invalid")
     expected = {"youtube_window_seconds": 86400, "youtube_ttl_seconds": 14400,
                 "youtube_skew_seconds": 300, "youtube_capture_interval_seconds": 600}
     if any(config.get(key) != value for key, value in expected.items()):
@@ -79,8 +79,7 @@ def run():
             or len(journal.get("youtube_rss_cutover", {}).get("baseline_ids", [])) != 133):
         raise RuntimeError("Historical BIMA/YouTube state failed integrity validation")
 
-    # A failed Telegram preflight turns planning off for this run, while public
-    # observation and verification continue. Sending is pinned OFF in all cases.
+    # Failed preflight disables both planning and sending for this run.
     try:
         destination = verify_experiment_destination()
         planning_enabled = True
@@ -89,6 +88,12 @@ def run():
         destination = None
         planning_enabled = False
         preflight = "BLOCKED:" + exc.code
+
+    # Only the exact opt-in value enables the experiment path. Missing/malformed
+    # variables, a disabled send flag, or failed preflight always keep it off.
+    sending_enabled = (planning_enabled
+        and config.get("youtube_delivery_send_enabled") is True
+        and os.environ.get("YOUTUBE_EXPERIMENT_AUTO_SEND", "") == "true")
 
     activation = parse_timestamp(ACTIVATION_FENCE)
     policy = Policy(CHANNEL_ID, POLICY_VERSION, activation_at=activation,
@@ -110,17 +115,21 @@ def run():
                        for row in remote_state.get("observations", {}).values()) != EXPECTED_INVENTORY_SIZE):
             raise RuntimeError("Activation fence, policy, or initial inventory failed validation")
         store = YouTubeStateStore(state_file, activation_at=activation, policy_version=POLICY_VERSION)
+        delivered_before = {key for key, row in remote_state.get("outbox", {}).items()
+                            if row.get("status") == "delivered"}
         store.set_commit_hook(backend.persist)
         adapter = ChannelTabsAdapter(channel_id=CHANNEL_ID, policy=policy,
                                      observation_store=store)
         config["youtube_delivery_enabled"] = planning_enabled
-        config["youtube_delivery_send_enabled"] = False
+        config["youtube_delivery_send_enabled"] = sending_enabled
         config["notification_method"] = "telegram"
         result = run_once(config, dry_run=False, state_dir=".", scraper=_NoBima(),
             notifier=Notifier(config), youtube_adapter=adapter,
             youtube_send_limit=1, youtube_experiment_only=True)
         if result.errors:
             raise RuntimeError("Experiment pipeline stopped with safe runner errors")
+        delivered_now = [row for key, row in store._state["outbox"].items()
+                         if row.get("status") == "delivered" and key not in delivered_before]
 
     if before != _hashes():
         raise RuntimeError("Historical cache, baseline, or journal changed")
@@ -141,7 +150,9 @@ def run():
         "counts": counts,
         "planned_reservations": sum(item.get("status") == "reserved" for item in outbox),
         "outbox_statuses": [item.get("status") for item in outbox],
-        "sending": "OFF",
+        "sending": "ON" if sending_enabled else "OFF",
+        "confirmed_deliveries": len(delivered_now),
+        "message_ids": [row["message_id"] for row in delivered_now],
         "bima_invoked": False,
         "historical_state_unchanged": True,
         "experiment_destination": destination.get("destination_alias") if destination else None,
