@@ -6,25 +6,27 @@ Bot memantau pengumuman [BIMA](https://bima.kemdiktisaintek.go.id/pengumuman) da
 
 ## Workflow produksi
 
-| Workflow | Jadwal | Sumber dan keluaran |
-|---|---|---|
-| [BIMA Pengumuman Checker](.github/workflows/main.yml) | Setiap 3 jam, cron `0 */3 * * *` | Pengumuman BIMA → ringkasan Telegram dan PDF yang tersedia. Jalur YouTube dimatikan pada workflow ini. |
-| [YouTube Production](.github/workflows/youtube-production.yml) | Setiap 30 menit, cron `*/30 * * * *` | Hanya tab `/videos` dan `/streams` → verifikasi otomatis → notifikasi video yang ELIGIBLE. Tanpa RSS, Shorts, atau pengambilan player. |
+| Workflow | Jadwal cron (UTC) | Waktu WIB (UTC+7) | Sumber dan keluaran |
+|---|---|---|---|
+| [BIMA Pengumuman Checker](.github/workflows/main.yml) | Setiap 3 jam, `13 */3 * * *` | 01.13, 04.13, 07.13, 10.13, 13.13, 16.13, 19.13, 22.13 | Pengumuman BIMA → ringkasan Telegram dan PDF yang tersedia. Jalur YouTube dimatikan pada workflow ini. |
+| [YouTube Production](.github/workflows/youtube-production.yml) | Setiap 30 menit, `23,53 * * * *` | Setiap jam pada menit 23 dan 53 | Hanya tab `/videos` dan `/streams` → verifikasi otomatis → notifikasi video yang ELIGIBLE. Tanpa RSS, Shorts, atau pengambilan player. |
 
-Kedua workflow menjalankan `production_runtime.py` pada `master`, dengan timeout 20 menit. Jadwal cron menggunakan UTC. Status produksi saat pembaruan dokumentasi, 23 Oktober 2026: kedua workflow dan keempat saklar produksi aktif; auto-send eksperimen nonaktif. Status terkini dapat diperiksa melalui tab **Actions** dan repository **Variables**.
+Kedua workflow memiliki pemicu independen dan menjalankan `production_runtime.py` pada `master`, dengan timeout 20 menit. BIMA tidak memicu atau menunggu selesainya workflow YouTube sebagai syarat pemicu, begitu pula sebaliknya; eksekusinya tetap diserialkan melalui concurrency bersama. Cron GitHub Actions menggunakan UTC. Waktu WIB pada tabel adalah konversi jadwal, bukan jaminan waktu mulai: GitHub tidak menjamin eksekusi tepat waktu, dan run terjadwal dapat terlambat atau terlewat.
+
+Status produksi saat pembaruan dokumentasi, 23 Oktober 2026: kedua workflow dan keempat saklar produksi aktif; auto-send eksperimen nonaktif. Workflow eksperimen `youtube-observation-only.yml` hanya tersedia melalui `workflow_dispatch` (manual), tanpa pemicu `schedule`. Status terkini dapat diperiksa melalui tab **Actions** dan repository **Variables**.
 
 ## Arsitektur
 
 ```mermaid
 flowchart TD
-    WB["main.yml · setiap 3 jam"] --> PB["Preflight Telegram produksi"]
+    WB["main.yml · 13 */3 * * * UTC · setiap 3 jam"] --> PB["Preflight Telegram produksi"]
     PB --> B["BIMA · pengumuman dan PDF"]
     B --> EB["Kelayakan BIMA · histori, inventory, activation fence"]
     EB --> OB["Durable outbox BIMA"]
     OB --> CB["Saklar ON · reservasi dan claim CAS sebelum POST"]
     CB --> T["Telegram produksi · @dikti_news"]
 
-    WY["youtube-production.yml · setiap 30 menit"] --> PY["Preflight Telegram produksi"]
+    WY["youtube-production.yml · 23,53 * * * * UTC · setiap 30 menit"] --> PY["Preflight Telegram produksi"]
     PY --> Y["YouTube · /videos dan /streams"]
     Y --> EY["Kelayakan YouTube · dua capture sehat, kategori, readiness, histori"]
     EY --> OY["Durable outbox YouTube · hanya ELIGIBLE"]
@@ -38,9 +40,13 @@ flowchart TD
     S <-.-> OB
     S <-.-> OY
     T -. "receipt dan message ID" .-> S
+
+    WE["youtube-observation-only.yml · workflow_dispatch saja"] --> EX["State dan kredensial eksperimen terpisah · auto-send OFF"]
 ```
 
 BIMA dan YouTube memiliki state serta identitas event masing-masing. Keduanya menggunakan concurrency group `dikti-production-state` dengan `cancel-in-progress: false`, disertai pemeriksaan SHA/CAS pada setiap checkpoint. Tidak ada jalur produksi yang bergantung pada state lokal runner setelah job selesai.
+
+Concurrency bersama melindungi penulisan JSON pada branch state produksi dengan menjalankan satu workflow produksi pada satu waktu. `cancel-in-progress: false` mempertahankan run yang sedang berjalan, tetapi run yang menunggu (pending) masih berpotensi dibatalkan dan digantikan oleh run baru dalam grup yang sama. Pemisahan menit cron mengurangi benturan jadwal, tetapi tidak menghilangkan risiko tersebut ketika eksekusi terlambat.
 
 ## Aturan deteksi dan kelayakan
 
@@ -151,7 +157,7 @@ Branch `dikti-production-state` harus tersedia dan dapat ditulis oleh workflow. 
 | Lingkungan | Penggunaan |
 |---|---|
 | Lokal | Pengembangan, regression tests, serta dry-run dengan direktori state terisolasi. `config.json` dan `.env` lokal tidak mengatur runtime produksi Actions. |
-| Eksperimen | Workflow [YouTube Observation Only](.github/workflows/youtube-observation-only.yml), branch `youtube-state`, dan kredensial/allowlist eksperimen tersendiri. Auto-send dikendalikan `YOUTUBE_EXPERIMENT_AUTO_SEND`; saat ini OFF. |
+| Eksperimen | Workflow [YouTube Observation Only](.github/workflows/youtube-observation-only.yml) hanya melalui `workflow_dispatch` (manual), tanpa `schedule`; branch `youtube-state` dan kredensial/allowlist eksperimen tersendiri. Auto-send dikendalikan `YOUTUBE_EXPERIMENT_AUTO_SEND`; tetap OFF. |
 | Produksi | Dua workflow produksi, kredensial produksi, allowlist kanal resmi, dan branch `dikti-production-state`. |
 
 Eksperimen memakai secrets `YOUTUBE_EXPERIMENT_BOT_TOKEN`, `YOUTUBE_EXPERIMENT_CHAT_ID`, dan `YOUTUBE_EXPERIMENT_CHAT_ID_SHA256`. Jangan menyalin state atau kredensial eksperimen ke produksi.
@@ -180,9 +186,9 @@ Perintah dry-run mengevaluasi sumber publik tanpa pengiriman Telegram. Satu capt
 
 ```text
 .github/workflows/
-  main.yml                         # BIMA produksi, setiap 3 jam
-  youtube-production.yml           # YouTube produksi, setiap 30 menit
-  youtube-observation-only.yml     # Jalur eksperimen terpisah
+  main.yml                         # BIMA produksi, 13 */3 * * * (UTC), setiap 3 jam
+  youtube-production.yml           # YouTube produksi, 23,53 * * * * (UTC), setiap 30 menit
+  youtube-observation-only.yml     # Eksperimen manual saja, tanpa schedule; auto-send OFF
   telegram-preflight.yml           # Preflight Telegram produksi read-only
   youtube-experiment-preflight.yml # Preflight eksperimen read-only
   tests.yml                        # Regression tests
@@ -231,6 +237,8 @@ Siklus produksi normal menulis satu baris `PRODUCTION_RUN=` diikuti JSON. Interp
 | Gejala | Pemeriksaan aman |
 |---|---|
 | Job terjadwal dilewati | Periksa status workflow, branch `master`, dan variable `*_PRODUCTION_ENABLED`. |
+| Run terlambat atau pending tergantikan | Periksa antrean dan log kedua workflow pada concurrency group `dikti-production-state`. Cron menggunakan UTC dan tidak menjamin waktu mulai; `cancel-in-progress: false` tidak melindungi run pending dari penggantian oleh run baru. |
+| Eksperimen tidak berjalan otomatis | Sesuai konfigurasi: `youtube-observation-only.yml` tidak memiliki `schedule` dan hanya tersedia melalui `workflow_dispatch` manual. Auto-send eksperimen tetap OFF. |
 | Job berjalan tetapi tidak mengirim | Periksa auto-send, inventory/histori, fence, hasil eligibility, dan outbox; jangan menghapus histori. |
 | Allowlist atau izin Telegram gagal | Periksa secrets, hash ID numerik resmi, identitas kanal, serta hak admin bot. Jangan mencetak nilai rahasia. |
 | YouTube HOLD | Periksa kesehatan kedua tab, jarak/stabilitas capture, kesegaran bukti, kategori, serta replay readiness. Jangan mempromosikan UNKNOWN secara manual tanpa bukti. |
