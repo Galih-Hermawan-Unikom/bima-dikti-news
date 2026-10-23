@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "source": "bima",
+  "activation_at": "2026-10-23T03:05:28.203529+00:00",
+  "initialized": false,
+  "inventory": [],
+  "first_seen": {},
+  "outbox": {}
+}
