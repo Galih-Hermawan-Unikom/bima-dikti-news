@@ -148,6 +148,12 @@ class Notifier:
         return False
 
     def send_youtube_outbox_notification(self, item, ticket):
+        return self._send_reserved_youtube(item, ticket, production=False)
+
+    def send_youtube_production_notification(self, item, ticket):
+        return self._send_reserved_youtube(item, ticket, production=True)
+
+    def _send_reserved_youtube(self, item, ticket, *, production):
         """Send one reserved tabs item; generic YouTube delivery remains blocked."""
         self.last_delivery_receipts = []
         try:
@@ -166,11 +172,13 @@ class Notifier:
                     or item.get("documents") or self.config.get("notification_method") != "telegram"
                     or self.config.get("youtube_delivery_enabled") is not True
                     or self.config.get("youtube_delivery_send_enabled") is not True
-                    or not self.validate_youtube_experiment_destination()
+                    or not (self.validate_production_destination() if production
+                            else self.validate_youtube_experiment_destination())
+                    or (production and self.config.get("youtube_production_send_enabled") is not True)
                     or len(self._build_summary_chunks([item])) != 1):
                 return False
-            bot_token = self.config.get("youtube_experiment_bot_token", "")
-            chat_id = self.config.get("youtube_experiment_chat_id", "")
+            bot_token = self.config.get("telegram_bot_token" if production else "youtube_experiment_bot_token", "")
+            chat_id = self.config.get("telegram_chat_id" if production else "youtube_experiment_chat_id", "")
             if not bot_token or not chat_id:
                 return False
             return self._send_summary_message(
@@ -179,6 +187,11 @@ class Notifier:
             )
         except (AttributeError, TypeError, ValueError):
             return False
+
+    def validate_production_destination(self):
+        from production_preflight import validate_destination
+        return validate_destination(self.config.get("telegram_chat_id", ""),
+                                    self.config.get("production_chat_id_sha256", ""))
 
     def validate_youtube_experiment_destination(self):
         """Require a separate, allowlisted experiment ID and reject production ID."""
@@ -483,6 +496,11 @@ class Notifier:
 
         result = response.json()
         if response.status_code == 200 and result.get("ok") is True:
+            message = result.get("result")
+            message_id = message.get("message_id") if isinstance(message, dict) else None
+            if type(message_id) is int and message_id > 0:
+                self.last_delivery_receipts.append({"method": "sendDocument", "http_status": 200,
+                    "ok": True, "message_id": message_id})
             print(f"  Dokumen terkirim: {file_name}")
             return True
 

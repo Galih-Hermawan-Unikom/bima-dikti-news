@@ -24,6 +24,30 @@ def blob_sha(data):
     return hashlib.sha1(f"blob {len(data)}\0".encode("ascii") + data).hexdigest()
 
 
+def test_production_bima_custom_schema_roundtrip_remains_cas_guarded(tmp_path):
+    from production_runtime import validate_bima
+    remote = FakeGitHub()
+    sync = GitHubStateBranch("owner/repo", "dikti-production-state", ".bot-state/bima_production.json",
+        "test-token", initialize=True, session=remote, validator=validate_bima)
+    path = tmp_path / "bima.json"
+    assert sync.load(path) is False
+    state = {"schema_version": 1, "source": "bima", "activation_at": NOW.isoformat(),
+        "initialized": False, "inventory": [], "first_seen": {}, "outbox": {}}
+    path.write_text(json.dumps(state))
+    sync.persist(path)
+    second = GitHubStateBranch("owner/repo", "dikti-production-state", ".bot-state/bima_production.json",
+        "test-token", session=remote, validator=validate_bima)
+    assert second.load(tmp_path / "restart.json")
+    assert json.loads((tmp_path / "restart.json").read_text()) == state
+    sync.persist(path)
+    # A stale writer must not overwrite a newer checkpoint.
+    state["initialized"] = True
+    path.write_text(json.dumps(state))
+    sync.persist(path)
+    with pytest.raises(DurableStateConflict):
+        second.persist(tmp_path / "restart.json")
+
+
 class Response:
     def __init__(self, status, body=None):
         self.status_code = status

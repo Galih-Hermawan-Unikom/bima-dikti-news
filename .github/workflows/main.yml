@@ -4,93 +4,46 @@ on:
   schedule:
     - cron: '0 */3 * * *'
   workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        default: run
+        options: [run, initialize, preflight]
+        description: Production operation (initialize never sends)
 
 permissions:
   contents: write
 
 concurrency:
-  group: monitoring-${{ github.ref }}
+  group: dikti-production-state
   cancel-in-progress: false
 
 jobs:
-  check-announcements:
-    if: github.ref == 'refs/heads/master'
+  production:
+    if: github.ref == 'refs/heads/master' && (vars.BIMA_PRODUCTION_ENABLED == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
+    timeout-minutes: 20
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          persist-credentials: true
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+          ref: master
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          playwright install --with-deps chromium
-
-      - name: Run scraper
-        id: monitor
+        run: pip install -r requirements.txt
+      - name: Install BIMA browser
+        if: inputs.mode != 'preflight'
+        run: playwright install --with-deps chromium
+      - name: Official-channel preflight and isolated bima cycle
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          NOTIFICATION_METHOD: ${{ vars.NOTIFICATION_METHOD || 'telegram' }}
-          TELEGRAM_SEND_FILES: ${{ vars.TELEGRAM_SEND_FILES || 'false' }}
-          YOUTUBE_MONITOR_ENABLED: ${{ vars.YOUTUBE_MONITOR_ENABLED || 'true' }}
-          YOUTUBE_CHANNEL_URL: ${{ vars.YOUTUBE_CHANNEL_URL || 'https://www.youtube.com/@kemdiktisaintek' }}
-          YOUTUBE_CHANNEL_ID: ${{ vars.YOUTUBE_CHANNEL_ID || 'UCGo_6l_6kp8H8OHcKcSIeDw' }}
-          YOUTUBE_OBSERVATION_ENABLED: ${{ vars.YOUTUBE_OBSERVATION_ENABLED || 'false' }}
-          YOUTUBE_DELIVERY_ENABLED: ${{ vars.YOUTUBE_DELIVERY_ENABLED || 'false' }}
-          YOUTUBE_DELIVERY_SEND_ENABLED: ${{ vars.YOUTUBE_DELIVERY_SEND_ENABLED || 'false' }}
-          YOUTUBE_AUTOMATIC_TABS_VERIFICATION_ENABLED: ${{ vars.YOUTUBE_AUTOMATIC_TABS_VERIFICATION_ENABLED || 'false' }}
-          YOUTUBE_POLICY_APPROVED: ${{ vars.YOUTUBE_POLICY_APPROVED || 'false' }}
-          YOUTUBE_ACTIVATION_AT: ${{ vars.YOUTUBE_ACTIVATION_AT }}
-          YOUTUBE_POLICY_VERSION: ${{ vars.YOUTUBE_POLICY_VERSION || 'tabs-only-v1' }}
-          YOUTUBE_STATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          YOUTUBE_STATE_BRANCH: ${{ vars.YOUTUBE_STATE_BRANCH || 'youtube-state' }}
-          YOUTUBE_STATE_INITIALIZE: ${{ vars.YOUTUBE_STATE_INITIALIZE || 'false' }}
-          YOUTUBE_REVIEW_HMAC_KEY: ${{ secrets.YOUTUBE_REVIEW_HMAC_KEY }}
-          YOUTUBE_REVIEW_KEY_ID: ${{ vars.YOUTUBE_REVIEW_KEY_ID || 'operator' }}
-          YOUTUBE_REVIEW_EVIDENCE_JSON: ${{ secrets.YOUTUBE_REVIEW_EVIDENCE_JSON }}
-          YOUTUBE_REVIEW_SOURCE_HOSTS: ${{ vars.YOUTUBE_REVIEW_SOURCE_HOSTS }}
-          YOUTUBE_EXPERIMENT_CHAT_ID: ${{ secrets.YOUTUBE_EXPERIMENT_CHAT_ID }}
-          YOUTUBE_EXPERIMENT_CHAT_ID_SHA256: ${{ secrets.YOUTUBE_EXPERIMENT_CHAT_ID_SHA256 }}
-        run: |
-          python run_github.py
-
-      - name: Commit cache
-        id: persist
-        if: ${{ always() && !cancelled() }}
-        run: |
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
-          git add announcements_cache.json
-          if [ -f youtube_cache.json ]; then
-            git add youtube_cache.json
-          fi
-          if [ -f delivery_state.json ]; then
-            git add delivery_state.json
-          fi
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "chore: update monitoring cache"
-            git push
-          fi
-
-      - name: Preserve retry state if monitoring or persistence failed
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: monitoring-recovery-${{ github.run_id }}
-          path: |
-            announcements_cache.json
-            youtube_cache.json
-            delivery_state.json
-          retention-days: 14
+          PRODUCTION_TELEGRAM_CHAT_ID_SHA256: ${{ vars.PRODUCTION_TELEGRAM_CHAT_ID_SHA256 }}
+          PRODUCTION_SOURCE_ENABLED: ${{ vars.BIMA_PRODUCTION_ENABLED || 'false' }}
+          PRODUCTION_AUTO_SEND: ${{ vars.BIMA_PRODUCTION_AUTO_SEND || 'false' }}
+          YOUTUBE_MONITOR_ENABLED: 'false'
+          TELEGRAM_SEND_FILES: 'true'
+          MODE: ${{ inputs.mode || 'run' }}
+        run: python production_runtime.py bima "$MODE"
