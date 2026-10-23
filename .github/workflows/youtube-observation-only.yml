@@ -1,8 +1,6 @@
 name: YouTube Observation Only
 
 on:
-  schedule:
-    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 permissions:

@@ -315,9 +315,23 @@ def test_real_cache_migration_in_temporary_copy_only(tmp_path, fixtures):
     assert repairs > 0
 
 
-def test_production_cron_unchanged():
-    workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/main.yml").read_text()
-    assert "cron: '0 */3 * * *'" in workflow
+def test_independent_production_schedules_and_manual_experiment():
+    workflows = Path(__file__).resolve().parents[1] / ".github/workflows"
+    for name, cron, source in [
+        ("main.yml", "13 */3 * * *", "bima"),
+        ("youtube-production.yml", "23,53 * * * *", "youtube"),
+    ]:
+        workflow = yaml.load((workflows / name).read_text(), Loader=yaml.BaseLoader)
+        assert workflow["on"]["schedule"] == [{"cron": cron}]
+        assert "workflow_dispatch" in workflow["on"]
+        assert "workflow_run" not in workflow["on"]
+        assert workflow["concurrency"] == {
+            "group": "dikti-production-state", "cancel-in-progress": "false"}
+        assert any(f"production_runtime.py {source}" in step.get("run", "")
+                   for step in workflow["jobs"]["production"]["steps"])
+    experiment = yaml.load((workflows / "youtube-observation-only.yml").read_text(),
+                           Loader=yaml.BaseLoader)
+    assert set(experiment["on"]) == {"workflow_dispatch"}
 
 
 def test_legacy_surat_identity_no_replay_before_migration(tmp_path, config, monitors, notifier, telegram, announcement):
