@@ -74,6 +74,9 @@ def load_config(config_path="config.json", load_env=True, include_secrets=True,
         "youtube_delivery_send_enabled": _read_bool(
             file_config.get("youtube_delivery_send_enabled", False), False
         ),
+        "youtube_automatic_tabs_verification_enabled": _read_bool(
+            file_config.get("youtube_automatic_tabs_verification_enabled", False), False
+        ),
         "youtube_activation_at": file_config.get("youtube_activation_at"),
         "youtube_policy_version": file_config.get("youtube_policy_version", "tabs-only-v1"),
         "youtube_policy_approved": _read_bool(file_config.get("youtube_policy_approved", False), False),
@@ -129,6 +132,7 @@ def load_config(config_path="config.json", load_env=True, include_secrets=True,
         ("youtube_observation_enabled", "YOUTUBE_OBSERVATION_ENABLED"),
         ("youtube_delivery_enabled", "YOUTUBE_DELIVERY_ENABLED"),
         ("youtube_delivery_send_enabled", "YOUTUBE_DELIVERY_SEND_ENABLED"),
+        ("youtube_automatic_tabs_verification_enabled", "YOUTUBE_AUTOMATIC_TABS_VERIFICATION_ENABLED"),
         ("youtube_state_initialize", "YOUTUBE_STATE_INITIALIZE"),
         ("youtube_policy_approved", "YOUTUBE_POLICY_APPROVED"),
     ):

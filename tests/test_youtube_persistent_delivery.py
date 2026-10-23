@@ -160,11 +160,11 @@ def test_crash_after_claim_recovers_as_ambiguous_without_resend(tmp_path):
     assert sender.call_count == 1
 
 
-def _page(tab, ids):
+def _page(tab, ids, *, badges=(), relative_text=()):
     return tabs.ChannelTabPage(tab, [{"source": "youtube", "observation_format": tabs.FORMAT,
         "video_id": vid, "title": "Synthetic video", "channel_title": "Fixture",
         "url": "https://www.youtube.com/watch?v=" + vid, "thumbnail": "", "source_tabs": [tab],
-        "source_metadata": {"relative_text": [], "badges": [], "schedule_timezone": None}}
+        "source_metadata": {"relative_text": list(relative_text), "badges": list(badges), "schedule_timezone": None}}
         for vid in ids], False, empty_verified=not ids)
 
 
@@ -223,6 +223,142 @@ def test_adapter_uses_persisted_observation_after_restart_and_pending_journal_ho
     held = adapter({VID: review}).evaluate(cache, pending)
     assert next(d for d in held.decisions if d.video_id == VID).eligibility is e.Eligibility.HOLD_FOR_REVIEW
     assert not held.preview_items
+
+
+@pytest.mark.parametrize("case_name", [
+    "regular_video", "completed_replay_badge", "completed_replay_text",
+    "live_stream", "upcoming_stream", "shorts_marker", "ambiguous_stream",
+])
+def test_automatic_tabs_verification_is_conservative_and_restart_safe(tmp_path, monkeypatch, case_name):
+    fixture = json.loads((Path(__file__).parent / "fixtures" / "youtube_automatic_verification.json")
+                         .read_text(encoding="utf-8"))["cases"][case_name]
+    clock = [NOW]
+    monkeypatch.setattr(tabs, "datetime", SimpleNamespace(now=lambda tz: clock[0]))
+    tab, present = fixture["tab"], {"videos": [], "streams": []}
+    reader = Mock()
+    reader.fetch.side_effect = lambda requested: _page(requested,
+        present[requested] if requested == tab else [], badges=fixture["badges"],
+        relative_text=fixture["relative_text"])
+    policy = e.Policy(tabs.CHANNEL_ID, "auto-tabs-test-v1", activation_at=ACTIVATION,
+        window=timedelta(hours=24), ttl=timedelta(hours=4), skew=timedelta(minutes=5),
+        capture_interval=timedelta(minutes=10), approved=True, automatic_tabs_verification=True)
+    cache, journal = [], {"version": 1, "batches": [], "youtube_rss_cutover": {
+        "version": 1, "cutover_at": "2026-10-21T00:00:00Z", "baseline_ids": []}}
+    path = tmp_path / (case_name + ".json")
+    state = store_at(path, policy=policy.version)
+    adapter = lambda store: ChannelTabsAdapter(tabs_reader=reader, policy=policy,
+        clock=lambda: clock[0], observation_store=store)
+    adapter(state).evaluate(cache, journal)  # Empty startup inventory.
+    clock[0] += timedelta(minutes=12)
+    present[tab] = [VID]
+    first = adapter(store_at(path, policy=policy.version)).evaluate(cache, journal)
+    first_decision = next(d for d in first.decisions if d.video_id == VID)
+    assert first_decision.eligibility is e.Eligibility.HOLD_FOR_REVIEW
+    clock[0] += timedelta(minutes=12)
+    # Recreate the adapter/store to prove evidence is durable across a process restart.
+    result = adapter(store_at(path, policy=policy.version)).evaluate(cache, journal)
+    decision_after_restart = next(d for d in result.decisions if d.video_id == VID)
+    assert decision_after_restart.eligibility.value == fixture["expected"]
+    assert decision_after_restart.delivery_authorized is False
+    assert decision_after_restart.enqueue is False
+    if fixture["expected"] == "ELIGIBLE":
+        assert decision_after_restart.reason_codes == ("AUTOMATIC_TABS_POLICY_ELIGIBLE_NOT_AUTHORIZED",)
+        assert len(result.preview_items) == 1
+    else:
+        assert result.preview_items == ()
+
+
+def test_automatic_tabs_end_to_end_mock_outbox_is_idempotent(tmp_path, monkeypatch, monitors):
+    clock = [NOW]
+    monkeypatch.setattr(tabs, "datetime", SimpleNamespace(now=lambda tz: clock[0]))
+    root = tmp_path
+    atomic_json(root / "youtube_cache.json", [])
+    atomic_json(root / "delivery_state.json", {"version": 1, "batches": [], "youtube_rss_cutover": {
+        "version": 1, "cutover_at": "2026-10-21T00:00:00Z", "baseline_ids": []}})
+    atomic_json(root / "announcements_cache.json", [])
+    policy = e.Policy(tabs.CHANNEL_ID, "auto-outbox-test-v1", activation_at=ACTIVATION,
+        window=timedelta(hours=24), ttl=timedelta(hours=4), skew=timedelta(minutes=5),
+        capture_interval=timedelta(minutes=10), approved=True, automatic_tabs_verification=True)
+    reader = Mock(); present = {"videos": [], "streams": []}
+    reader.fetch.side_effect = lambda tab: _page(tab, present[tab], relative_text=("2 days ago",))
+    path = root / "youtube_delivery_state.json"
+    spy = {"calls": [], "bima": 0}
+    class NotifierSpy:
+        config = {"telegram_send_files": False}
+        def validate_youtube_experiment_destination(self): return True
+        def _build_summary_chunks(self, items): return ["mock summary"]
+        def send_notification(self, items, progress=None, checkpoint=None): spy["bima"] += 1; return True
+        def send_youtube_outbox_notification(self, item, ticket):
+            state_now = json.loads(path.read_text(encoding="utf-8"))
+            record = state_now["outbox"][ticket.event_key]
+            assert record["status"] == "sending"  # reservation/claim checkpoint precedes mock call
+            spy["calls"].append(ticket.event_key)
+            self.last_delivery_receipts = [{"http_status": 200, "ok": True, "message_id": 8801}]
+            return True
+    notifier = NotifierSpy()
+    config = {"youtube_monitor_enabled": True, "youtube_observation_enabled": True,
+        "youtube_delivery_enabled": True, "youtube_delivery_send_enabled": True,
+        "youtube_automatic_tabs_verification_enabled": True, "youtube_channel_id": tabs.CHANNEL_ID,
+        "youtube_activation_at": ACTIVATION.isoformat(), "youtube_policy_version": policy.version,
+        "youtube_policy_approved": True, "youtube_window_seconds": 86400,
+        "youtube_ttl_seconds": 14400, "youtube_skew_seconds": 300,
+        "youtube_capture_interval_seconds": 600, "notification_method": "telegram",
+        "youtube_review_evidence_json": "", "telegram_send_files": False}
+    durable_checkpoints = []
+    def run():
+        store = store_at(path, policy=policy.version)
+        store.set_commit_hook(lambda state_path: durable_checkpoints.append(
+            json.loads(state_path.read_text(encoding="utf-8"))))
+        adapter = ChannelTabsAdapter(tabs_reader=reader, policy=policy, clock=lambda: clock[0],
+            observation_store=store)
+        return run_once(config, state_dir=root, scraper=monitors[0], notifier=notifier,
+                        youtube_adapter=adapter, youtube_send_limit=1, youtube_experiment_only=True)
+
+    run()  # Empty initial inventory.
+    clock[0] += timedelta(minutes=12); present["videos"] = [VID]
+    run()  # First post-activation appearance.
+    clock[0] += timedelta(minutes=12)
+    sent = run()
+    assert sent.youtube_eligibility is not None, (sent.errors, sent.sources)
+    assert sent.youtube_eligibility["outbox"][0]["status"] == "delivered"
+    assert spy["calls"] == [f"youtube:video:{VID}:initial"]
+    clock[0] += timedelta(minutes=12)
+    again = run()
+    assert again.youtube_eligibility["outbox"][0]["status"] == "delivered"
+    assert spy["calls"] == [f"youtube:video:{VID}:initial"]
+    assert any(record["outbox"].get(f"youtube:video:{VID}:initial", {}).get("status") == "reserved"
+               for record in durable_checkpoints)
+    assert spy["bima"] == 0  # experiment-only remains scoped to YouTube; BIMA is not invoked here.
+
+
+def test_automatic_tabs_fails_closed_when_either_tab_fails(tmp_path, monkeypatch):
+    clock = [NOW]
+    monkeypatch.setattr(tabs, "datetime", SimpleNamespace(now=lambda tz: clock[0]))
+    present = {"videos": [], "streams": []}
+    reader = Mock()
+    def fetch(tab):
+        if tab == "streams" and present["videos"]:
+            raise tabs.VideosPageError("NETWORK_ERROR", parsing_errors=0)
+        return _page(tab, present[tab], relative_text=("2 days ago",))
+    reader.fetch.side_effect = fetch
+    policy = e.Policy(tabs.CHANNEL_ID, "auto-tab-failure-v1", activation_at=ACTIVATION,
+        window=timedelta(hours=24), ttl=timedelta(hours=4), skew=timedelta(minutes=5),
+        capture_interval=timedelta(minutes=10), approved=True, automatic_tabs_verification=True)
+    journal = {"version": 1, "batches": [], "youtube_rss_cutover": {
+        "version": 1, "cutover_at": "2026-10-21T00:00:00Z", "baseline_ids": []}}
+    path = tmp_path / "tab-failure.json"
+    store_at(path, policy=policy.version).record_capture([], NOW, healthy=True)
+    clock[0] += timedelta(minutes=12); present["videos"] = [VID]
+    adapter = ChannelTabsAdapter(tabs_reader=reader, policy=policy, clock=lambda: clock[0],
+        observation_store=store_at(path, policy=policy.version))
+    adapter.evaluate([], journal)
+    clock[0] += timedelta(minutes=12)
+    result = adapter.evaluate([], journal)
+    assert result.health["streams"]["health"] == "FAILED"
+    assert result.preview_items == ()
+    decision = next(d for d in result.decisions if d.video_id == VID)
+    assert decision.eligibility is e.Eligibility.HOLD_FOR_REVIEW
+    assert not decision.requires_atomic_reservation
 
 
 def test_runner_outbox_end_to_end_notifier_mock_and_duplicate_run(tmp_path, monkeypatch, monitors, announcement):
@@ -302,6 +438,7 @@ def test_default_feature_flags_are_disabled(monkeypatch):
     assert cfg["youtube_observation_enabled"] is False
     assert cfg["youtube_delivery_enabled"] is False
     assert cfg["youtube_delivery_send_enabled"] is False
+    assert cfg["youtube_automatic_tabs_verification_enabled"] is False
 
 
 def test_review_preview_loads_only_review_secrets(monkeypatch):

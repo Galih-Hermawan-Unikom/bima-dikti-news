@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "cases": {
+    "regular_video": {"tab": "videos", "badges": [], "relative_text": ["2 days ago"], "expected": "ELIGIBLE"},
+    "completed_replay_badge": {"tab": "streams", "badges": ["REPLAY"], "relative_text": [], "expected": "ELIGIBLE"},
+    "completed_replay_text": {"tab": "streams", "badges": [], "relative_text": ["Streamed 2 hours ago"], "expected": "ELIGIBLE"},
+    "live_stream": {"tab": "streams", "badges": ["LIVE"], "relative_text": [], "expected": "HOLD_FOR_REVIEW"},
+    "upcoming_stream": {"tab": "streams", "badges": ["UPCOMING"], "relative_text": [], "expected": "HOLD_FOR_REVIEW"},
+    "shorts_marker": {"tab": "videos", "badges": ["Shorts"], "relative_text": [], "expected": "REJECTED"},
+    "ambiguous_stream": {"tab": "streams", "badges": [], "relative_text": ["2 days ago"], "expected": "HOLD_FOR_REVIEW"}
+  }
+}

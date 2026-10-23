@@ -17,6 +17,71 @@ def history_fingerprint(cache, journal):
         separators=(",", ":"), ensure_ascii=True).encode()).hexdigest()
 
 
+_LIVE_MARKERS = {"live", "live now", "streaming now", "sedang live", "sedang berlangsung"}
+_UPCOMING_MARKERS = {"upcoming", "scheduled", "premiere", "premiere scheduled", "akan tayang", "dijadwalkan"}
+_REPLAY_MARKERS = {"replay", "vod", "completed", "replay available"}
+
+
+def _automatic_tab_evidence(video_id, persistent, policy, proof):
+    """Derive only conservative evidence from two persisted, healthy card captures."""
+    if not policy.automatic_tabs_verification or persistent is None:
+        return None
+    captures = persistent.get("captures", [])
+    if len(captures) != 2:
+        return None
+    first, last = captures
+    if (not first.get("healthy") or not last.get("healthy") or first.get("title_conflict")
+            or last.get("title_conflict") or not first.get("tabs") or first.get("tabs") != last.get("tabs")
+            or first.get("title") != last.get("title") or first.get("url") != last.get("url")):
+        return None
+    tabs = first["tabs"]
+    if len(tabs) != 1 or tabs[0] not in {"videos", "streams"}:
+        return None
+    first_meta = (first.get("metadata_by_tab") or {}).get(tabs[0])
+    last_meta = (last.get("metadata_by_tab") or {}).get(tabs[0])
+    if not isinstance(first_meta, dict) or not isinstance(last_meta, dict):
+        return None
+    if any(not isinstance(meta.get(key), list) for meta in (first_meta, last_meta)
+           for key in ("badges", "relative_text")):
+        return None
+    values_by_capture = [[str(value).strip().casefold() for key in ("badges", "relative_text")
+                          for value in meta[key]] for meta in (first_meta, last_meta)]
+    badges_by_capture = [[str(value).strip().casefold() for value in meta["badges"]]
+                         for meta in (first_meta, last_meta)]
+    at = parse_timestamp(last.get("observed_at"))
+    if at is None:
+        return None
+    category_proof = proof(f"automatic-tab-category:{tabs[0]}:{first['seq']}-{last['seq']}", at)
+    release_proof = proof(f"automatic-tab-readiness:{tabs[0]}:{first['seq']}-{last['seq']}", at)
+    if tabs[0] == "videos":
+        if any(value in _LIVE_MARKERS | _UPCOMING_MARKERS
+               for values in values_by_capture for value in values):
+            return None
+        if any(value in {"shorts", "short"} for badges in badges_by_capture for value in badges):
+            category = e.Category.SHORTS
+        else:
+            category = e.Category.REGULAR
+        return (e.CategoryEvidence(category, e.CategoryMethod.TAB_SURROGATE, category_proof),
+                e.ReleaseEvidence(e.Readiness.PUBLIC_RELEASED, release_proof))
+
+    def stream_readiness(values, badges):
+        if any(value in _LIVE_MARKERS for value in values):
+            return e.Readiness.LIVE
+        if any(value in _UPCOMING_MARKERS for value in values):
+            return e.Readiness.UPCOMING
+        replay_badge = any(value in _REPLAY_MARKERS for value in badges)
+        replay_text = any(re.match(r"^(?:streamed|disiarkan)\b.*\b(?:ago|lalu)\b", value)
+                          for value in values)
+        return e.Readiness.COMPLETED_REPLAY if replay_badge or replay_text else e.Readiness.UNKNOWN
+
+    first_readiness = stream_readiness(values_by_capture[0], badges_by_capture[0])
+    last_readiness = stream_readiness(values_by_capture[1], badges_by_capture[1])
+    readiness = last_readiness if first_readiness is last_readiness else e.Readiness.UNKNOWN
+    release = e.ReleaseEvidence(readiness, release_proof,
+                                completion_verified=readiness is e.Readiness.COMPLETED_REPLAY)
+    return (e.CategoryEvidence(e.Category.STREAM, e.CategoryMethod.TAB_SURROGATE, category_proof), release)
+
+
 @dataclass(frozen=True)
 class TabsEvaluation:
     decisions: tuple[e.Decision, ...]
@@ -134,7 +199,7 @@ class ChannelTabsAdapter:
             if persistent is not None:
                 captures = tuple(e.TabCapture(proof("persistent-tabs:"+str(c["seq"]),
                     parse_timestamp(c["observed_at"]) or at), frozenset(c["tabs"]), c["healthy"], c["healthy"],
-                    partial=not c["healthy"]) for c in persistent["captures"])
+                    partial=not c["healthy"], title_conflict=c.get("title_conflict", False)) for c in persistent["captures"])
                 observed = current.get(vid) or persistent["video"]
                 initial_inventory = persistent["initial_inventory"]
             else:
@@ -143,10 +208,16 @@ class ChannelTabsAdapter:
                     partial=not c["healthy"], title_conflict=c["observations"].get(vid,{}).get("title_conflict",False))
                     for c in self._cycles)
                 initial_inventory = vid in self._inventory
+            automatic = _automatic_tab_evidence(vid, persistent, self.policy, proof)
+            if automatic is not None and not invalid_review:
+                category, release = automatic
+                admission = e.AdmissionEvidence()
+            else:
+                category, release, admission = review.category, review.release, review.admission
             video = e.VideoEvidence(proof("direct-video:"+at.isoformat(),at),observed["title"],observed["url"]) if observed else None
             item = e.EligibilityInput(vid, history,
                 e.TimeEvidence(now, first_seen, True, initial_inventory), self.policy,
-                video, captures, self._journal(vid,journal), review.category, review.release, review.admission)
+                video, captures, self._journal(vid,journal), category, release, admission)
             d = e.classify(item)
             if d.eligibility not in {e.Eligibility.REJECTED,e.Eligibility.ALREADY_DELIVERED} and (not healthy or invalid_review):
                 d = replace(d,eligibility=e.Eligibility.HOLD_FOR_REVIEW,requires_atomic_reservation=False,
@@ -154,7 +225,8 @@ class ChannelTabsAdapter:
             decisions.append(d)
             evidence.append({"video_id":vid,"tabs":current.get(vid,{}).get("source_tabs",[]),
                 "first_seen_at":first_seen.isoformat(),"initial_inventory":initial_inventory,
-                "category":review.category.category.value,"readiness":review.release.readiness.value})
+                "category":category.category.value,"readiness":release.readiness.value,
+                "category_method":category.method.value})
             if d.eligibility is e.Eligibility.ELIGIBLE and vid in current:
                 previews.append({"source":"youtube","kind":"video","video_id":vid,"title":observed["title"],
                     "url":observed["url"],"first_seen_at":first_seen.isoformat(),"delivery_format":"youtube-tabs-preview-v1"})
