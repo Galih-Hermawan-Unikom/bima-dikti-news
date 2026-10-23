@@ -76,6 +76,41 @@ def backend(source, initialize):
         initialize=initialize, validator=validate_bima if source == "bima" else None)
 
 
+def _deliver_bima_event(state, item, notifier, checkpoint, *, at, audit=None):
+    """Shared at-most-once production send: remote reservation and claim precede POST."""
+    key = "bima:" + announcement_identity(item) + ":initial"
+    row = state["outbox"].get(key)
+    if row is None:
+        row = {"event_key": key, "status": "reserved", "attempts": 0,
+            "items": [stable_item(item)], "chunks": notifier._build_summary_chunks([item]),
+            "sent_chunks": [], "sent_documents": [], "receipts": [], "send_files": True}
+        if audit is not None:
+            row["controlled_backfill"] = deepcopy(audit)
+        state["outbox"][key] = row
+        checkpoint()
+    if row["status"] != "reserved" or row["attempts"] != 0:
+        return 0, False
+    row.update(status="sending", attempts=1, attempted_at=at.isoformat())
+    checkpoint()  # durable remote CAS before the first Telegram POST
+    def progress_checkpoint():
+        row["receipts"] = deepcopy(notifier.last_delivery_receipts)
+        checkpoint()
+    try:
+        success = notifier.send_notification([item], progress=row, checkpoint=progress_checkpoint)
+    except Exception:
+        success = False
+    row["receipts"] = deepcopy(notifier.last_delivery_receipts)
+    expected = len(row["chunks"]) + len(item.get("documents", []))
+    confirmed = success is True and len(row["receipts"]) == expected and all(
+        SendConfirmation(r.get("http_status"), r.get("ok"), r.get("message_id")).confirmed
+        for r in row["receipts"])
+    row["status"] = "delivered" if confirmed else "ambiguous"
+    checkpoint()
+    if not confirmed:
+        raise RuntimeError("BIMA outcome ambiguous; automatic replay prohibited")
+    return len(row["receipts"]), True
+
+
 def bima_cycle(state, current, historical, notifier, checkpoint, *, enabled, at):
     validate_bima(state)
     report = {"source": "bima", "visible": len(current), "startup": not state["initialized"],
@@ -106,35 +141,9 @@ def bima_cycle(state, current, historical, notifier, checkpoint, *, enabled, at)
         report["eligible"] += 1
         if not enabled:
             continue
-        row = state["outbox"].get(key)
-        if row is None:
-            row = {"event_key": key, "status": "reserved", "attempts": 0,
-                "items": [stable_item(item)], "chunks": notifier._build_summary_chunks([item]),
-                "sent_chunks": [], "sent_documents": [], "receipts": [], "send_files": True}
-            state["outbox"][key] = row
-            checkpoint()
-        if row["status"] != "reserved" or row["attempts"] != 0:
-            continue
-        row.update(status="sending", attempts=1, attempted_at=at.isoformat())
-        checkpoint()  # durable remote CAS before the first Telegram POST
-        def progress_checkpoint():
-            row["receipts"] = deepcopy(notifier.last_delivery_receipts)
-            checkpoint()
-        try:
-            success = notifier.send_notification([item], progress=row, checkpoint=progress_checkpoint)
-        except Exception:
-            success = False
-        row["receipts"] = deepcopy(notifier.last_delivery_receipts)
-        expected = len(row["chunks"]) + len(item.get("documents", []))
-        confirmed = success is True and len(row["receipts"]) == expected and all(
-            SendConfirmation(r.get("http_status"), r.get("ok"), r.get("message_id")).confirmed
-            for r in row["receipts"])
-        row["status"] = "delivered" if confirmed else "ambiguous"
-        checkpoint()
-        report["confirmed_messages"] += len(row["receipts"])
-        report["delivered_events"] += int(confirmed)
-        if not confirmed:
-            raise RuntimeError("BIMA outcome ambiguous; automatic replay prohibited")
+        messages, delivered = _deliver_bima_event(state, item, notifier, checkpoint, at=at)
+        report["confirmed_messages"] += messages
+        report["delivered_events"] += int(delivered)
     checkpoint()
     return report
 
@@ -178,10 +187,13 @@ def youtube_cycle(store, adapter, cache, journal, notifier, *, enabled, startup)
 
 
 def run(source, mode):
-    if source not in {"bima", "youtube"} or mode not in {"run", "initialize", "preflight"}:
+    if source not in {"bima", "youtube"} or mode not in {"run", "initialize", "preflight", "backfill-1454"}:
         raise ValueError("Invalid production operation")
     if os.environ.get("GITHUB_ACTIONS") != "true":
         raise RuntimeError("Production runtime requires GitHub Actions")
+    if mode == "backfill-1454" and (source != "bima"
+            or os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch"):
+        raise ValueError("The single-target exception is manual and BIMA-only")
     config = verify_production()
     if mode == "preflight":
         print("PRODUCTION_PREFLIGHT=PASS official_channel=verified bot_can_post=true")
@@ -218,8 +230,15 @@ def run(source, mode):
             current = BimaScraper().fetch_announcements()
             history = read("announcements_cache.json") + [item for batch in journal["batches"]
                 for item in batch["items"] if item.get("source") != "youtube"]
-            report = bima_cycle(state, current, history, notifier, checkpoint,
-                enabled=enabled and mode != "initialize", at=at)
+            if mode == "backfill-1454":
+                if not enabled:
+                    raise PreflightError("BIMA_BACKFILL_PRODUCTION_SEND_SWITCH_OFF")
+                from bima_controlled_backfill import perform
+                report = perform(state, current, read("announcements_cache.json"), journal,
+                                 notifier, checkpoint, at=at)
+            else:
+                report = bima_cycle(state, current, history, notifier, checkpoint,
+                    enabled=enabled and mode != "initialize", at=at)
             report["activation_at"] = state["activation_at"]
         else:
             if loaded:
