@@ -225,7 +225,7 @@ class TelegramPreflightTests(unittest.TestCase):
             self.assertNotIn(forbidden, text)
         self.assertEqual(set(re.findall(r"secrets\.([A-Z_]+)", text)), {"TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"})
         for line in text.splitlines():
-            if "${{ secrets." in line or "${{ vars." in line:
+            if "${{ secrets." in line:
                 self.assertIn(line.strip(), production)
         config = json.loads((ROOT / "config.json").read_bytes())
         self.assertEqual([config["notification_method"], config["telegram_send_files"], config["youtube_monitor_enabled"]], ["telegram", False, True])

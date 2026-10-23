@@ -1,0 +1,46 @@
+name: YouTube Production
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        default: run
+        options: [run, initialize, preflight]
+        description: Production operation (initialize never sends)
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dikti-production-state
+  cancel-in-progress: false
+
+jobs:
+  production:
+    if: github.ref == 'refs/heads/master' && (vars.YOUTUBE_PRODUCTION_ENABLED == 'true' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Official-channel preflight and isolated youtube cycle
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PRODUCTION_TELEGRAM_CHAT_ID_SHA256: ${{ vars.PRODUCTION_TELEGRAM_CHAT_ID_SHA256 }}
+          PRODUCTION_SOURCE_ENABLED: ${{ vars.YOUTUBE_PRODUCTION_ENABLED || 'false' }}
+          PRODUCTION_AUTO_SEND: ${{ vars.YOUTUBE_PRODUCTION_AUTO_SEND || 'false' }}
+          YOUTUBE_MONITOR_ENABLED: 'true'
+          TELEGRAM_SEND_FILES: 'false'
+          MODE: ${{ inputs.mode || 'run' }}
+        run: python production_runtime.py youtube "$MODE"

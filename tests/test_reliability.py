@@ -224,27 +224,19 @@ def test_corrupt_cache_does_not_replay(tmp_path, config, monitors, notifier, tel
     telegram.assert_not_called()
 
 
-@pytest.mark.parametrize("failed_command", ["commit", "push"])
-def test_workflow_persistence_failure_propagates_and_retains_artifact(tmp_path, failed_command):
+def test_production_workflow_uses_remote_cas_without_committing_historical_files():
     root = Path(__file__).resolve().parents[1]
     workflow = yaml.safe_load((root / ".github/workflows/main.yml").read_text())
-    job = workflow["jobs"]["check-announcements"]
-    assert job["if"] == "github.ref == 'refs/heads/master'"
-    steps = job["steps"]
-    commit = next(s for s in steps if s.get("id") == "persist")
-    assert "continue-on-error" not in commit
-    assert "always()" in commit["if"]
-    assert "delivery_state.json" in commit["run"]
-    assert any(s.get("uses") == "actions/upload-artifact@v4" and "failure()" in s["if"] for s in steps)
-    # Execute the actual persistence script with a stub git: commit succeeds, push fails.
-    import shutil
-    bash = shutil.which("bash")
-    if Path("C:/Program Files/Git/bin/bash.exe").exists():
-        bash = "C:/Program Files/Git/bin/bash.exe"
-    assert bash, "bash required to test the Actions shell script"
-    script = 'git() { if [ "$1" = diff ]; then return 1; fi; if [ "$1" = ' + failed_command + ' ]; then return 42; fi; return 0; }\n' + commit["run"]
-    completed = subprocess.run([bash, "--noprofile", "--norc", "-e", "-c", script], cwd=tmp_path, capture_output=True)
-    assert completed.returncode == 42
+    job = workflow["jobs"]["production"]
+    script = "\n".join(step.get("run", "") for step in job["steps"])
+    assert "production_runtime.py bima" in script
+    assert "git add" not in script and "git push" not in script
+    assert workflow["concurrency"]["group"] == "dikti-production-state"
+    assert "BIMA_PRODUCTION_ENABLED" in job["if"]
+    env = job["steps"][-1]["env"]
+    assert env["YOUTUBE_MONITOR_ENABLED"] == "false"
+    assert env["TELEGRAM_SEND_FILES"] == "true"
+    assert "'false'" in env["PRODUCTION_AUTO_SEND"]
 
 
 def test_attachment_failure_retries_without_resending_summary(tmp_path, config, monitors, notifier, telegram, monkeypatch, announcement):

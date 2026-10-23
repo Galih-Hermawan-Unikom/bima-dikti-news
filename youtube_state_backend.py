@@ -26,7 +26,7 @@ class GitHubStateBranch:
     """Load/checkpoint exactly one state file with branch and blob SHA CAS."""
 
     def __init__(self, repo, branch, path, token, *, initialize=False, session=None,
-                 api="https://api.github.com"):
+                 api="https://api.github.com", validator=None):
         normalized_path = path.replace("\\", "/") if isinstance(path, str) else ""
         if (not isinstance(repo, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo)
                 or not isinstance(branch, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+", branch)
@@ -39,6 +39,7 @@ class GitHubStateBranch:
         self._session = session or requests
         self._api = api.rstrip("/")
         self._remote_sha = None
+        self._validator = validator
         self._headers = {"Authorization": "Bearer " + token,
             "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
 
@@ -88,7 +89,7 @@ class GitHubStateBranch:
             raise DurableStateError("Durable JSON state schema or size is invalid")
         from youtube_delivery import YouTubeStateStore
         try:
-            YouTubeStateStore._validate_state(state)
+            (self._validator or YouTubeStateStore._validate_state)(state)
         except (TypeError, ValueError, KeyError):
             raise DurableStateError("Durable JSON state validation failed") from None
         target = Path(dst)
@@ -110,7 +111,7 @@ class GitHubStateBranch:
         try:
             state = json.loads(data.decode("utf-8"))
             from youtube_delivery import YouTubeStateStore
-            YouTubeStateStore._validate_state(state)
+            (self._validator or YouTubeStateStore._validate_state)(state)
         except (UnicodeDecodeError, ValueError, TypeError, KeyError):
             raise DurableStateError("Refusing invalid YouTube JSON checkpoint") from None
         params = {"message": "chore: checkpoint YouTube tabs JSON state",
