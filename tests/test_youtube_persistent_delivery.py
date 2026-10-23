@@ -478,6 +478,7 @@ def test_notifier_requires_atomic_ticket_and_records_api_receipt(config, monkeyp
     config.update({
         "youtube_delivery_enabled": True,
         "youtube_delivery_send_enabled": True,
+        "youtube_experiment_bot_token": "EXPERIMENT_ONLY_TOKEN",
         "youtube_experiment_chat_id": "synthetic-experiment-chat",
         "youtube_experiment_chat_id_sha256": hashlib.sha256(b"synthetic-experiment-chat").hexdigest(),
     })
@@ -524,7 +525,7 @@ def test_experiment_preflight_checks_channel_and_post_permission(config, monkeyp
         "youtube_experiment_chat_id": experiment_id,
         "youtube_experiment_chat_id_sha256": hashlib.sha256(experiment_id.encode()).hexdigest(),
         "telegram_chat_id": "synthetic-production-chat",
-        "telegram_bot_token": "TEST_ONLY_TOKEN",
+        "youtube_experiment_bot_token": "EXPERIMENT_ONLY_TOKEN",
     })
     responses = []
     for body in (
@@ -542,3 +543,59 @@ def test_experiment_preflight_checks_channel_and_post_permission(config, monkeyp
     assert Notifier(config).preflight_youtube_experiment_destination() is True
     assert get.call_count == 3
     assert post.call_count == 0
+
+
+def test_youtube_send_never_falls_back_to_production_bot_token(config, monkeypatch):
+    config.update({
+        "youtube_delivery_enabled": True,
+        "youtube_delivery_send_enabled": True,
+        "telegram_bot_token": "PRODUCTION_ONLY_TOKEN",
+        "youtube_experiment_bot_token": "",
+        "youtube_experiment_chat_id": "synthetic-experiment-chat",
+        "youtube_experiment_chat_id_sha256": hashlib.sha256(b"synthetic-experiment-chat").hexdigest(),
+    })
+    notifier = Notifier(config)
+    item = delivery_item()
+    raw = json.dumps(item, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ticket = DeliveryTicket(decision().event_key, VID, "a" * 32, hashlib.sha256(raw).hexdigest())
+    post = Mock(side_effect=AssertionError("production bot token must never be a fallback"))
+    monkeypatch.setattr("requests.post", post)
+    assert notifier.send_youtube_outbox_notification(item, ticket) is False
+    assert post.call_count == 0
+
+
+def test_experiment_only_runner_allows_planning_with_sending_off(tmp_path, config, monitors, notifier):
+    from youtube_delivery import YouTubeStateStore
+    from youtube_tabs_monitor import ChannelTabsAdapter
+    from youtube_eligibility import Policy
+    from datetime import timedelta
+    cache = ["abc123def45"]
+    journal = {"version": 1, "batches": [], "youtube_rss_cutover": {
+        "version": 1, "cutover_at": "2026-10-20T00:00:00Z", "baseline_ids": []}}
+    atomic_json(tmp_path / "youtube_cache.json", [{"video_id": cache[0]}])
+    atomic_json(tmp_path / "delivery_state.json", journal)
+    activation = datetime(2026, 10, 20, tzinfo=timezone.utc)
+    config.update({"youtube_monitor_enabled": True, "youtube_observation_enabled": True,
+        "youtube_delivery_enabled": True, "youtube_delivery_send_enabled": False,
+        "youtube_automatic_tabs_verification_enabled": True,
+        "youtube_channel_id": "UCGo_6l_6kp8H8OHcKcSIeDw", "youtube_activation_at": activation.isoformat(),
+        "youtube_policy_version": "planning-test", "youtube_policy_approved": True,
+        "youtube_window_seconds": 86400, "youtube_ttl_seconds": 14400, "youtube_skew_seconds": 300,
+        "youtube_capture_interval_seconds": 600, "youtube_review_evidence_json": ""})
+    reader = Mock()
+    reader.fetch.side_effect = lambda tab: _page(tab, [], relative_text=("2 days ago",))
+    policy = Policy(config["youtube_channel_id"], "planning-test", activation_at=activation,
+        window=timedelta(days=1), ttl=timedelta(hours=4), skew=timedelta(minutes=5),
+        capture_interval=timedelta(minutes=10), approved=True, automatic_tabs_verification=True)
+    store = YouTubeStateStore(tmp_path / "youtube_delivery_state.json", activation_at=activation,
+        policy_version="planning-test")
+    adapter = ChannelTabsAdapter(tabs_reader=reader, policy=policy,
+        observation_store=store, clock=lambda: NOW)
+    from unittest.mock import Mock as Spy
+    bima_check = Spy(side_effect=AssertionError("experiment-only run must not invoke BIMA"))
+    monitors[0].check_new_announcements = bima_check
+    result = run_once(config, state_dir=tmp_path, scraper=monitors[0], notifier=notifier,
+        youtube_adapter=adapter, youtube_send_limit=1, youtube_experiment_only=True)
+    assert result.youtube_eligibility is not None
+    assert result.errors == []
+    bima_check.assert_not_called()

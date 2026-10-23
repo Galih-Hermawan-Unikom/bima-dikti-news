@@ -169,7 +169,7 @@ class Notifier:
                     or not self.validate_youtube_experiment_destination()
                     or len(self._build_summary_chunks([item])) != 1):
                 return False
-            bot_token = self.config.get("telegram_bot_token", "")
+            bot_token = self.config.get("youtube_experiment_bot_token", "")
             chat_id = self.config.get("youtube_experiment_chat_id", "")
             if not bot_token or not chat_id:
                 return False
@@ -200,7 +200,7 @@ class Notifier:
         """Read-only Telegram identity/rights check; never sends a message."""
         if not self.validate_youtube_experiment_destination():
             return False
-        token = self.config.get("telegram_bot_token", "")
+        token = self.config.get("youtube_experiment_bot_token", "")
         chat_id = self.config.get("youtube_experiment_chat_id", "")
         if not token:
             return False

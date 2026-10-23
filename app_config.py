@@ -99,6 +99,9 @@ def load_config(config_path="config.json", load_env=True, include_secrets=True,
         ),
         "telegram_bot_token": os.environ.get("TELEGRAM_BOT_TOKEN", "") if include_secrets else "",
         "telegram_chat_id": os.environ.get("TELEGRAM_CHAT_ID", "") if include_secrets else "",
+        # YouTube experiment delivery has a separate credential and never falls
+        # back to the BIMA/production Telegram token.
+        "youtube_experiment_bot_token": os.environ.get("YOUTUBE_EXPERIMENT_BOT_TOKEN", "") if include_secrets else "",
         "youtube_state_token": os.environ.get("YOUTUBE_STATE_TOKEN", "")
             if include_secrets or include_state_secrets else "",
         "youtube_review_hmac_key": os.environ.get("YOUTUBE_REVIEW_HMAC_KEY", "")
