@@ -113,6 +113,40 @@ class YouTubeStateStore:
                 or len(state["captures"]) > 2
                 or not isinstance(state.get("outbox"), dict)):
             raise ValueError("Invalid YouTube JSON state schema")
+        evaluation = state.get("last_evaluation")
+        if evaluation is not None:
+            if (not isinstance(evaluation, dict) or evaluation.get("version") != 1
+                    or _parse(evaluation.get("evaluated_at")) is None
+                    or type(evaluation.get("capture_seq")) is not int
+                    or not 0 <= evaluation["capture_seq"] <= state["capture_seq"]
+                    or not isinstance(evaluation.get("health"), dict)
+                    or set(evaluation["health"]) != {"videos", "streams"}
+                    or any(value not in {"HEALTHY", "FAILED"} for value in evaluation["health"].values())
+                    or not isinstance(evaluation.get("counts"), dict)
+                    or set(evaluation["counts"]) != {"checked", "videos_tab", "streams_tab", "known",
+                        "unknown", "unverified", "new_candidates", "new_eligible", "new_hold",
+                        "eligible", "hold", "rejected", "already_delivered"}
+                    or any(type(value) is not int or value < 0 for value in evaluation["counts"].values())
+                    or not isinstance(evaluation.get("decisions"), list)
+                    or len(evaluation["decisions"]) > 1000
+                    or not isinstance(evaluation.get("errors"), list)
+                    or any(not isinstance(error, str) for error in evaluation["errors"])):
+                raise ValueError("Invalid YouTube last evaluation")
+            for decision in evaluation["decisions"]:
+                if (not isinstance(decision, dict)
+                        or not _VIDEO_ID.fullmatch(decision.get("video_id", ""))
+                        or decision.get("knowledge") not in {None, "KNOWN", "UNKNOWN"}
+                        or decision.get("eligibility") not in {"ELIGIBLE", "HOLD_FOR_REVIEW", "REJECTED", "ALREADY_DELIVERED"}
+                        or decision.get("delivery_state") not in {"NONE", "PENDING", "PARTIAL", "DELIVERED", "UNVERIFIED"}
+                        or not isinstance(decision.get("reason_codes"), list)
+                        or any(not isinstance(code, str) or not code for code in decision["reason_codes"])
+                        or type(decision.get("initial_inventory")) is not bool
+                        or _parse(decision.get("first_seen_at")) is None
+                        or not isinstance(decision.get("tabs"), list)
+                        or any(tab not in {"videos", "streams"} for tab in decision["tabs"])
+                        or decision.get("category") not in {"UNKNOWN", "REGULAR", "STREAM", "SHORTS"}
+                        or decision.get("readiness") not in {"UNKNOWN", "PUBLIC_RELEASED", "UPCOMING", "LIVE", "COMPLETED_REPLAY"}):
+                    raise ValueError("Invalid YouTube evaluation decision")
         for video_id, record in state["observations"].items():
             if (not isinstance(video_id, str) or not _VIDEO_ID.fullmatch(video_id)
                     or not isinstance(record, dict) or _parse(record.get("first_seen_at")) is None
@@ -248,6 +282,17 @@ class YouTubeStateStore:
             state["last_capture_at"] = stamp
         self._commit(mutation)
         return self._state["capture_seq"]
+
+    def record_evaluation(self, evaluation):
+        """CAS-checkpoint a compact, non-delivery result for the latest capture."""
+        if not isinstance(evaluation, dict):
+            raise ValueError("Invalid YouTube evaluation")
+        record = deepcopy(evaluation)
+        def mutation(state):
+            if record.get("capture_seq") != state["capture_seq"]:
+                raise ValueError("Evaluation does not match the latest capture")
+            state["last_evaluation"] = record
+        self._commit(mutation)
 
     def observation(self, video_id):
         if not isinstance(video_id, str) or not _VIDEO_ID.fullmatch(video_id):

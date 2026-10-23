@@ -102,6 +102,23 @@ def test_non_monotonic_capture_fails_without_state_mutation(tmp_path):
     assert store.observation_ids() == before
 
 
+def test_observation_evaluation_result_is_checkpointed_with_capture_sequence(tmp_path):
+    path = tmp_path / "evaluation-state.json"
+    store = store_at(path)
+    store.record_capture([], NOW, healthy=True)
+    result = {"version": 1, "evaluated_at": NOW.isoformat(), "capture_seq": 1,
+        "health": {"videos": "HEALTHY", "streams": "HEALTHY"},
+        "counts": {"checked": 0, "videos_tab": 0, "streams_tab": 0, "known": 0,
+            "unknown": 0, "unverified": 0, "new_candidates": 0, "new_eligible": 0,
+            "new_hold": 0, "eligible": 0, "hold": 0, "rejected": 0, "already_delivered": 0},
+        "errors": [], "decisions": []}
+    store.record_evaluation(result)
+    assert store_at(path)._state["last_evaluation"] == result
+    with pytest.raises(ValueError, match="latest capture"):
+        store.record_evaluation(dict(result, capture_seq=0))
+    assert store_at(path)._state["last_evaluation"] == result
+
+
 def test_reservation_is_atomic_idempotent_and_only_for_eligible_decision(tmp_path):
     store = store_at(tmp_path / "state.json")
     with ThreadPoolExecutor(max_workers=8) as pool:

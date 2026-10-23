@@ -1,0 +1,53 @@
+name: YouTube Observation Only
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: youtube-observation-state
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install source dependencies
+        run: pip install -r requirements.txt
+
+      - name: Observe YouTube tabs and checkpoint JSON only
+        env:
+          GITHUB_ACTIONS: 'true'
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          YOUTUBE_STATE_BRANCH: youtube-state
+          YOUTUBE_STATE_INITIALIZE: 'false'
+          YOUTUBE_CHANNEL_ID: UCGo_6l_6kp8H8OHcKcSIeDw
+          YOUTUBE_ACTIVATION_AT: '2026-10-22T23:17:48Z'
+          YOUTUBE_POLICY_VERSION: tabs-only-v1
+          YOUTUBE_POLICY_APPROVED: 'true'
+          YOUTUBE_WINDOW_SECONDS: '86400'
+          YOUTUBE_TTL_SECONDS: '14400'
+          YOUTUBE_SKEW_SECONDS: '300'
+          YOUTUBE_CAPTURE_INTERVAL_SECONDS: '600'
+          YOUTUBE_OBSERVATION_ENABLED: 'true'
+          YOUTUBE_AUTOMATIC_TABS_VERIFICATION_ENABLED: 'true'
+          YOUTUBE_DELIVERY_ENABLED: 'false'
+          YOUTUBE_DELIVERY_SEND_ENABLED: 'false'
+        run: python youtube_observe_only.py
