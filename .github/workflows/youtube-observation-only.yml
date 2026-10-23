@@ -48,6 +48,9 @@ jobs:
           YOUTUBE_CAPTURE_INTERVAL_SECONDS: '600'
           YOUTUBE_OBSERVATION_ENABLED: 'true'
           YOUTUBE_AUTOMATIC_TABS_VERIFICATION_ENABLED: 'true'
-          YOUTUBE_DELIVERY_ENABLED: 'false'
+          YOUTUBE_DELIVERY_ENABLED: 'true'
           YOUTUBE_DELIVERY_SEND_ENABLED: 'false'
-        run: python youtube_observe_only.py
+          YOUTUBE_EXPERIMENT_BOT_TOKEN: ${{ secrets.YOUTUBE_EXPERIMENT_BOT_TOKEN }}
+          YOUTUBE_EXPERIMENT_CHAT_ID: ${{ secrets.YOUTUBE_EXPERIMENT_CHAT_ID }}
+          YOUTUBE_EXPERIMENT_CHAT_ID_SHA256: ${{ secrets.YOUTUBE_EXPERIMENT_CHAT_ID_SHA256 }}
+        run: python youtube_experiment_pipeline.py

@@ -149,9 +149,8 @@ def run_once(config, *, dry_run=False, state_dir=".", scraper=None, notifier=Non
     if youtube_send_limit is not None and (type(youtube_send_limit) is not int or youtube_send_limit < 1):
         result.errors.append("Invalid YouTube send limit")
         return result
-    if youtube_experiment_only and (dry_run or youtube_send_limit != 1 or not send_enabled
-            or not delivery_enabled or not observation_enabled):
-        result.errors.append("Experiment-only send requires one explicit enabled YouTube item")
+    if youtube_experiment_only and (dry_run or youtube_send_limit != 1 or not observation_enabled):
+        result.errors.append("Experiment-only mode requires observation and a one-item limit")
         return result
     path = root / "delivery_state.json"
     try:

@@ -1,0 +1,33 @@
+name: YouTube Experiment Telegram Preflight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-experiment-destination:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install preflight dependency
+        run: pip install requests
+
+      - name: Verify experiment-only credentials and Telegram permissions
+        env:
+          YOUTUBE_EXPERIMENT_BOT_TOKEN: ${{ secrets.YOUTUBE_EXPERIMENT_BOT_TOKEN }}
+          YOUTUBE_EXPERIMENT_CHAT_ID: ${{ secrets.YOUTUBE_EXPERIMENT_CHAT_ID }}
+          YOUTUBE_EXPERIMENT_CHAT_ID_SHA256: ${{ secrets.YOUTUBE_EXPERIMENT_CHAT_ID_SHA256 }}
+        run: python youtube_experiment_preflight.py
