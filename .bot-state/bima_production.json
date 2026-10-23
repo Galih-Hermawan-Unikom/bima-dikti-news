@@ -138,7 +138,7 @@
   "outbox": {
     "bima:surat:1454/dst/c3/dt.06.01/2026|title:pemberitahuan jadwal pelaporan dan monitoring dan evaluasi internal program pengabdian kepada masyarakat tahun anggaran 2026:initial": {
       "event_key": "bima:surat:1454/dst/c3/dt.06.01/2026|title:pemberitahuan jadwal pelaporan dan monitoring dan evaluasi internal program pengabdian kepada masyarakat tahun anggaran 2026:initial",
-      "status": "sending",
+      "status": "delivered",
       "attempts": 1,
       "items": [
         {
