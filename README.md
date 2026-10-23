@@ -1,382 +1,254 @@
-# Bot Monitoring BIMA + YouTube Kemdiktisaintek
+# Dikti News Bot — BIMA dan YouTube
 
-Bot otomatis untuk mengecek dan mengirim notifikasi ketika ada update baru dari:
-- halaman [BIMA Kemdiktisaintek](https://bima.kemdiktisaintek.go.id/pengumuman)
-- tab kanal YouTube Kemdiktisaintek `/videos` dan `/streams` untuk evaluasi eligibility dry-run
+Bot memantau pengumuman [BIMA](https://bima.kemdiktisaintek.go.id/pengumuman) dan kanal YouTube [Kemdiktisaintek](https://www.youtube.com/@kemdiktisaintek), lalu mengirim konten baru yang memenuhi kebijakan ke Telegram resmi [@dikti_news](https://t.me/dikti_news).
 
-Implementasi publik proyek ini dapat dilihat di channel Telegram **Dikti News**:
-[https://t.me/dikti_news](https://t.me/dikti_news)
+**BIMA dan YouTube sudah beroperasi otomatis di GitHub Actions**, tanpa bergantung pada komputer lokal. BIMA mengirim ringkasan beserta lampiran PDF yang tersedia; YouTube mengirim tautan video reguler atau replay yang telah terverifikasi. Konten historis tidak dikirim ulang secara otomatis.
 
-## Diagram Arsitektur
+## Workflow produksi
 
-![Arsitektur Sistem Bot Monitoring BIMA dan YouTube Kemdiktisaintek](arsitektur.png)
+| Workflow | Jadwal | Sumber dan keluaran |
+|---|---|---|
+| [BIMA Pengumuman Checker](.github/workflows/main.yml) | Setiap 3 jam, cron `0 */3 * * *` | Pengumuman BIMA → ringkasan Telegram dan PDF yang tersedia. Jalur YouTube dimatikan pada workflow ini. |
+| [YouTube Production](.github/workflows/youtube-production.yml) | Setiap 30 menit, cron `*/30 * * * *` | Hanya tab `/videos` dan `/streams` → verifikasi otomatis → notifikasi video yang ELIGIBLE. Tanpa RSS, Shorts, atau pengambilan player. |
 
-## Fitur
+Kedua workflow menjalankan `production_runtime.py` pada `master`, dengan timeout 20 menit. Jadwal cron menggunakan UTC. Status produksi saat pembaruan dokumentasi, 23 Oktober 2026: kedua workflow dan keempat saklar produksi aktif; auto-send eksperimen nonaktif. Status terkini dapat diperiksa melalui tab **Actions** dan repository **Variables**.
 
-- Scraping otomatis halaman pengumuman BIMA menggunakan Playwright + Chromium
-- Deteksi dokumen lampiran beserta URL unduhan file
-- Evaluasi YouTube hanya dari `/videos` dan `/streams`; kandidat YouTube belum terhubung ke delivery
-- Notifikasi netral **VIDEO BARU — YOUTUBE KEMDIKTISAINTEK**, tanpa klaim status tayang
-- Deduplikasi berdasarkan ID video, baseline historis, dan jurnal pengiriman
-- Notifikasi via Telegram dan Console
-- Opsi kirim ringkasan saja atau ringkasan + file ke Telegram
-- Notifikasi BIMA tetap berjalan melalui runner; hasil YouTube hanya laporan dry-run
-- Pengecekan berkala yang bisa disesuaikan: 30 menit saat masa kritis, 3 jam saat masa normal
-- Cache metadata terpisah untuk BIMA dan YouTube; riwayat lama tetap dipertahankan
-- Bisa dijalankan lokal atau hosting gratis di GitHub Actions
+## Arsitektur
 
-## Cara Kerja
+```mermaid
+flowchart TD
+    WB["main.yml · setiap 3 jam"] --> PB["Preflight Telegram produksi"]
+    PB --> B["BIMA · pengumuman dan PDF"]
+    B --> EB["Kelayakan BIMA · histori, inventory, activation fence"]
+    EB --> OB["Durable outbox BIMA"]
+    OB --> CB["Saklar ON · reservasi dan claim CAS sebelum POST"]
+    CB --> T["Telegram produksi · @dikti_news"]
 
-```
-[GitHub Actions / Lokal — dry-run YouTube]
-        │
-        ▼
-[Playwright buka halaman BIMA]
-        │
-        ▼
-[Ekstrak daftar pengumuman + dokumen]
-        │
-        ├──────────────► [Baca tab /videos dan /streams]
-        │                              │
-        │                              ▼
-        │                 [Classifier: KNOWN / HOLD / REJECTED]
-        │                              │
-        │                   [Laporan dry-run saja]
-        │
-        ▼
-[Bandingkan cache:
- announcements_cache.json
- youtube_cache.json]
-        │
-        ▼
-[Ada item baru yang eligible?] ──Ya──► [Kirim ringkasan Telegram]
-        │                           [Unggah lampiran BIMA jika aktif]
-        │
-       Tidak
-        │
-        ▼
-[Tidak ada aksi]
+    WY["youtube-production.yml · setiap 30 menit"] --> PY["Preflight Telegram produksi"]
+    PY --> Y["YouTube · /videos dan /streams"]
+    Y --> EY["Kelayakan YouTube · dua capture sehat, kategori, readiness, histori"]
+    EY --> OY["Durable outbox YouTube · hanya ELIGIBLE"]
+    OY --> CY["Saklar ON · reservasi dan claim CAS sebelum POST"]
+    CY --> T
+
+    H["master · cache dan jurnal historis, hanya dibaca"] -.-> EB
+    H -.-> EY
+    S["GitHub state · branch dikti-production-state · JSON berversi"] <-.-> EB
+    S <-.-> EY
+    S <-.-> OB
+    S <-.-> OY
+    T -. "receipt dan message ID" .-> S
 ```
 
-## Instalasi
+BIMA dan YouTube memiliki state serta identitas event masing-masing. Keduanya menggunakan concurrency group `dikti-production-state` dengan `cancel-in-progress: false`, disertai pemeriksaan SHA/CAS pada setiap checkpoint. Tidak ada jalur produksi yang bergantung pada state lokal runner setelah job selesai.
 
-### 1. Clone Repository
+## Aturan deteksi dan kelayakan
+
+### BIMA
+
+- Pengumuman dibandingkan dengan cache, jurnal historis, initial inventory, dan outbox produksi menggunakan identitas pengumuman kanonis.
+- Capture startup menjadi **initial inventory** dan tidak dikirim. Activation fence disimpan saat inisialisasi menggunakan waktu UTC aktual.
+- Karena sumber BIMA menyediakan tanggal tanpa jam, tanggal publikasi harus **sesudah tanggal aktivasi dalam WIB** dan tidak boleh melampaui tanggal observasi. Pengumuman pada hari aktivasi atau lebih lama tidak otomatis memenuhi syarat.
+- Kandidat yang pertama kali terlihat lebih dari 24 jam lalu ditahan. Tidak ada backfill otomatis.
+- Ringkasan memakai HTML Telegram; dokumen dikirim dengan nama metadata yang aman, bukan nama tempfile.
+
+**PDF produksi ON.** `main.yml` menetapkan `TELEGRAM_SEND_FILES: 'true'`, dan runtime produksi secara eksplisit memakai `telegram_send_files=True`. Nilai `telegram_send_files: false` dalam `config.json` tidak mematikan lampiran pada jalur produksi ini. Jumlah lampiran mengikuti dokumen yang tersedia pada pengumuman.
+
+### YouTube tabs-only
+
+Kebijakan produksi `tabs-only-v1` memakai `first_seen_at` persisten. Nilai ini adalah waktu observasi pertama, **bukan `published_at`** dan bukan bukti bahwa video baru diterbitkan.
+
+Video hanya dapat dikirim jika seluruh syarat terpenuhi:
+
+1. Identitas belum dikenal cache/baseline/jurnal, bukan initial inventory, dan pertama kali teramati setelah activation fence produksi.
+2. Kedua tab `/videos` dan `/streams` sehat, dengan dua capture yang stabil dan berjarak minimal **10 menit**.
+3. Identitas kanal, provenance observasi, kategori, dan readiness tervalidasi. Keanggotaan tab dapat menjadi bukti kategori sesuai kebijakan, tetapi tidak menggantikan pemeriksaan kondisi lain.
+4. `/videos`: video reguler yang telah publik dan terverifikasi. `/streams`: hanya **completed replay** dengan bukti penyelesaian yang tervalidasi pada observasi stabil.
+5. Bukti masih segar, tidak bertentangan, dan event belum pernah dikirim atau memiliki status pengiriman ambigu.
+
+Shorts ditolak. LIVE, upcoming, kategori UNKNOWN, replay yang belum terbukti siap, capture parsial/gagal, atau bukti tidak cukup tetap **HOLD** dan tidak dikirim. UNKNOWN adalah status pengetahuan identitas, bukan izin pengiriman; hanya keputusan **ELIGIBLE** yang dapat masuk jalur pengiriman.
+
+| Parameter produksi | Nilai |
+|---|---|
+| Window sejak `first_seen_at` | 24 jam |
+| Evidence TTL | 4 jam |
+| Clock skew | 5 menit |
+| Jarak minimum capture | 10 menit |
+
+Pembaca tab dibatasi 30 item per tab; pagination belum ditangani. Video yang tidak terlihat pada satu capture tidak dianggap dihapus. Perubahan metadata tidak menjadikan `video_id` lama sebagai video baru. Runtime YouTube mengirim maksimal satu event baru per siklus.
+
+## State, deduplikasi, dan pemulihan
+
+| Lokasi | Peran |
+|---|---|
+| `master/announcements_cache.json` | Referensi historis BIMA: 90 entri. |
+| `master/youtube_cache.json` | Referensi historis YouTube: 129 entri. |
+| `master/delivery_state.json` | Jurnal historis dan baseline 133 ID YouTube. Identitas Shorts historis tetap disimpan untuk penekanan replay, tanpa memonitor Shorts. |
+| Branch `dikti-production-state`, `.bot-state/bima_production.json` | Activation fence, initial inventory, first-seen, outbox, progres dokumen, dan receipt produksi BIMA. |
+| Branch `dikti-production-state`, `.bot-state/youtube_production.json` | Activation fence, initial inventory, capture/observasi persisten, event key, outbox, dan receipt produksi YouTube. |
+| Branch `youtube-state`, `.bot-state/youtube_delivery_state.json` | State eksperimen, terpisah dari produksi; tidak menjadi fallback produksi. |
+
+File historis di `master` hanya dibaca oleh runtime produksi; jumlah referensinya diperiksa, dan hash ketiganya dibandingkan sebelum/sesudah eksekusi. State operasional baru disimpan pada branch state, bukan ditulis kembali ke cache historis.
+
+Saat inisialisasi, video/pengumuman yang sudah terlihat dimasukkan ke initial inventory tanpa pengiriman. Fence dan inventory tetap digunakan setelah restart; inisialisasi terhadap state yang sudah diinisialisasi tidak menimpanya. Jangan menghapus state, mengubah fence, atau mereset inventory untuk memaksa pengiriman.
+
+Setiap event memakai kunci idempoten: BIMA berdasarkan identitas pengumuman kanonis, YouTube berdasarkan `video_id` dan event awal. Sebelum Telegram dipanggil, reservasi dan status percobaan pengiriman harus berhasil tersimpan di remote melalui **GitHub Contents API dengan SHA/CAS**. Konflik SHA atau kegagalan checkpoint menghentikan proses; tidak ada fallback ke salinan lokal yang basi.
+
+Status outbox:
+
+| Status | Makna dan tindakan |
+|---|---|
+| `reserved` | Reservasi tersimpan; belum ada percobaan pengiriman yang diklaim. |
+| `sending` | Percobaan sudah diklaim secara durable sebelum API Telegram. |
+| `delivered` | Respons terkonfirmasi: HTTP 200, `ok=true`, dan `message_id` valid; receipt disimpan. |
+| `ambiguous` | Hasil tidak dapat dipastikan, termasuk pemulihan percobaan yang terputus. Wajib rekonsiliasi operator; tidak dikirim ulang otomatis. |
+
+Jalur produksi membatasi satu percobaan per event. Untuk BIMA, satu percobaan mencakup ringkasan dan lampirannya; progres yang berhasil disimpan per checkpoint. Jika sebagian terkirim, jangan mengulang seluruh pengumuman. Perlindungan ini menghindari resend otomatis saat hasil jaringan tidak pasti, tetapi bukan jaminan bahwa setiap gangguan selalu menghasilkan pesan terkirim.
+
+### Controlled backfill
+
+Backfill bukan bagian dari siklus terjadwal. Pengecualian yang tersedia dibatasi pada **satu identitas BIMA** melalui mode manual `backfill-1454`, dengan pemeriksaan judul, nomor surat, tanggal, sumber resmi, PDF, ukuran/hash, jurnal, dan outbox. Mode ini memakai kunci event serta reservasi CAS produksi yang sama. Event yang sudah delivered menghasilkan `SKIPPED`; status pending/ambigu memerlukan rekonsiliasi.
+
+Contoh yang telah selesai:
+
+- Surat `1454/DST/C3/DT.06.01/2026`, tanggal **22 Oktober 2026**.
+- **Pemberitahuan Jadwal Pelaporan dan Monitoring dan Evaluasi Internal Program Pengabdian kepada Masyarakat Tahun Anggaran 2026**.
+- Ringkasan Telegram [#272](https://t.me/dikti_news/272) dan PDF [#273](https://t.me/dikti_news/273), keduanya HTTP 200 dan `ok=true`; outbox berstatus `delivered`.
+- PDF utama berukuran **285.439 byte**. Receipt dan bukti pengecualian tersimpan pada outbox produksi.
+
+Keberhasilan tersebut tidak membuka backfill umum. Pengecualian identitas lain memerlukan keputusan operator dan pemeriksaan tersendiri, bukan penghapusan histori atau perubahan activation fence.
+
+## Konfigurasi GitHub Actions produksi
+
+Atur melalui **Settings → Secrets and variables → Actions**. Jangan menaruh token atau chat ID aktual dalam kode, log, issue, atau repository.
+
+### Secrets
+
+| Nama | Kegunaan |
+|---|---|
+| `TELEGRAM_BOT_TOKEN` | Token bot produksi yang memiliki hak posting pada kanal resmi. |
+| `TELEGRAM_CHAT_ID` | Tujuan produksi: ID numerik kanal resmi yang terverifikasi atau `@dikti_news`. |
+| `GITHUB_TOKEN` | Disediakan otomatis oleh GitHub Actions; workflow meminta `contents: write` untuk checkpoint branch state. Tidak perlu menyalin token ini ke repository. |
+
+### Variables dan kill switch
+
+| Nama | Nilai untuk produksi aktif | Fungsi |
+|---|---|---|
+| `PRODUCTION_TELEGRAM_CHAT_ID_SHA256` | SHA-256 ID numerik kanal resmi | Allowlist wajib. Hash dihitung dari string ID numerik UTF-8 tanpa spasi/newline, **bukan** dari `@dikti_news`. |
+| `BIMA_PRODUCTION_ENABLED` | `true` | Mengizinkan job BIMA terjadwal. |
+| `BIMA_PRODUCTION_AUTO_SEND` | `true` | Mengizinkan pengiriman BIMA. Ubah menjadi `false` untuk menghentikan pengiriman tanpa menghapus state. |
+| `YOUTUBE_PRODUCTION_ENABLED` | `true` | Mengizinkan job YouTube terjadwal. |
+| `YOUTUBE_PRODUCTION_AUTO_SEND` | `true` | Mengizinkan pengiriman YouTube. Ubah menjadi `false` untuk menghentikan pengiriman tanpa menghapus state. |
+
+Keempat saklar default **OFF** bila tidak diatur; gunakan string persis `true` untuk ON. Pengiriman memerlukan saklar sumber dan auto-send sama-sama ON. Dispatch manual tidak melewati pengamanan pengiriman. Jadwal produksi ditentukan oleh workflow, bukan interval dalam `config.json`.
+
+Setiap eksekusi produksi menjalankan preflight read-only `getMe`, `getChat`, dan `getChatMember`: identitas kanal harus cocok dengan kanal resmi serta hash allowlist, dan bot harus memiliki hak posting. Tujuan pengiriman dipin ke ID numerik yang telah diverifikasi. Kredensial eksperimen tidak dipakai sebagai fallback. Jika verifikasi gagal, proses berhenti sebelum pengiriman.
+
+Branch `dikti-production-state` harus tersedia dan dapat ditulis oleh workflow. Mode `initialize` membuat state yang belum ada dengan UTC aktual serta initial inventory tanpa pengiriman; bukan alat reset. Mode `preflight` hanya memeriksa tujuan dan izin tanpa mengirim Telegram atau menginisialisasi state. Mode `run` menjalankan siklus normal menggunakan state yang sudah tersedia.
+
+## Lokal, eksperimen, dan produksi
+
+| Lingkungan | Penggunaan |
+|---|---|
+| Lokal | Pengembangan, regression tests, serta dry-run dengan direktori state terisolasi. `config.json` dan `.env` lokal tidak mengatur runtime produksi Actions. |
+| Eksperimen | Workflow [YouTube Observation Only](.github/workflows/youtube-observation-only.yml), branch `youtube-state`, dan kredensial/allowlist eksperimen tersendiri. Auto-send dikendalikan `YOUTUBE_EXPERIMENT_AUTO_SEND`; saat ini OFF. |
+| Produksi | Dua workflow produksi, kredensial produksi, allowlist kanal resmi, dan branch `dikti-production-state`. |
+
+Eksperimen memakai secrets `YOUTUBE_EXPERIMENT_BOT_TOKEN`, `YOUTUBE_EXPERIMENT_CHAT_ID`, dan `YOUTUBE_EXPERIMENT_CHAT_ID_SHA256`. Jangan menyalin state atau kredensial eksperimen ke produksi.
+
+Untuk pengembangan lokal, gunakan Python 3.11 dan virtual environment:
 
 ```bash
-git clone https://github.com/USERNAME/bima-dikti-news.git
+git clone https://github.com/Galih-Hermawan-Unikom/bima-dikti-news.git
 cd bima-dikti-news
+python -m venv .venv
+# Aktifkan virtual environment sesuai shell yang digunakan.
+pip install -r requirements-dev.txt
+playwright install chromium
+python -m pytest
 ```
 
-### 2. Install Dependencies
+Untuk dry-run, salin ketiga file referensi historis ke direktori terisolasi di luar worktree Git, lalu jalankan:
 
 ```bash
-pip install -r requirements.txt
-playwright install --with-deps chromium
+python run_github.py --dry-run --youtube-eligibility --state-dir <direktori-state-terisolasi>
 ```
 
-## Penggunaan
+Perintah dry-run mengevaluasi sumber publik tanpa pengiriman Telegram. Satu capture belum cukup untuk membuktikan stabilitas. Gunakan fixture dan notifier mock untuk pengujian delivery; jangan memakai kredensial produksi dalam eksperimen lokal. `production_runtime.py` sendiri mensyaratkan lingkungan GitHub Actions.
 
-### Mode Lokal
-
-Jalankan sekali:
-```bash
-python main.py
-```
-
-Bot akan mengecek pengumuman dan berjalan terus-menerus sesuai interval di `config.json`.
-Nilai ini bisa dioverride lewat `CHECK_INTERVAL_MINUTES` di `.env`.
-
-Untuk notifikasi Telegram lokal, isi `.env`:
-
-```env
-NOTIFICATION_METHOD=telegram
-TELEGRAM_SEND_FILES=true
-TELEGRAM_BOT_TOKEN=isi_token_bot
-TELEGRAM_CHAT_ID=isi_chat_id
-CHECK_INTERVAL_MINUTES=30
-YOUTUBE_MONITOR_ENABLED=true
-YOUTUBE_CHANNEL_URL=https://www.youtube.com/@kemdiktisaintek
-YOUTUBE_CHANNEL_ID=UCGo_6l_6kp8H8OHcKcSIeDw
-```
-
-Rekomendasi penggunaan:
-- Lokal / eksperimen: isi `TELEGRAM_BOT_TOKEN` dan `TELEGRAM_CHAT_ID` dengan bot pribadi
-- GitHub Actions / channel resmi: isi GitHub Secrets dengan token dan chat ID channel resmi
-- Monitor YouTube bisa dimatikan dengan `YOUTUBE_MONITOR_ENABLED=false`
-- Kirim lampiran Telegram aktif jika `TELEGRAM_SEND_FILES=true`
-- Jika tidak ada item baru, bot tidak mengirim pesan dan tidak mengunggah file apa pun
-
-### Mode GitHub Actions (Hosting Gratis)
-
-**Langkah 1:** Push repository ke GitHub
-
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-git remote add origin https://github.com/USERNAME/REPO.git
-git push -u origin <default-branch>
-```
-
-**Langkah 2:** Buat Bot Telegram
-
-1. Buka [@BotFather](https://t.me/botfather) di Telegram
-2. Kirim `/newbot`
-3. Ikuti instruksi sampai mendapat **token** (contoh: `123456:ABC-DEF...`)
-
-**Langkah 3:** Dapatkan Chat ID Tujuan
-
-Bot bisa mengirim notifikasi ke:
-- chat pribadi Telegram
-- channel Telegram
-
-**Untuk chat pribadi:**
-
-1. Buka [@userinfobot](https://t.me/userinfobot)
-2. Kirim pesan `/start`
-3. Catat **Id** Anda (contoh: `987654321`)
-
-**Untuk channel Telegram:**
-
-1. Buat channel Telegram
-2. Tambahkan bot sebagai **admin channel**
-3. Kirim minimal satu pesan ke channel
-4. Buka:
+## Struktur proyek
 
 ```text
-https://api.telegram.org/bot<TOKEN_BOT_ANDA>/getUpdates
+.github/workflows/
+  main.yml                         # BIMA produksi, setiap 3 jam
+  youtube-production.yml           # YouTube produksi, setiap 30 menit
+  youtube-observation-only.yml     # Jalur eksperimen terpisah
+  telegram-preflight.yml           # Preflight Telegram produksi read-only
+  youtube-experiment-preflight.yml # Preflight eksperimen read-only
+  tests.yml                        # Regression tests
+production_runtime.py              # Siklus produksi, fence, outbox, checkpoint
+production_preflight.py            # Identitas kanal resmi, allowlist, izin bot
+bima_controlled_backfill.py         # Pengecualian satu surat yang terverifikasi
+scraper.py                         # Scraper BIMA dan identitas pengumuman
+notifier.py                        # Formatter, pesan/dokumen, receipt Telegram
+youtube_channel_tabs.py            # Pengambilan dan parsing /videos, /streams
+youtube_tabs_monitor.py            # Adapter observasi dan verifikasi otomatis
+youtube_eligibility.py             # Classifier knowledge, eligibility, delivery
+youtube_delivery.py                # JSON observasi/outbox, reservasi, recovery
+youtube_state_backend.py           # GitHub Contents API dan CAS
+youtube_experiment_pipeline.py     # Pipeline khusus eksperimen
+monitor_runner.py / run_github.py   # Runner umum dan CLI lokal/dry-run
+main.py / app_config.py / config.json
+announcements_cache.json           # Referensi historis BIMA
+youtube_cache.json                 # Referensi historis YouTube
+delivery_state.json                # Jurnal dan baseline historis
+tests/                             # Unit, regression, fixture, notifier mock
+docs/                              # Rincian desain dan riwayat implementasi
 ```
 
-5. Cari nilai `chat.id` pada object `channel_post` atau `my_chat_member`
-6. Gunakan nilai tersebut sebagai `TELEGRAM_CHAT_ID` channel
+File JSON operasional `.bot-state/` berada pada branch state masing-masing, bukan sebagai pengganti file historis di `master`.
 
-> Chat ID channel biasanya bernilai negatif, misalnya `-100xxxxxxxxxx`.
+## Membaca hasil dan troubleshooting
 
-**Langkah 4:** Setup Secrets di GitHub
+Siklus produksi normal menulis satu baris `PRODUCTION_RUN=` diikuti JSON. Interpretasikan field bersama status job dan outbox, bukan hanya jumlah kandidat:
 
-1. Buka repository → **Settings** → **Secrets and variables** → **Actions**
-2. Di tab **Secrets**, tambahkan:
-
-| Name | Value |
+| Field/log | Arti |
 |---|---|
-| `TELEGRAM_BOT_TOKEN` | Token dari BotFather |
-| `TELEGRAM_CHAT_ID` | Chat ID tujuan notifikasi, bisa chat pribadi atau channel |
+| `source` | Sumber yang dijalankan: `bima` atau `youtube`. |
+| `startup: true` | Capture initial inventory; tidak ada pengiriman startup. |
+| `visible` | Jumlah item terlihat; YouTube memisahkan jumlah per tab. Bukan jumlah video baru. |
+| `eligible` / `hold` | Hasil evaluasi pada siklus itu; bukan jumlah pesan terkirim. |
+| `sending: ON` | Saklar mengizinkan pengiriman; bukan bukti API Telegram telah dipanggil. |
+| `confirmed_messages` | Jumlah pesan Telegram terkonfirmasi; pada BIMA mencakup ringkasan dan dokumen. |
+| `delivered_events` | Jumlah event yang selesai dikirim, berbeda dari jumlah pesan/lampiran. |
+| `activation_at` / `initial_inventory` | Fence tersimpan dan ukuran inventory jika disertakan pada laporan. |
+| `capture_seq` | Urutan capture YouTube yang tersimpan. |
+| `PRODUCTION_PREFLIGHT=PASS` | Pemeriksaan tujuan/izin berhasil; mode preflight tidak mengirim. |
+| `PRODUCTION_FAIL_CLOSED=...` | Pengamanan menghentikan siklus. Periksa kode kegagalan dan state sebelum bertindak. |
 
-3. Di tab **Variables**, tambahkan:
+**Job sukses dengan 0 pengiriman adalah hasil normal** saat belum ada konten baru yang memenuhi kebijakan. Untuk controlled backfill, baca field `backfill`, `reason`, dan receipt/message ID yang tersedia.
 
-| Name | Contoh Value |
+| Gejala | Pemeriksaan aman |
 |---|---|
-| `NOTIFICATION_METHOD` | `telegram` |
-| `TELEGRAM_SEND_FILES` | `true` |
-| `CHECK_INTERVAL_MINUTES` | `30` |
-| `YOUTUBE_MONITOR_ENABLED` | `true` |
-| `YOUTUBE_CHANNEL_URL` | `https://www.youtube.com/@kemdiktisaintek` |
-| `YOUTUBE_CHANNEL_ID` | `UCGo_6l_6kp8H8OHcKcSIeDw` |
+| Job terjadwal dilewati | Periksa status workflow, branch `master`, dan variable `*_PRODUCTION_ENABLED`. |
+| Job berjalan tetapi tidak mengirim | Periksa auto-send, inventory/histori, fence, hasil eligibility, dan outbox; jangan menghapus histori. |
+| Allowlist atau izin Telegram gagal | Periksa secrets, hash ID numerik resmi, identitas kanal, serta hak admin bot. Jangan mencetak nilai rahasia. |
+| YouTube HOLD | Periksa kesehatan kedua tab, jarak/stabilitas capture, kesegaran bukti, kategori, serta replay readiness. Jangan mempromosikan UNKNOWN secara manual tanpa bukti. |
+| Konflik CAS/state tidak tersedia | Periksa izin `contents: write`, branch/path state, dan checkpoint terakhir. Jangan memaksa overwrite atau reset branch. |
+| Outbox `ambiguous` atau pengiriman parsial | Matikan auto-send sumber terkait bila perlu; cocokkan receipt, message ID, dan riwayat kanal. Tidak ada resend otomatis. |
+| PDF BIMA tidak selesai | Periksa ketersediaan/unduhan dokumen dan receipt `sendDocument`. Flag `config.json` bukan saklar PDF produksi; jangan mengulang ringkasan yang sudah terkirim. |
+| Chromium tidak tersedia | Pastikan langkah `playwright install --with-deps chromium` pada workflow BIMA berhasil; untuk lokal gunakan `playwright install chromium`. |
+| Timeout sumber publik | Periksa log job dan kesehatan sumber; timeout workflow 20 menit. Jangan mengatasi timeout dengan reset cache/outbox. |
 
-> Gunakan **Secrets** untuk data sensitif seperti token dan chat ID.
-> Gunakan **Variables** untuk pengaturan workflow seperti mode notifikasi, monitoring YouTube, dan kirim lampiran.
+## Dokumentasi lanjutan
 
-**Langkah 5:** Workflow Otomatis Jalan
+- [Kebijakan classifier tabs-only](docs/youtube-eligibility-offline.md)
+- [Adapter channel-tabs dan verifikasi otomatis](docs/youtube-channel-tabs.md)
+- [Observasi persisten dan durable outbox](docs/youtube-persistent-outbox.md)
+- [Preflight Telegram eksperimen](docs/telegram-preflight.md)
+- [Riwayat audit reliabilitas Fase 1](docs/reliability-phase1.md)
 
-- Pengecekan otomatis saat ini setiap **3 jam**
-- Bisa trigger manual: tab **Actions** → **BIMA Pengumuman Checker** → **Run workflow**
-
-## Struktur File
-
-```
-bima-dikti-news/
-├── .github/workflows/
-│   └── main.yml               # GitHub Actions workflow
-├── main.py                    # Entry point (lokal + scheduler)
-├── scraper.py                 # Web scraper (cross-platform)
-├── notifier.py                # Notifikasi Console + Telegram
-├── run_github.py              # Entry point GitHub Actions
-├── youtube_monitor.py         # Pembaca RSS legacy, tidak dipakai runner baru
-├── youtube_tabs_monitor.py    # Adapter /videos + /streams dan evaluasi dry-run
-├── youtube_eligibility.py     # Classifier tabs-only, tanpa enqueue/delivery
-├── config.json                # Konfigurasi non-secret
-├── .env                       # Secret lokal (tidak di-commit)
-├── requirements.txt           # Python dependencies
-├── announcements_cache.json   # Cache metadata pengumuman (auto-generated)
-├── youtube_cache.json         # Cache metadata video YouTube (auto-generated)
-└── README.md
-```
-
-## Konfigurasi
-
-### config.json
-
-```json
-{
-  "notification_method": "telegram",
-  "check_interval_minutes": 30,
-  "youtube_monitor_enabled": true,
-  "youtube_channel_url": "https://www.youtube.com/@kemdiktisaintek",
-  "youtube_channel_id": "UCGo_6l_6kp8H8OHcKcSIeDw",
-  "telegram_send_files": false
-}
-```
-
-| Key | Nilai | Keterangan |
-|---|---|---|
-| `notification_method` | `console`, `telegram`, `both` | Cara notifikasi |
-| `check_interval_minutes` | Angka (menit) | Frekuensi pengecekan |
-| `youtube_monitor_enabled` | `true`, `false` | Aktifkan monitoring YouTube |
-| `youtube_channel_url` | URL channel | URL kanal YouTube target |
-| `youtube_channel_id` | Channel ID | ID kanal YouTube target untuk tab |
-| `telegram_send_files` | `true`, `false` | Kirim lampiran dokumen ke Telegram |
-
-### .env (Lokal)
-
-```env
-NOTIFICATION_METHOD=telegram
-TELEGRAM_SEND_FILES=true
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_CHAT_ID=
-CHECK_INTERVAL_MINUTES=30
-YOUTUBE_MONITOR_ENABLED=true
-YOUTUBE_CHANNEL_URL=https://www.youtube.com/@kemdiktisaintek
-YOUTUBE_CHANNEL_ID=UCGo_6l_6kp8H8OHcKcSIeDw
-```
-
-| Key | Keterangan |
-|---|---|
-| `NOTIFICATION_METHOD` | Override metode notifikasi dari `config.json` |
-| `TELEGRAM_SEND_FILES` | Override kirim lampiran Telegram |
-| `TELEGRAM_BOT_TOKEN` | Secret token bot Telegram |
-| `TELEGRAM_CHAT_ID` | Secret chat ID Telegram |
-| `CHECK_INTERVAL_MINUTES` | Override interval dari `config.json` |
-| `YOUTUBE_MONITOR_ENABLED` | Override aktivasi monitor YouTube |
-| `YOUTUBE_CHANNEL_URL` | Override URL channel YouTube |
-| `YOUTUBE_CHANNEL_ID` | Override channel ID YouTube |
-
-### GitHub Secrets
-
-| Secret | Wajib | Keterangan |
-|---|---|---|
-| `TELEGRAM_BOT_TOKEN` | Ya (untuk Telegram) | Token bot dari [@BotFather](https://t.me/botfather) |
-| `TELEGRAM_CHAT_ID` | Ya (untuk Telegram) | Chat ID tujuan notifikasi, bisa chat pribadi atau channel |
-
-### GitHub Variables (Opsional)
-
-| Variable | Default | Keterangan |
-|---|---|---|
-| `NOTIFICATION_METHOD` | `telegram` | `telegram`, `console`, atau `both` |
-| `TELEGRAM_SEND_FILES` | `false` | `true` untuk kirim lampiran Telegram di workflow |
-| `CHECK_INTERVAL_MINUTES` | `30` | Override interval konfigurasi |
-| `YOUTUBE_MONITOR_ENABLED` | `true` | `false` untuk menonaktifkan monitor YouTube |
-| `YOUTUBE_CHANNEL_URL` | `https://www.youtube.com/@kemdiktisaintek` | URL kanal YouTube target |
-| `YOUTUBE_CHANNEL_ID` | `UCGo_6l_6kp8H8OHcKcSIeDw` | Channel ID YouTube target |
-
-## Jadwal Pengecekan
-
-**Default saat ini: setiap 3 jam**
-
-Rekomendasi penggunaan:
-- Masa kritis, misalnya saat menunggu pengumuman hibah: setiap `30 menit`
-- Masa normal: setiap `3 jam`
-
-Edit `.github/workflows/main.yml` bagian `cron`:
-
-```yaml
-schedule:
-  - cron: '0 */3 * * *'    # Setiap 3 jam (default saat ini)
-  - cron: '*/30 * * * *'   # Setiap 30 menit (masa kritis)
-  - cron: '0 * * * *'      # Setiap 1 jam
-  - cron: '0 */6 * * *'    # Setiap 6 jam
-  - cron: '0 8 * * *'      # Sekali sehari jam 8 pagi
-  - cron: '0 8,12,16 * * *' # Jam 8, 12, 16 setiap hari
-```
-
-> **Catatan:** Free tier GitHub Actions mendapat **2.000 menit/bulan**.
-> Estimasi pemakaian:
->
-> | Jadwal | Pemakaian/Bulan |
-> |---|---|
-> | Setiap 30 menit | ~1.440 menit |
-> | Setiap 3 jam | ~240 menit |
-> | Setiap 1 jam | ~720 menit |
-> | Sekali sehari | ~30 menit |
->
-> Jika kuota habis, workflow berhenti sampai bulan berikutnya (tidak kena biaya).
-
-## Contoh Notifikasi Telegram historis
-
-Contoh berikut merekam format pesan dari integrasi sebelumnya. YouTube saat ini
-hanya menghasilkan laporan tabs-only dry-run dan tidak masuk ke pesan Telegram.
-
-```
-📢 UPDATE BARU BIMA + YOUTUBE KEMDIKTISAINTEK
-
-📅 17/04/2026 18:57 WIB
-🔢 Jumlah: 3 item baru
-🏛️ BIMA: 2
-📺 YouTube: 1
-
-1. Pengumuman Penerima Pendanaan Penelitian Program PHC - NUSANTARA 2026
-   📜 203/DST/C2/PP.01.11/2026
-   📆 01 April 2026
-   📎 Surat Pengumuman PHC-Nusantara 2026.pdf
-   🔗 https://bima.kemdiktisaintek.go.id/pengumuman
-
-2. Pengumuman Pendanaan Program Penelitian Multitahun Lanjutan TA 2026
-   📜 195/DST/C3/DT.05.00/2026
-   📆 06 March 2026
-   📎 Pengumuman Pendanaan Program Penelitian Multitahun Lanjutan TA 2026.pdf
-   🔗 https://bima.kemdiktisaintek.go.id/pengumuman
-
-3. Sosialisasi Peraturan tentang Petunjuk Teknis PEKERTI AA
-   📺 Kementerian Pendidikan Tinggi, Sains dan Teknologi
-   📆 Publikasi (RSS): 2026-04-16T04:05:14+00:00
-   📝 Sosialisasi Peraturan tentang Petunjuk Teknis PEKERTI AA (Pimpinan PT dan Kepala LLDIKTI)
-   🔗 https://www.youtube.com/watch?v=pSgfm5BB-aI
-
-━━━━━━━━━━━━━━━━━━━━
-Bot Notifikasi BIMA
-```
-
-> Waktu pembuatan notifikasi menggunakan **WIB (UTC+7)**. Publikasi RSS mempertahankan zona waktu sumber dan bukan bukti waktu mulai siaran.
-> Jika `TELEGRAM_SEND_FILES=true`, setelah pesan utama bot akan mengunggah dokumen lampiran satu per satu untuk item **BIMA saja**.
-> Item YouTube hanya mengirim ringkasan teks dan tautan video, tanpa lampiran.
-> Jika tidak ada item baru, bot hanya menulis log `[OK] No new items` tanpa mengirim pesan ke Telegram.
-> File cache yang ter-commit hanya menyimpan metadata stabil dan nama dokumen, bukan signed URL unduhan.
-
-## Troubleshooting
-
-### Reliabilitas dan Dry-run (Fase 1)
-
-Gunakan `python run_github.py --dry-run` untuk membaca sumber dan melihat preview tanpa mengirim Telegram, membaca secrets, atau mengubah cache/jurnal. Pengujian otomatis: `pip install -r requirements-dev.txt`, `playwright install chromium`, lalu `python -m pytest`.
-
-### YouTube tabs-only (dry-run)
-
-Runner memakai `/videos` dan `/streams` saja untuk laporan eligibility YouTube.
-Classifier dan adapter tidak membaca RSS. Persistent observation dan outbox
-tersedia sebagai fitur opt-in; observation, reservation, dan sending
-masing-masing default-disabled. Saat diaktifkan secara eksplisit, Actions
-menyimpan state pada branch durable khusus dengan compare-and-swap; branch itu
-tidak berisi migrasi cache atau jurnal. Baseline 133 ID dan jurnal lama dibaca
-sebagai identitas historis; tidak ada backfill otomatis.
-
-`first_seen_at` adalah waktu observasi tab pertama setelah activation fence; ia
-bukan `published_at`. Capture awal, capture parsial/gagal, bukti basi, kategori
-tak dikenal, upcoming/LIVE, dan replay tanpa bukti kesiapan tetap ditahan.
-Shorts ditolak. Lihat [panduan classifier tabs-only](docs/youtube-eligibility-offline.md),
-[integrasi channel-tabs](docs/youtube-channel-tabs.md), dan
-[persistent observations/outbox](docs/youtube-persistent-outbox.md).
-
-Cache mencatat **deteksi**, sedangkan `delivery_state.json` mencatat **pengiriman BIMA yang terkonfirmasi**. Outbox YouTube terpisah dan checkpoint `sending` yang durable harus sukses sebelum satu percobaan Telegram; hasil ambigu tidak dikirim ulang otomatis. Kegagalan state branch menghentikan jalur YouTube sebelum pengiriman. Jalur BIMA tetap memakai jurnal dan mekanisme retry yang sudah ada.
-
-Migrasi nomor surat tersedia melalui `migrate_cache.py`, diawali preview dan backup terverifikasi sebelum `--apply`. Jangan menghapus cache atau jurnal untuk mengatasi kegagalan karena dapat memicu pengiriman ulang. Prosedur dan batasan lengkap: [Audit Reliabilitas Fase 1](docs/reliability-phase1.md).
-
-| Masalah | Solusi |
-|---|---|
-| `Executable doesn't exist` | Jalankan `playwright install --with-deps chromium` |
-| Notifikasi Telegram tidak terkirim | Periksa `TELEGRAM_BOT_TOKEN` dan `TELEGRAM_CHAT_ID` di Secrets |
-| File lampiran tidak ikut terkirim | Pastikan `TELEGRAM_SEND_FILES=true` dan bot punya izin kirim dokumen ke chat/channel tujuan |
-| Video YouTube tidak muncul | Periksa `YOUTUBE_MONITOR_ENABLED`, `YOUTUBE_CHANNEL_URL`, dan `YOUTUBE_CHANNEL_ID` |
-| Workflow tidak jalan | Pastikan file ada di `.github/workflows/` dan branch default repository sesuai workflow |
-| Timeout di GitHub Actions | Website BIMA lambat, timeout sudah diset 15 menit |
-| Cache atau jurnal rusak | Hentikan bot dan pulihkan backup/state terverifikasi; jangan menghapus riwayat cache atau jurnal |
+Dokumen fase terdahulu menjelaskan desain dan riwayat implementasi. Untuk operasi produksi saat ini, rujuk README ini beserta `production_runtime.py` dan kedua workflow produksi.
 
 ## Pengembang
 
