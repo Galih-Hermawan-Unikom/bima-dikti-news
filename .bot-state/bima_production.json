@@ -2,8 +2,138 @@
   "schema_version": 1,
   "source": "bima",
   "activation_at": "2026-10-23T03:05:28.203529+00:00",
-  "initialized": false,
-  "inventory": [],
+  "initialized": true,
+  "inventory": [
+    {
+      "title": "Pemberitahuan Jadwal Pelaporan dan Monitoring dan Evaluasi Internal Program Pengabdian kepada Masyarakat Tahun Anggaran 2026",
+      "surat": "1454/DST/C3/DT.06.01/2026",
+      "date": "22 Oktober 2026",
+      "documents": [
+        {
+          "name": "Pemberitahuan Jadwal Pelaporan dan Monitoring dan Evaluasi Internal Program Pengabdian kepada Masyarakat Tahun Anggaran 2026.pdf"
+        }
+      ],
+      "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+      "scraped_at": "2026-10-23T03:05:49.700255"
+    },
+    {
+      "title": "Pemberitahuan Revisi Proposal dan RAB Mahasiswa Berdampak: Program Aksara Mahasiswa Tahun Anggaran 2026",
+      "surat": "1417/DST/C3/DT.06.01/2026",
+      "date": "13 Oktober 2026",
+      "documents": [
+        {
+          "name": "Pemberitahuan Revisi Proposal dan RAB Program Aksara Mahasiswa Tahun Anggaran 2026.pdf"
+        }
+      ],
+      "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+      "scraped_at": "2026-10-23T03:05:52.792170"
+    },
+    {
+      "title": "Pemberitahuan Hasil Verifikasi Pernyataan Minat PHC – Nusantara Tahun 2027",
+      "surat": "1383/DST/C3/DT.05.00/2026",
+      "date": "06 Oktober 2026",
+      "documents": [
+        {
+          "name": "Pemberitahuan Hasil Verifikasi Pernyataan Minat PHC – Nusantara Tahun 2027.pdf"
+        },
+        {
+          "name": "Panduan Pengusulan PHC Nusantara 2027 di BIMA.pdf"
+        }
+      ],
+      "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+      "scraped_at": "2026-10-23T03:05:58.996566"
+    },
+    {
+      "title": "Undangan Penandatanganan Kontrak Program Aksara Mahasiswa Tahun Anggaran 2026",
+      "surat": "1386/DST/C3/DT.06.01/2026",
+      "date": "07 Oktober 2026",
+      "documents": [
+        {
+          "name": "Undangan Penandatanganan Kontrak Program Aksara Mahasiswa Tahun Anggaran 2026.pdf"
+        }
+      ],
+      "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+      "scraped_at": "2026-10-23T03:06:02.083962"
+    },
+    {
+      "title": "Pengumuman Penerima Pendanaan Program Aksara Mahasiswa Tahun Anggaran 2026",
+      "surat": "1386/DST/C3/DT.06.01/2026",
+      "date": "07 Oktober 2026",
+      "documents": [
+        {
+          "name": "Pengumuman Penerima Pendanaan Program Aksara Mahasiswa Tahun Anggaran 2026.pdf"
+        }
+      ],
+      "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+      "scraped_at": "2026-10-23T03:06:05.161954"
+    },
+    {
+      "title": "Pemberitahuan Batas Waktu Pengunggahan Laporan Kemajuan Program Riset PUI-PT dan Penelitian Batch 2",
+      "surat": "1330/DST/C3/DT.05.00/2026",
+      "date": "28 September 2026",
+      "documents": [
+        {
+          "name": "Pemberitahuan Batas Waktu Pengunggahan Laporan Kemajuan Program Riset PUI-PT dan Penelitian Batch 2.pdf"
+        }
+      ],
+      "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+      "scraped_at": "2026-10-23T03:06:08.245410"
+    },
+    {
+      "title": "Pengumuman Pembukaan Pendaftaran Program Insentif Artikel pada Jurnal Internasional Bereputasi Tahun 2026",
+      "surat": "927/DST/C2/KP.13.02/2026",
+      "date": "30 September 2026",
+      "documents": [
+        {
+          "name": "Pengumuman Pembukaan Pendaftaran Program Insentif Artikel pada Jurnal Internasional Bereputasi Tahun 2026.pdf"
+        },
+        {
+          "name": "Format Lembar Pengesahan atau Pernyataan.pdf"
+        },
+        {
+          "name": "Panduan Insentif Artikel Pada Jurnal Internasional Bereputasi Tahun 2026__DBTPP-RISBANG.pdf"
+        }
+      ],
+      "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+      "scraped_at": "2026-10-23T03:06:17.492963"
+    },
+    {
+      "title": "Pemberitahuan Pelaksanaan Monitoring dan Evaluasi Program Pengabdian kepada Masyarakat Skema Pemberdayaan Berbasis Masyarakat Tahun 2026",
+      "surat": "1278/DST/C3/DT.06.01/2026",
+      "date": "22 September 2026",
+      "documents": [
+        {
+          "name": "Pemberitahuan Pelaksanaan Monitoring dan Evaluasi Program Pengabdian kepada Masyarakat Skema Pemberdayaan Berbasis Masyarakat Tahun 2026.pdf"
+        }
+      ],
+      "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+      "scraped_at": "2026-10-23T03:06:20.578120"
+    },
+    {
+      "title": "Pemberitahuan Revisi Proposal dan RAB Program Penelitian Batch 2",
+      "surat": "1257/DST/C3/DT.05.00/2026",
+      "date": "15 September 2026",
+      "documents": [
+        {
+          "name": "Pemberitahuan Revisi Proposal dan RAB Program Penelitian Batch 2 Tahun 2026.pdf"
+        }
+      ],
+      "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+      "scraped_at": "2026-10-23T03:06:23.675019"
+    },
+    {
+      "title": "Pemberitahuan Revisi Proposal dan RAB Program Kosabangsa Tahun Anggaran 2026",
+      "surat": "1258/DST/C3/DT.06.01/2026",
+      "date": "15 September 2026",
+      "documents": [
+        {
+          "name": "Pemberitahuan Revisi Proposal dan RAB Program Kosabangsa Tahun Anggaran 2026.pdf"
+        }
+      ],
+      "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+      "scraped_at": "2026-10-23T03:06:26.762781"
+    }
+  ],
   "first_seen": {},
   "outbox": {}
 }
