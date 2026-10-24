@@ -1,0 +1,65 @@
+{
+  "simulation": true,
+  "live_http_requests": 0,
+  "live_telegram_posts": 0,
+  "fixture_origin": "synthetic transport responses parsed by Stage 1 API/HTML parsers",
+  "cases": [
+    {
+      "case": "A",
+      "scenario": "new_relevant",
+      "status": "DELIVERED",
+      "mock_posts": 1,
+      "receipt": {
+        "http_status": 200,
+        "ok": true,
+        "message_id": 101,
+        "destination_sha256": "150aae61cb00611fd39d450b321adb173b8472bad2f1cd68657dbda69bb0af00"
+      },
+      "durable_claim_before_post": true
+    },
+    {
+      "case": "B",
+      "scenario": "same_article_next_poll",
+      "status": "DELIVERED",
+      "additional_posts": 0
+    },
+    {
+      "case": "C",
+      "scenario": "historical",
+      "status": "HOLD",
+      "mock_posts": 0
+    },
+    {
+      "case": "D",
+      "scenario": "irrelevant",
+      "status": "REJECTED",
+      "mock_posts": 0
+    },
+    {
+      "case": "E",
+      "scenario": "revision",
+      "status": "NEEDS_REVIEW",
+      "mock_posts": 0
+    },
+    {
+      "case": "F",
+      "scenario": "telegram_timeout",
+      "status": "AMBIGUOUS",
+      "mock_posts": 1,
+      "retries": 0
+    },
+    {
+      "case": "G",
+      "scenario": "claim_cas_conflict",
+      "status": "BLOCKED",
+      "mock_posts": 0
+    },
+    {
+      "case": "H",
+      "scenario": "wrong_destination",
+      "status": "BLOCKED",
+      "mock_posts": 0
+    }
+  ],
+  "message_preview_html": "<b>PENGUMUMAN KEMDIKTISAINTEK</b>\n\n<b>Penawaran Hibah Penelitian untuk Dosen</b>\n\nTanggal publikasi: 24 Oktober 2026, 17:05 WIB\nKategori: Umum\n\n<b>Ringkasan:</b>\nPerguruan tinggi membuka pendaftaran pendanaan riset bagi dosen dan peneliti.\n\n<b>Dokumen:</b>\nPDF: <a href=\"https://kemdiktisaintek.go.id/fixture.pdf\">PDF</a>\n\n<b>Sumber:</b>\nhttps://kemdiktisaintek.go.id/announcement/article/fixture-new"
+}

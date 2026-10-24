@@ -229,16 +229,18 @@ def _admission(item, state, at, classification, dedup, context, first_seen):
     return 'NEW_CANDIDATE', ['POLICY_COMPLETE_OBSERVATION_ONLY']
 
 
-def apply_poll(previous, capture, *, bima_history=None):
+def apply_poll(previous, capture, *, bima_history=None, max_poll_gap=MAX_POLL_GAP):
     """Pure transition. Caller must checkpoint before publishing a successful report."""
     validate_state(previous)
     validate_capture(capture)
+    if not isinstance(max_poll_gap, timedelta) or not timedelta(0) < max_poll_gap <= timedelta(minutes=90):
+        raise CaptureError('INVALID_POLL_GAP_POLICY')
     at = capture.observed_at
     if timestamp(at) <= timestamp(previous['last_successful_poll_at']):
         raise CaptureError('NON_MONOTONIC_POLL')
     state = deepcopy(previous)
     context = []
-    if timestamp(at) - timestamp(previous['last_successful_poll_at']) > MAX_POLL_GAP:
+    if timestamp(at) - timestamp(previous['last_successful_poll_at']) > max_poll_gap:
         context.append('UNHEALTHY_POLL_GAP')
     visible = {i.get('id') for i in capture.items if i.get('id')}
     if previous['observations'] and not visible.intersection(previous['observations']):

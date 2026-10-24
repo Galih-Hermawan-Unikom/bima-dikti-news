@@ -2,6 +2,8 @@
 
 Kelanjutan implementasi: [README Tahap 2](README_STAGE2.md), monitor eksperimen persisten tanpa Telegram.
 
+Delivery eksperimen: [README Tahap 3](README_STAGE3.md), implementasi offline dengan preflight dan durable outbox; live send tetap OFF.
+
 Catatan checkpoint sebelum Tahap 2: fixture HTML telah diringkas dengan mempertahankan DOM artikel/daftar, pagination, dan metadata JSON. Gambar/base64, i18n, script bersama, serta artikel terkait dikeluarkan; fixture terbesar 14.5 KB. Sebanyak 83 tes parser tetap lulus. Hanya source, dokumentasi, 16 fixture yang dipakai tes, contoh JSON, dan checksum fixture masuk checkpoint Git. Capture mentah, manifest audit lokal, dan output tes lama tidak disertakan. Pernyataan operasional di bawah mendokumentasikan kondisi saat audit Tahap 1; checkpoint lokal kemudian dibuat atas instruksi Tahap 2.
 
 Audit dan implementasi lokal pada 24 Oktober 2026. Branch `feat/kemdiktisaintek-parser-stage1`, berbasis `origin/master` pada commit `8c9fa4833891c31f1609ad2c0aa53d207917c00a`.
