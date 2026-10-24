@@ -1,0 +1,82 @@
+[
+  {
+    "file": "fixtures/list.html",
+    "bytes": 13445,
+    "sha256": "64a5a64bab05a69205572928210a834c0688ef294f29d22cc7c01627dca02699"
+  },
+  {
+    "file": "fixtures/page2.html",
+    "bytes": 12911,
+    "sha256": "01b1bd7af7462fd8510e6487d543838f5cf9e568f827bd3139a1bea176fb5191"
+  },
+  {
+    "file": "fixtures/category.html",
+    "bytes": 2030,
+    "sha256": "662b307645dd9ef9786c19a1f724738581cf225b35c6295b89fe24b1d00bde68"
+  },
+  {
+    "file": "fixtures/search.html",
+    "bytes": 11840,
+    "sha256": "2277bb782a4dbe3bda9feabdef5be3716e7baacaaa6a2c842df15a8d18e85cd9"
+  },
+  {
+    "file": "fixtures/detail0.html",
+    "bytes": 11070,
+    "sha256": "d81af5d0e3066719fcc9df505e7f44431fa68df75f46022a605a9a19afb1f21f"
+  },
+  {
+    "file": "fixtures/detail2.html",
+    "bytes": 14143,
+    "sha256": "bcae698029a15c7b056348fea8f273762a1d2ea3ce13b3ad19c264a10dbda8cb"
+  },
+  {
+    "file": "fixtures/detail7.html",
+    "bytes": 11098,
+    "sha256": "7bc22a64b3c6c9e3ab267b5208f2cdc518523a872f562f37ef2a64edda82043a"
+  },
+  {
+    "file": "fixtures/higher.html",
+    "bytes": 12081,
+    "sha256": "65bb9bb9b8af045d4cd2265e7fd8476162b17334cc141f0d384453932ba5452b"
+  },
+  {
+    "file": "fixtures/science.html",
+    "bytes": 14458,
+    "sha256": "3f39a30315a72dadb1e227d128e183fe2a70a0c98330777344b19759746ef8ce"
+  },
+  {
+    "file": "fixtures/general.html",
+    "bytes": 13159,
+    "sha256": "bf8578f91d81955dadc8b984f8f1ad45487360384244aed398c17bbf0f8d764a"
+  },
+  {
+    "file": "fixtures/detail_higher.html",
+    "bytes": 10658,
+    "sha256": "0bd4e57a2be214a6ab270012f0c8b6ca5cc7659bd888358f840bdc6f673808bf"
+  },
+  {
+    "file": "fixtures/detail_page2.html",
+    "bytes": 9723,
+    "sha256": "b742007403861bc03dae0c8184146ac2994830c4078e84a5b2be753c2027e6d7"
+  },
+  {
+    "file": "fixtures/api-list.json",
+    "bytes": 3651,
+    "sha256": "c588f30b9ead2cfb4a1435ac62688384f459655eb2981c5e87a8ce4b0b20e3c8"
+  },
+  {
+    "file": "fixtures/api-page2.json",
+    "bytes": 3363,
+    "sha256": "4f2a75e0479343162791d179da35ba944ed0c2fc35fe762a6759716306505642"
+  },
+  {
+    "file": "fixtures/api-search.json",
+    "bytes": 2983,
+    "sha256": "0841ee47d0a2d3586620ec0c57a9dc05229e1dd9d0a9712712d90254aa041d64"
+  },
+  {
+    "file": "fixtures/api-category.json",
+    "bytes": 3022,
+    "sha256": "bad98cedcad87400f861c17d41e72f732427a52b13f6d892f33e04bbb7ec1437"
+  }
+]
