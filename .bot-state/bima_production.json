@@ -134,7 +134,9 @@
       "scraped_at": "2026-10-23T03:06:26.762781"
     }
   ],
-  "first_seen": {},
+  "first_seen": {
+    "bima:surat:1465/dst/c3/dt.06.01/2026|title:pemutakhiran capaian luaran program pengabdian kepada masyarakat tahun pelaksanaan 2023-2025:initial": "2026-10-24T15:52:32.411079+00:00"
+  },
   "outbox": {
     "bima:surat:1454/dst/c3/dt.06.01/2026|title:pemberitahuan jadwal pelaporan dan monitoring dan evaluasi internal program pengabdian kepada masyarakat tahun anggaran 2026:initial": {
       "event_key": "bima:surat:1454/dst/c3/dt.06.01/2026|title:pemberitahuan jadwal pelaporan dan monitoring dan evaluasi internal program pengabdian kepada masyarakat tahun anggaran 2026:initial",
