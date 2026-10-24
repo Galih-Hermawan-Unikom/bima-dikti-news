@@ -46,11 +46,15 @@ jobs:
       - name: Require the reviewed SHA before any checkout or operation
         env:
           REVIEWED_SHA: ${{ inputs.reviewed_code_sha }}
+          APPROVED_CODE_SHA: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_APPROVED_CODE_SHA || '' }}
         run: |
           python - <<'PY'
           import os, re, sys
           reviewed = os.environ.get('REVIEWED_SHA', '')
+          operator_approved = os.environ.get('APPROVED_CODE_SHA', '')
           approved = (re.fullmatch('[a-f0-9]{40}', reviewed) is not None
+              and re.fullmatch('[a-f0-9]{40}', operator_approved) is not None
+              and reviewed == operator_approved
               and reviewed == os.environ.get('GITHUB_SHA')
               and os.environ.get('GITHUB_EVENT_NAME') == 'workflow_dispatch'
               and os.environ.get('GITHUB_REPOSITORY') == 'Galih-Hermawan-Unikom/bima-dikti-news')

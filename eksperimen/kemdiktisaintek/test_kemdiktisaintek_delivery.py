@@ -563,23 +563,32 @@ def test_workflow_preflight_is_read_only_and_all_checkouts_pin_reviewed_sha():
     preflight_step=jobs['preflight']['steps'][-1]
     assert preflight_step['run'].endswith(' PREFLIGHT')
     assert 'KEMDIKTISAINTEK_SEND_TEST_APPROVAL' not in preflight_step['env']
+    approval_env=jobs['review']['steps'][0]['env']
+    assert approval_env['APPROVED_CODE_SHA']=="${{ vars.KEMDIKTISAINTEK_EXPERIMENT_APPROVED_CODE_SHA || '' }}"
+    assert 'inputs.' not in approval_env['APPROVED_CODE_SHA']
+    assert 'environment' not in jobs['review']  # repository approval, not a job environment override
 
 
-@pytest.mark.parametrize('reviewed,event,repo,expected',[
-    ('a'*40,'workflow_dispatch','Galih-Hermawan-Unikom/bima-dikti-news',0),
-    ('','workflow_dispatch','Galih-Hermawan-Unikom/bima-dikti-news',1),
-    ('b'*40,'workflow_dispatch','Galih-Hermawan-Unikom/bima-dikti-news',1),
-    ('not-a-sha','workflow_dispatch','Galih-Hermawan-Unikom/bima-dikti-news',1),
-    ('a'*40,'push','Galih-Hermawan-Unikom/bima-dikti-news',1),
-    ('a'*40,'workflow_dispatch','other/repo',1)])
-def test_workflow_review_gate_before_checkout(reviewed,event,repo,expected):
+@pytest.mark.parametrize('reviewed,event,repo,operator_approved,dispatch_sha,expected',[
+    ('a'*40,'workflow_dispatch','Galih-Hermawan-Unikom/bima-dikti-news','a'*40,'a'*40,0),
+    ('','workflow_dispatch','Galih-Hermawan-Unikom/bima-dikti-news','a'*40,'a'*40,1),
+    ('b'*40,'workflow_dispatch','Galih-Hermawan-Unikom/bima-dikti-news','a'*40,'a'*40,1),
+    ('not-a-sha','workflow_dispatch','Galih-Hermawan-Unikom/bima-dikti-news','a'*40,'a'*40,1),
+    ('a'*40,'push','Galih-Hermawan-Unikom/bima-dikti-news','a'*40,'a'*40,1),
+    ('a'*40,'workflow_dispatch','other/repo','a'*40,'a'*40,1),
+    ('a'*40,'workflow_dispatch','Galih-Hermawan-Unikom/bima-dikti-news','','a'*40,1),
+    ('a'*40,'workflow_dispatch','Galih-Hermawan-Unikom/bima-dikti-news','invalid','a'*40,1),
+    ('a'*40,'workflow_dispatch','Galih-Hermawan-Unikom/bima-dikti-news','b'*40,'a'*40,1),
+    ('b'*40,'workflow_dispatch','Galih-Hermawan-Unikom/bima-dikti-news','a'*40,'b'*40,1),
+    ('b'*40,'workflow_dispatch','Galih-Hermawan-Unikom/bima-dikti-news','b'*40,'b'*40,0)])
+def test_workflow_review_gate_before_checkout(reviewed,event,repo,operator_approved,dispatch_sha,expected):
     import subprocess,sys,os
     workflow=yaml.safe_load((HERE.parents[1]/'.github/workflows/kemdiktisaintek-experiment.yml').read_text())
     run_script=workflow['jobs']['review']['steps'][0]['run']
     assert run_script.startswith("python - <<'PY'\n")
     script='\n'.join(run_script.splitlines()[1:-1])
     result=subprocess.run([sys.executable,'-c',script],capture_output=True,text=True,
-        env={**os.environ,'REVIEWED_SHA':reviewed,'GITHUB_SHA':'a'*40,
+        env={**os.environ,'REVIEWED_SHA':reviewed,'GITHUB_SHA':dispatch_sha,'APPROVED_CODE_SHA':operator_approved,
              'GITHUB_EVENT_NAME':event,'GITHUB_REPOSITORY':repo})
     assert result.returncode==expected
     assert 'REVIEWED_SHA_GATE='+('PASS' if expected==0 else 'BLOCKED') in result.stdout
