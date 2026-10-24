@@ -1,0 +1,36 @@
+# Draft only: stored outside .github/workflows; not executable by GitHub Actions.
+name: Kemdiktisaintek Experiment Collect Only
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: kemdiktisaintek-experiment-collect
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install parser dependencies
+        run: python -m pip install requests==2.31.0 beautifulsoup4==4.12.3
+      - name: Collect bounded read-only snapshot
+        shell: bash
+        run: >-
+          python -B eksperimen/kemdiktisaintek/kemdiktisaintek_cli.py collect
+          --pages 2 --details 3 > "$RUNNER_TEMP/kemdiktisaintek-capture.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kemdiktisaintek-collect-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/kemdiktisaintek-capture.json
+          retention-days: 14
+          if-no-files-found: error
+          overwrite: false

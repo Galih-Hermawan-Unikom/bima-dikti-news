@@ -1,0 +1,146 @@
+{
+  "simulation": true,
+  "delivery_authorized": false,
+  "telegram_calls": 0,
+  "bima_reference": "explicit empty simulation snapshot; not production history",
+  "cases": [
+    {
+      "case": "historical",
+      "status": "HOLD",
+      "reasons": [
+        "AT_OR_BEFORE_ACTIVATION_FENCE",
+        "HISTORICAL_OUTSIDE_NEW_WINDOW"
+      ]
+    },
+    {
+      "case": "new_relevant",
+      "status": "NEW_CANDIDATE",
+      "reasons": [
+        "POLICY_COMPLETE_OBSERVATION_ONLY"
+      ]
+    },
+    {
+      "case": "new_not_relevant",
+      "status": "REJECTED",
+      "reasons": [
+        "NOT_RELEVANT_TO_AUDIENCE"
+      ]
+    },
+    {
+      "case": "old_revised",
+      "status": "NEEDS_REVIEW",
+      "event_type": "REVISION_CANDIDATE",
+      "changed_fields": [
+        "body",
+        "attachments",
+        "deadline"
+      ]
+    },
+    {
+      "case": "already_processed",
+      "status": "KNOWN"
+    }
+  ],
+  "sample_classifications": [
+    {
+      "id": "72b0b13a-ed5b-47c2-b159-4336970369d4",
+      "title": "SELEKSI KEPALA SUBBAGIAN TATA USAHA SEKOLAH MENENGAH ATAS UNGGUL GARUDA BARU KEMENTERIAN PENDIDIKAN TINGGI, SAINS, DAN TEKNOLOGI",
+      "published_at": "2026-10-20T05:00:00+07:00",
+      "decision": "NOT_RELEVANT",
+      "priority": "low",
+      "reasons": [
+        "NONACADEMIC_SCHOOL_RECRUITMENT"
+      ],
+      "evidence": {
+        "title": true,
+        "body": true,
+        "category": "Sains Dan-teknologi",
+        "published_at": "2026-10-20T05:00:00+07:00",
+        "deadline": false,
+        "letter": false,
+        "attachments": true
+      },
+      "policy_version": "kemdiktisaintek-experiment-v1"
+    },
+    {
+      "id": "cc7f0989-b101-40aa-919c-434f41be5f6f",
+      "title": "AKPT Tahap III 2026 Dibuka di ITB, Pemimpin Perguruan Tinggi Dibekali Strategi Transformasi dan Inovasi Institusi",
+      "published_at": "2026-10-10T00:00:00+07:00",
+      "decision": "NOT_RELEVANT",
+      "priority": "low",
+      "reasons": [
+        "COMPLETED_OR_CEREMONIAL_REPORT"
+      ],
+      "evidence": {
+        "title": true,
+        "body": true,
+        "category": "Umum",
+        "published_at": "2026-10-10T00:00:00+07:00",
+        "deadline": false,
+        "letter": false,
+        "attachments": true
+      },
+      "policy_version": "kemdiktisaintek-experiment-v1"
+    },
+    {
+      "id": "90eb5a79-6fb3-4f39-b2ac-6855119d3579",
+      "title": "Pendaftaran Lindau Nobel Laureate Meetings (LNLM) 2027",
+      "published_at": "2026-09-16T14:00:00+07:00",
+      "decision": "RELEVANT",
+      "priority": "high",
+      "reasons": [
+        "ACADEMIC_ACTION_WITH_EXPLICIT_DEADLINE"
+      ],
+      "evidence": {
+        "title": true,
+        "body": true,
+        "category": "Umum",
+        "published_at": "2026-09-16T14:00:00+07:00",
+        "deadline": true,
+        "letter": false,
+        "attachments": true
+      },
+      "policy_version": "kemdiktisaintek-experiment-v1"
+    },
+    {
+      "id": "55286304-8f1a-4c9d-8d63-d25d710d8be7",
+      "title": "Pemberitahuan Penetapan Reviewer Beasiswa PDDI Tahun 2026",
+      "published_at": "2026-08-18T13:45:00+07:00",
+      "decision": "RELEVANT",
+      "priority": "high",
+      "reasons": [
+        "PRIORITY_TOPIC:reviewer akademik"
+      ],
+      "evidence": {
+        "title": true,
+        "body": true,
+        "category": "Pendidikan Tinggi",
+        "published_at": "2026-08-18T13:45:00+07:00",
+        "deadline": false,
+        "letter": false,
+        "attachments": true
+      },
+      "policy_version": "kemdiktisaintek-experiment-v1"
+    },
+    {
+      "id": "74b116ce-b592-49f1-bff3-e2a7719e3da4",
+      "title": "Kemdiktisaintek Atur Pelaksanaan Pendidikan dan BDR di Perguruan Tinggi Terdampak",
+      "published_at": "2026-09-07T10:45:00.627000+07:00",
+      "decision": "NEEDS_REVIEW",
+      "priority": "unknown",
+      "reasons": [
+        "INSUFFICIENT_COMBINED_EVIDENCE"
+      ],
+      "evidence": {
+        "title": true,
+        "body": true,
+        "category": "Umum",
+        "published_at": "2026-09-07T10:45:00.627000+07:00",
+        "deadline": false,
+        "letter": false,
+        "attachments": true
+      },
+      "policy_version": "kemdiktisaintek-experiment-v1"
+    }
+  ]
+}

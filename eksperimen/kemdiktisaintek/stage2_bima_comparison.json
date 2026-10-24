@@ -1,0 +1,43 @@
+{
+  "reference_file": "announcements_cache.json",
+  "reference_sha256": "711fca981035df2552be57514ee2f136af5b9a551e2631b7547149ee5170e0c6",
+  "reference_entries": 90,
+  "read_only": true,
+  "results": [
+    {
+      "id": "72b0b13a-ed5b-47c2-b159-4336970369d4",
+      "title": "SELEKSI KEPALA SUBBAGIAN TATA USAHA SEKOLAH MENENGAH ATAS UNGGUL GARUDA BARU KEMENTERIAN PENDIDIKAN TINGGI, SAINS, DAN TEKNOLOGI",
+      "status": "NO_MATCH",
+      "matches": [],
+      "policy_version": "kemdiktisaintek-experiment-v1"
+    },
+    {
+      "id": "cc7f0989-b101-40aa-919c-434f41be5f6f",
+      "title": "AKPT Tahap III 2026 Dibuka di ITB, Pemimpin Perguruan Tinggi Dibekali Strategi Transformasi dan Inovasi Institusi",
+      "status": "NO_MATCH",
+      "matches": [],
+      "policy_version": "kemdiktisaintek-experiment-v1"
+    },
+    {
+      "id": "90eb5a79-6fb3-4f39-b2ac-6855119d3579",
+      "title": "Pendaftaran Lindau Nobel Laureate Meetings (LNLM) 2027",
+      "status": "NO_MATCH",
+      "matches": [],
+      "policy_version": "kemdiktisaintek-experiment-v1"
+    },
+    {
+      "id": "55286304-8f1a-4c9d-8d63-d25d710d8be7",
+      "title": "Pemberitahuan Penetapan Reviewer Beasiswa PDDI Tahun 2026",
+      "status": "NO_MATCH",
+      "matches": [],
+      "policy_version": "kemdiktisaintek-experiment-v1"
+    },
+    {
+      "id": "74b116ce-b592-49f1-bff3-e2a7719e3da4",
+      "title": "Kemdiktisaintek Atur Pelaksanaan Pendidikan dan BDR di Perguruan Tinggi Terdampak",
+      "status": "NO_MATCH",
+      "matches": [],
+      "policy_version": "kemdiktisaintek-experiment-v1"
+    }
+  ]
+}
