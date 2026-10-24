@@ -1,0 +1,146 @@
+name: Kemdiktisaintek Experiment
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        default: COLLECT
+        options: [PREFLIGHT, COLLECT, INITIALIZE, POLL, SEND_TEST]
+      confirmation:
+        description: Explicit reviewed operation confirmation; blank keeps privileged modes blocked
+        type: string
+        default: ''
+      reviewed_code_sha:
+        description: Full reviewed commit SHA, matching the selected dispatch ref, required for every mode
+        type: string
+        required: true
+        default: ''
+      empty_branch_sha:
+        description: Reviewed existing EMPTY state branch commit SHA; INITIALIZE only
+        type: string
+        default: ''
+      test_id:
+        description: Stable unique test ID, reused after restart; at least 8 characters
+        type: string
+        default: ''
+      bima_reference_path:
+        description: Reviewed fresh BIMA snapshot available in checked-out files; blank blocks admissions
+        type: string
+        default: ''
+      bima_reference_sha256:
+        description: Externally reviewed canonical SHA256 of the BIMA snapshot
+        type: string
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: kemdiktisaintek-experiment-state
+  cancel-in-progress: false
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+    steps:
+      - name: Require the reviewed SHA before any checkout or operation
+        env:
+          REVIEWED_SHA: ${{ inputs.reviewed_code_sha }}
+          APPROVED_CODE_SHA: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_APPROVED_CODE_SHA || '' }}
+        run: |
+          python - <<'PY'
+          import os, re, sys
+          reviewed = os.environ.get('REVIEWED_SHA', '')
+          operator_approved = os.environ.get('APPROVED_CODE_SHA', '')
+          approved = (re.fullmatch('[a-f0-9]{40}', reviewed) is not None
+              and re.fullmatch('[a-f0-9]{40}', operator_approved) is not None
+              and reviewed == operator_approved
+              and reviewed == os.environ.get('GITHUB_SHA')
+              and os.environ.get('GITHUB_EVENT_NAME') == 'workflow_dispatch'
+              and os.environ.get('GITHUB_REPOSITORY') == 'Galih-Hermawan-Unikom/bima-dikti-news')
+          print('REVIEWED_SHA_GATE=' + ('PASS' if approved else 'BLOCKED'))
+          sys.exit(0 if approved else 1)
+          PY
+  collect:
+    needs: review
+    if: inputs.mode == 'COLLECT'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.reviewed_code_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install requests==2.31.0 beautifulsoup4==4.12.3
+      - run: python -B eksperimen/kemdiktisaintek/kemdiktisaintek_stage3_runtime.py COLLECT
+  preflight:
+    needs: review
+    if: inputs.mode == 'PREFLIGHT'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: kemdiktisaintek-experiment
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.reviewed_code_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install requests==2.31.0 beautifulsoup4==4.12.3
+      - name: Approved read-only experiment preflight
+        env:
+          KEMDIKTISAINTEK_STATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          YOUTUBE_EXPERIMENT_BOT_TOKEN: ${{ secrets.YOUTUBE_EXPERIMENT_BOT_TOKEN }}
+          YOUTUBE_EXPERIMENT_CHAT_ID: ${{ secrets.YOUTUBE_EXPERIMENT_CHAT_ID }}
+          YOUTUBE_EXPERIMENT_CHAT_ID_SHA256: ${{ secrets.YOUTUBE_EXPERIMENT_CHAT_ID_SHA256 }}
+          KEMDIKTISAINTEK_EXPERIMENT_ENABLED: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_ENABLED || 'false' }}
+          KEMDIKTISAINTEK_EXPERIMENT_AUTO_SEND: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_AUTO_SEND || 'false' }}
+          KEMDIKTISAINTEK_PREFLIGHT_APPROVAL: ${{ inputs.confirmation }}
+        run: python -B eksperimen/kemdiktisaintek/kemdiktisaintek_stage3_runtime.py PREFLIGHT
+  controlled:
+    needs: review
+    if: inputs.mode == 'INITIALIZE' || inputs.mode == 'POLL' || inputs.mode == 'SEND_TEST'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: kemdiktisaintek-experiment
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.reviewed_code_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install requests==2.31.0 beautifulsoup4==4.12.3
+      - name: Observation or explicitly approved baseline initialization; no Telegram credentials
+        if: inputs.mode == 'POLL' || inputs.mode == 'INITIALIZE'
+        env:
+          MODE: ${{ inputs.mode }}
+          KEMDIKTISAINTEK_STATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KEMDIKTISAINTEK_INITIALIZE_APPROVAL: ${{ inputs.confirmation }}
+          KEMDIKTISAINTEK_EMPTY_BRANCH_SHA: ${{ inputs.empty_branch_sha }}
+          KEMDIKTISAINTEK_BIMA_REFERENCE_PATH: ${{ inputs.bima_reference_path }}
+          KEMDIKTISAINTEK_BIMA_REFERENCE_SHA256: ${{ inputs.bima_reference_sha256 }}
+        run: python -B eksperimen/kemdiktisaintek/kemdiktisaintek_stage3_runtime.py "$MODE"
+      - name: Approved one labelled test message
+        if: inputs.mode == 'SEND_TEST'
+        env:
+          MODE: ${{ inputs.mode }}
+          KEMDIKTISAINTEK_STATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          YOUTUBE_EXPERIMENT_BOT_TOKEN: ${{ secrets.YOUTUBE_EXPERIMENT_BOT_TOKEN }}
+          YOUTUBE_EXPERIMENT_CHAT_ID: ${{ secrets.YOUTUBE_EXPERIMENT_CHAT_ID }}
+          YOUTUBE_EXPERIMENT_CHAT_ID_SHA256: ${{ secrets.YOUTUBE_EXPERIMENT_CHAT_ID_SHA256 }}
+          KEMDIKTISAINTEK_EXPERIMENT_ENABLED: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_ENABLED || 'false' }}
+          KEMDIKTISAINTEK_EXPERIMENT_AUTO_SEND: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_AUTO_SEND || 'false' }}
+          KEMDIKTISAINTEK_SEND_TEST_APPROVAL: ${{ inputs.confirmation }}
+          KEMDIKTISAINTEK_REVIEWED_CODE_SHA: ${{ inputs.reviewed_code_sha }}
+          KEMDIKTISAINTEK_TEST_ID: ${{ inputs.test_id }}
+        run: python -B eksperimen/kemdiktisaintek/kemdiktisaintek_stage3_runtime.py "$MODE"
