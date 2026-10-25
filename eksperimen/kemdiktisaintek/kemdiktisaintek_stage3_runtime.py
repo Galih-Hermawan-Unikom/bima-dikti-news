@@ -4,15 +4,15 @@ from datetime import datetime, timezone
 import json
 import os
 import re
-from pathlib import Path
 
 from kemdiktisaintek_parser import AnnouncementClient
 from kemdiktisaintek_monitor import capture_window, initialize
 from kemdiktisaintek_state import StateError
 from kemdiktisaintek_delivery_state import migrate_v1
 from kemdiktisaintek_remote_state import RemoteState, REPOSITORY
-from kemdiktisaintek_delivery import Delivery, observe, ReconciliationRequired
+from kemdiktisaintek_delivery import Delivery, ReconciliationRequired
 from kemdiktisaintek_telegram import Credentials, TelegramGateway, switches
+from kemdiktisaintek_automation import run_poll
 
 
 class _BaselineSink:
@@ -64,16 +64,7 @@ def run(mode, env, *, clock=None, backend=None, source=None, gateway=None):
             if gateway is None:
                 telegram.session.close()
     if mode == 'POLL':
-        current, _ = remote.load()
-        client = source or AnnouncementClient()
-        try:
-            cap = capture_window(client, current['observation_state'], at=clock(), pages=2, detail_budget=10)
-            reference_path = env.get('KEMDIKTISAINTEK_BIMA_REFERENCE_PATH')
-            reference = json.loads(Path(reference_path).read_text(encoding='utf-8')) if reference_path else None
-            return observe(remote, cap, reference=reference, reference_sha=env.get('KEMDIKTISAINTEK_BIMA_REFERENCE_SHA256'))
-        finally:
-            if source is None:
-                client.session.close()
+        return run_poll(env, backend=remote, clock=clock, source=source, gateway=gateway)
     client = source or AnnouncementClient()
     try:
         cap = capture_window(client, at=clock(), pages=2, detail_budget=10)
@@ -94,7 +85,8 @@ def main(argv=None):
     try:
         report = run(args.mode, os.environ)
         print(json.dumps(report, ensure_ascii=True, indent=2))
-        return 1 if report.get('status') == 'AMBIGUOUS' else 0
+        return 1 if (report.get('status') == 'AMBIGUOUS' or report.get('ambiguous_this_poll', 0)
+                      or report.get('api_health') == 'FAILED') else 0
     except Exception as exc:
         # Fixed code/class only; never render a request exception or token-bearing URL.
         safe = str(exc) if isinstance(exc, StateError) else type(exc).__name__

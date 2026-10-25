@@ -120,15 +120,23 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install requests==2.31.0 beautifulsoup4==4.12.3
-      - name: Observation or explicitly approved baseline initialization; no Telegram credentials
+      - if: inputs.mode == 'POLL'
+        run: python -m pip install playwright==1.49.0
+      - if: inputs.mode == 'POLL'
+        run: python -m playwright install --with-deps chromium
+      - name: Observation, baseline initialization, or one-run delivery
         if: inputs.mode == 'POLL' || inputs.mode == 'INITIALIZE'
         env:
           MODE: ${{ inputs.mode }}
           KEMDIKTISAINTEK_STATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           KEMDIKTISAINTEK_INITIALIZE_APPROVAL: ${{ inputs.confirmation }}
           KEMDIKTISAINTEK_EMPTY_BRANCH_SHA: ${{ inputs.empty_branch_sha }}
-          KEMDIKTISAINTEK_BIMA_REFERENCE_PATH: ${{ inputs.bima_reference_path }}
-          KEMDIKTISAINTEK_BIMA_REFERENCE_SHA256: ${{ inputs.bima_reference_sha256 }}
+          KEMDIKTISAINTEK_REVIEWED_CODE_SHA: ${{ inputs.reviewed_code_sha }}
+          KEMDIKTISAINTEK_EXPERIMENT_ENABLED: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_ENABLED || 'false' }}
+          KEMDIKTISAINTEK_EXPERIMENT_AUTO_SEND: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_AUTO_SEND || 'false' }}
+          YOUTUBE_EXPERIMENT_BOT_TOKEN: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_ENABLED == 'true' && vars.KEMDIKTISAINTEK_EXPERIMENT_AUTO_SEND == 'true' && secrets.YOUTUBE_EXPERIMENT_BOT_TOKEN || '' }}
+          YOUTUBE_EXPERIMENT_CHAT_ID: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_ENABLED == 'true' && vars.KEMDIKTISAINTEK_EXPERIMENT_AUTO_SEND == 'true' && secrets.YOUTUBE_EXPERIMENT_CHAT_ID || '' }}
+          YOUTUBE_EXPERIMENT_CHAT_ID_SHA256: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_ENABLED == 'true' && vars.KEMDIKTISAINTEK_EXPERIMENT_AUTO_SEND == 'true' && secrets.YOUTUBE_EXPERIMENT_CHAT_ID_SHA256 || '' }}
         run: python -B eksperimen/kemdiktisaintek/kemdiktisaintek_stage3_runtime.py "$MODE"
       - name: Approved one labelled test message
         if: inputs.mode == 'SEND_TEST'

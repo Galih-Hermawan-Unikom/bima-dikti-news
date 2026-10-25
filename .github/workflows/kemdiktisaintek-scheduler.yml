@@ -1,0 +1,68 @@
+name: Kemdiktisaintek Scheduler
+on:
+  schedule:
+    - cron: '11,41 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: kemdiktisaintek-scheduler
+  cancel-in-progress: false
+jobs:
+  dispatch-poll:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Require scheduler switch and pin reviewed feature SHA
+        id: pin
+        uses: actions/github-script@v7
+        env:
+          SCHEDULER_ENABLED: ${{ vars.KEMDIKTISAINTEK_SCHEDULER_ENABLED || 'false' }}
+          APPROVED_CODE_SHA: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_APPROVED_CODE_SHA || '' }}
+        with:
+          script: |
+            if (context.repo.owner !== 'Galih-Hermawan-Unikom'
+                || context.repo.repo !== 'bima-dikti-news'
+                || context.ref !== 'refs/heads/master') {
+              core.setFailed('SCHEDULER_CONTEXT_DENIED');
+              return;
+            }
+            if (process.env.SCHEDULER_ENABLED !== 'true') {
+              core.notice('Kemdiktisaintek scheduler is OFF; no workflow dispatch.');
+              return;
+            }
+            const approved = process.env.APPROVED_CODE_SHA || '';
+            if (!/^[a-f0-9]{40}$/.test(approved)) {
+              core.setFailed('APPROVED_SHA_UNAVAILABLE');
+              return;
+            }
+            const ref = await github.rest.git.getRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'heads/feat/kemdiktisaintek-telegram-stage3'
+            });
+            if (ref.data.object.sha !== approved) {
+              core.setFailed('FEATURE_HEAD_DIFFERS_FROM_APPROVED_SHA');
+              return;
+            }
+            core.setOutput('sha', approved);
+      - uses: actions/checkout@v4
+        if: steps.pin.outputs.sha != ''
+        with:
+          ref: ${{ steps.pin.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        if: steps.pin.outputs.sha != ''
+        with:
+          python-version: '3.11'
+      - name: Dispatch one pinned POLL to the feature workflow
+        if: steps.pin.outputs.sha != ''
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          KEMDIKTISAINTEK_SCHEDULER_ENABLED: ${{ vars.KEMDIKTISAINTEK_SCHEDULER_ENABLED || 'false' }}
+          KEMDIKTISAINTEK_EXPERIMENT_APPROVED_CODE_SHA: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_APPROVED_CODE_SHA || '' }}
+        run: python -B eksperimen/kemdiktisaintek/kemdiktisaintek_scheduler.py

@@ -221,6 +221,8 @@ def _admission(item, state, at, classification, dedup, context, first_seen):
     if dedup['status'] == 'DUPLICATE':
         return 'REJECTED', ['CONFIRMED_CROSS_SOURCE_DUPLICATE']
     if dedup['status'] == 'NEEDS_REVIEW':
+        if dedup.get('reason') == 'BIMA_REFERENCE_MISSING':
+            return 'HOLD', ['BIMA_REFERENCE_UNAVAILABLE']
         return 'NEEDS_REVIEW', ['CROSS_SOURCE_EVIDENCE_REQUIRES_REVIEW']
     if classification['decision'] == 'NOT_RELEVANT':
         return 'REJECTED', ['NOT_RELEVANT_TO_AUDIENCE']
@@ -286,15 +288,14 @@ def apply_poll(previous, capture, *, bima_history=None, max_poll_gap=MAX_POLL_GA
             status, reasons = 'NEEDS_REVIEW', ['REVISION_CANDIDATE']
         elif identity_pending:
             status, reasons = 'NEEDS_REVIEW', ['IDENTITY_RECONCILIATION_PENDING']
-        elif old and old['detection_status'] == 'NEEDS_REVIEW':
+        elif (old and old['detection_status'] == 'NEEDS_REVIEW'
+              and old.get('reasons') != ['BIMA_REFERENCE_COVERAGE_INSUFFICIENT']):
             status, reasons = old['detection_status'], old['reasons']
         elif old and (old['initial_inventory'] or old['detection_status'] in {'NEW_CANDIDATE', 'KNOWN', 'REJECTED'}):
             status, reasons = 'KNOWN', ['PREVIOUSLY_OBSERVED']
         else:
-            sticky = [r for r in (old or {}).get('reasons', []) if r in {
-                'UNHEALTHY_POLL_GAP', 'WINDOW_OVERLAP_LOST', 'PAGINATION_SHIFT_DUPLICATES'}]
             status, reasons = _admission(latest, state, at, classification, dedup,
-                                         sorted(set(context + sticky)), row['first_seen_at'])
+                                         context, row['first_seen_at'])
         row.update(url=latest['url'], title=latest['title'], published_at=latest.get('published_at'),
             last_seen_at=at, content_sha256=latest.get('content_sha256'), classification=classification,
             detection_status=status, reasons=reasons, deduplication=dedup, last_item=latest)
@@ -306,7 +307,7 @@ def apply_poll(previous, capture, *, bima_history=None, max_poll_gap=MAX_POLL_GA
             row['initial_decision'] = status
         state['observations'][identifier] = row
         events.append({'uuid': identifier, 'status': status, 'reasons': reasons,
-                       'classification': classification['decision']})
+                       'classification': classification['decision'], 'dedup_status': dedup['status']})
     state.update(last_successful_poll_at=at, generation=previous['generation'] + 1,
                  last_capture_coverage=deepcopy(capture.coverage),
                  bima_reference_sha256=fingerprint(bima_history) if bima_history is not None else None)

@@ -158,7 +158,7 @@ def test_unknown_relevance_needs_review(initialized):
 def test_missing_bima_reference_blocks_candidate(initialized):
     new=item('new','2026-10-24T10:05:00Z')
     after,_=transition(initialized,new,history=None)
-    assert after['observations'][new['id']]['detection_status']=='NEEDS_REVIEW'
+    assert after['observations'][new['id']]['detection_status']=='HOLD'
 
 
 @pytest.mark.parametrize('mode', ['body','attachments','dates','url','metadata','deadline'])
@@ -219,11 +219,12 @@ def test_unsafe_pagination_and_gaps_hold(initialized,context):
     assert after['observations'][new['id']]['detection_status']=='HOLD'
 
 
-def test_hold_after_gap_does_not_auto_promote(initialized):
+def test_hold_after_gap_recovers_only_after_a_clean_poll(initialized):
     new=item('new','2026-10-24T10:05:00Z')
     after,_=apply_poll(initialized,capture([item(),new],'2026-10-24T11:00:00Z'),bima_history=[])
+    assert after['observations'][new['id']]['detection_status']=='HOLD'
     again,_=apply_poll(after,capture([item(),new],'2026-10-24T11:10:00Z'),bima_history=[])
-    assert again['observations'][new['id']]['detection_status']=='HOLD'
+    assert again['observations'][new['id']]['detection_status']=='NEW_CANDIDATE'
 
 
 def test_partial_capture_never_mutates_previous(initialized):

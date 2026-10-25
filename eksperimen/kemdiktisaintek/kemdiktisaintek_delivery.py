@@ -14,12 +14,12 @@ from kemdiktisaintek_delivery_state import (validate_delivery_state, event_key, 
 from kemdiktisaintek_telegram import switches, format_announcement, format_test
 
 
-def observe(backend, capture, *, reference=None, reference_sha=None):
+def observe(backend, capture, *, reference=None, reference_sha=None, reference_env=None):
     """Observation/admission checkpoint only. Does not inspect or POST Telegram."""
     old, sha = backend.load()
     validate_capture(capture)
     try:
-        history = validate_reference(reference, reference_sha, at=capture.observed_at)
+        history = validate_reference(reference, reference_sha, at=capture.observed_at, env=reference_env)
         reference_error = None
     except StateError as exc:
         history, reference_error = None, str(exc)
@@ -38,8 +38,14 @@ def observe(backend, capture, *, reference=None, reference_sha=None):
             continue
         try:
             item = eligibility(state, identifier, reference, reference_sha, at=capture.observed_at,
-                               require_admission=False)
-        except StateError:
+                               require_admission=False, reference_env=reference_env)
+        except StateError as exc:
+            if 'BIMA_REFERENCE_DOES_NOT_COVER_PUBLICATION' in str(exc):
+                observation = state['observation_state']['observations'][identifier]
+                observation['detection_status'] = 'NEEDS_REVIEW'
+                observation['reasons'] = ['BIMA_REFERENCE_COVERAGE_INSUFFICIENT']
+                event['status'] = 'NEEDS_REVIEW'
+                event['reasons'] = observation['reasons']
             continue
         state['admissions'][key] = {'event_key': key, 'uuid': identifier, 'event_type': 'INITIAL',
             'decision': 'ELIGIBLE', 'observed_at': capture.observed_at,
@@ -85,12 +91,12 @@ class Delivery:
         self.backend.checkpoint(state, sha)
         return len(keys)
 
-    def reserve_initial(self, identifier, proof, *, reference, reference_sha):
+    def reserve_initial(self, identifier, proof, *, reference, reference_sha, reference_env=None):
         old, sha = self._gate(proof)
         key = event_key(identifier)
         if key in old['outbox']:
             return key
-        item = eligibility(old, identifier, reference, reference_sha, at=self.clock())
+        item = eligibility(old, identifier, reference, reference_sha, at=self.clock(), reference_env=reference_env)
         message = format_announcement(item)
         state = change(old)
         state['outbox'][key] = self._reservation(key, identifier, 'INITIAL', message, proof)
@@ -123,9 +129,10 @@ class Delivery:
             'reserved_at': self.clock(), 'attempt_id': None, 'sending_claimed_at': None,
             'delivered_at': None, 'message_id': None, 'receipt': None, 'error_classification': None}
 
-    def _eligible_reserved(self, state, row, *, reference, reference_sha):
+    def _eligible_reserved(self, state, row, *, reference, reference_sha, reference_env=None):
         if row['event_type'] == 'INITIAL':
-            item = eligibility(state, row['source_uuid'], reference, reference_sha, at=self.clock())
+            item = eligibility(state, row['source_uuid'], reference, reference_sha, at=self.clock(),
+                               reference_env=reference_env)
             if fingerprint(format_announcement(item)) != row['payload_hash']:
                 raise StateError('RESERVED_PAYLOAD_CHANGED')
         elif row['event_type'] == 'TEST':
@@ -137,7 +144,7 @@ class Delivery:
         else:
             raise StateError('REVISION_AUTOSEND_DISABLED')
 
-    def send(self, key, proof, *, reference=None, reference_sha=None):
+    def send(self, key, proof, *, reference=None, reference_sha=None, reference_env=None):
         old, sha = self._gate(proof)
         row = old['outbox'].get(key)
         if row is None:
@@ -149,7 +156,8 @@ class Delivery:
             return {'status': 'AMBIGUOUS', 'post_attempted': False}
         if row['destination'] != proof.identity:
             raise StateError('RESERVED_DESTINATION_MISMATCH')
-        self._eligible_reserved(old, row, reference=reference, reference_sha=reference_sha)
+        self._eligible_reserved(old, row, reference=reference, reference_sha=reference_sha,
+                                reference_env=reference_env)
         state = change(old)
         claimed = state['outbox'][key]
         claimed.update(status='SENDING', attempt_id=uuid4().hex, sending_claimed_at=self.clock())
@@ -158,7 +166,8 @@ class Delivery:
         current_row = current['outbox'][key]
         if current_row['status'] != 'SENDING' or current_row['attempt_id'] != claimed['attempt_id']:
             raise StateError('CLAIM_LOST_NO_POST')
-        self._eligible_reserved(current, current_row, reference=reference, reference_sha=reference_sha)
+        self._eligible_reserved(current, current_row, reference=reference, reference_sha=reference_sha,
+                                reference_env=reference_env)
         receipt, error = self.gateway.post_claimed(current_row, proof, at=self.clock())
         final = change(current)
         final_row = final['outbox'][key]

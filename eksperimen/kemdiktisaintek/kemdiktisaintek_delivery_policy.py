@@ -23,8 +23,13 @@ class Timing:
 TIMING = Timing()
 
 
-def validate_reference(reference, expected_sha256, *, at):
+def validate_reference(reference, expected_sha256, *, at, env=None, candidate=None):
     """Operator pins a reviewed snapshot externally; a self-declared timestamp isn't authentication."""
+    if isinstance(reference, dict) and reference.get('schema_version') == 2:
+        if env is None:
+            raise StateError('BIMA_REFERENCE_PRODUCER_CONTEXT_REQUIRED')
+        from kemdiktisaintek_bima_reference import validate_reference as validate_live
+        return validate_live(reference, expected_sha256, at=at, env=env, candidate=candidate)
     try:
         if (not isinstance(reference, dict) or fingerprint(reference) != expected_sha256
                 or reference.get('schema_version') != 1 or reference.get('source') != 'bima'
@@ -43,7 +48,7 @@ def validate_reference(reference, expected_sha256, *, at):
     return reference['items']
 
 
-def eligibility(state, identifier, reference, reference_sha, *, at, require_admission=True):
+def eligibility(state, identifier, reference, reference_sha, *, at, require_admission=True, reference_env=None):
     monitor = state['observation_state']
     row = monitor['observations'].get(identifier)
     if row is None or row['initial_inventory'] or identifier in state['migration']['legacy_ids']:
@@ -66,7 +71,7 @@ def eligibility(state, identifier, reference, reference_sha, *, at, require_admi
     coverage = monitor.get('last_capture_coverage', {})
     if coverage.get('all_requested_pages_healthy') is not True or coverage.get('unfiltered') is not True:
         raise StateError('CAPTURE_NOT_TRUSTED')
-    items = validate_reference(reference, reference_sha, at=at)
+    items = validate_reference(reference, reference_sha, at=at, env=reference_env, candidate=item)
     if cross_source_dedup(item, items)['status'] != 'NO_MATCH':
         raise StateError('CROSS_SOURCE_DEDUP_NOT_CLEAR')
     if require_admission:
