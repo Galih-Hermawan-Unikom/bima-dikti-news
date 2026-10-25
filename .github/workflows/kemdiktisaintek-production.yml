@@ -1,0 +1,98 @@
+name: Kemdiktisaintek Production (Manual, Gated)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        default: COLLECT
+        options: [COLLECT, INITIALIZE, POLL]
+        description: Source operation; delivery needs two independent switches
+      reviewed_code_sha:
+        type: string
+        required: true
+        default: ''
+        description: Must equal master SHA and operator approved-code variable
+      confirmation:
+        type: string
+        default: ''
+        description: Required initialization confirmation
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dikti-production-state
+  cancel-in-progress: false
+
+jobs:
+  review:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+    steps:
+      - name: Require independently approved master SHA
+        env:
+          REVIEWED_SHA: ${{ inputs.reviewed_code_sha }}
+          APPROVED_SHA: ${{ vars.KEMDIKTISAINTEK_PRODUCTION_APPROVED_CODE_SHA || '' }}
+        run: |
+          python - <<'PY'
+          import os, re, sys
+          reviewed = os.environ.get('REVIEWED_SHA', '')
+          approved = os.environ.get('APPROVED_SHA', '')
+          valid = (os.environ.get('GITHUB_EVENT_NAME') == 'workflow_dispatch'
+              and os.environ.get('GITHUB_REPOSITORY') == 'Galih-Hermawan-Unikom/bima-dikti-news'
+              and os.environ.get('GITHUB_REF') == 'refs/heads/master'
+              and re.fullmatch('[a-f0-9]{40}', reviewed) is not None
+              and reviewed == approved == os.environ.get('GITHUB_SHA'))
+          print('PRODUCTION_REVIEWED_SHA_GATE=' + ('PASS' if valid else 'BLOCKED'))
+          sys.exit(0 if valid else 1)
+          PY
+  collect:
+    needs: review
+    if: inputs.mode == 'COLLECT'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.reviewed_code_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install requests==2.31.0 beautifulsoup4==4.12.3
+      - run: python -B kemdiktisaintek_prod_runtime.py COLLECT
+  controlled:
+    needs: review
+    if: inputs.mode == 'INITIALIZE' || inputs.mode == 'POLL'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.reviewed_code_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install requests==2.31.0 beautifulsoup4==4.12.3
+      - name: Source-local production state operation
+        env:
+          MODE: ${{ inputs.mode }}
+          KEMDIKTISAINTEK_PRODUCTION_REVIEWED_SHA: ${{ inputs.reviewed_code_sha }}
+          KEMDIKTISAINTEK_PRODUCTION_APPROVED_SHA: ${{ vars.KEMDIKTISAINTEK_PRODUCTION_APPROVED_CODE_SHA || '' }}
+          KEMDIKTISAINTEK_PRODUCTION_INITIALIZE_APPROVAL: ${{ inputs.confirmation }}
+          KEMDIKTISAINTEK_PRODUCTION_ENABLED: ${{ vars.KEMDIKTISAINTEK_PRODUCTION_ENABLED || 'false' }}
+          KEMDIKTISAINTEK_PRODUCTION_AUTO_SEND: ${{ vars.KEMDIKTISAINTEK_PRODUCTION_AUTO_SEND || 'false' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ inputs.mode == 'POLL' && vars.KEMDIKTISAINTEK_PRODUCTION_ENABLED == 'true' && vars.KEMDIKTISAINTEK_PRODUCTION_AUTO_SEND == 'true' && secrets.TELEGRAM_BOT_TOKEN || '' }}
+          TELEGRAM_CHAT_ID: ${{ inputs.mode == 'POLL' && vars.KEMDIKTISAINTEK_PRODUCTION_ENABLED == 'true' && vars.KEMDIKTISAINTEK_PRODUCTION_AUTO_SEND == 'true' && secrets.TELEGRAM_CHAT_ID || '' }}
+          PRODUCTION_TELEGRAM_CHAT_ID_SHA256: ${{ inputs.mode == 'POLL' && vars.KEMDIKTISAINTEK_PRODUCTION_ENABLED == 'true' && vars.KEMDIKTISAINTEK_PRODUCTION_AUTO_SEND == 'true' && vars.PRODUCTION_TELEGRAM_CHAT_ID_SHA256 || '' }}
+        run: python -B kemdiktisaintek_prod_runtime.py "$MODE"
