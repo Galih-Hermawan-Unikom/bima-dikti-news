@@ -12,10 +12,12 @@ import json
 import os
 from pathlib import Path
 import re
+import ssl
 import subprocess
 import sys
 from urllib.parse import urlsplit
 import urllib.request
+import urllib.error
 from unittest.mock import patch
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -200,12 +202,25 @@ def verify_archived_provenance(plan, root):
               + representations[reviewed['file_sha256']])
 
 
+def verify_bima_live_url():
+    # Live availability is supplementary to the pinned historical preview records.
+    # Never disable TLS or use an unverified response to obtain source data.
+    try:
+        with urllib.request.urlopen('https://bima.kemdiktisaintek.go.id/pengumuman', timeout=25) as response:
+            if response.status != 200 or response.url != 'https://bima.kemdiktisaintek.go.id/pengumuman':
+                raise PreviewError('BIMA_SOURCE_URL_UNVERIFIED')
+    except urllib.error.URLError as exc:
+        if not isinstance(exc.reason, ssl.SSLCertVerificationError):
+            raise PreviewError('BIMA_SOURCE_URL_UNAVAILABLE') from None
+        warning = 'BIMA_LIVE_TLS_UNVERIFIED_USING_VERIFIED_PINNED_ARCHIVE'
+        print('SOURCE_WARNING=' + warning)
+        return [warning]
+    return []
+
+
 def verify_sources(plan, root, http):
-    verify_archived_provenance(plan, root)
-    # Use OS trust, including Windows trust stores; never disable TLS verification.
-    with urllib.request.urlopen('https://bima.kemdiktisaintek.go.id/pengumuman', timeout=25) as response:
-        if response.status != 200 or response.url != 'https://bima.kemdiktisaintek.go.id/pengumuman':
-            raise PreviewError('BIMA_SOURCE_URL_UNVERIFIED')
+    verify_archived_provenance(plan, root)  # Required even if live BIMA TLS is unavailable.
+    warnings = verify_bima_live_url()
     for item in plan['inputs']['youtube']:
         require_public_url(item['url'])
         response = http.get('https://www.youtube.com/oembed',
@@ -217,6 +232,7 @@ def verify_sources(plan, root, http):
     current = article_records()
     if current != plan['inputs']['kemdiktisaintek']:
         raise PreviewError('OFFICIAL_ARTICLE_CHANGED_REBUILD_PLAN')
+    return warnings
 
 
 def validate_plan(plan, root):
@@ -371,7 +387,7 @@ def run(mode, env):
     from kemdiktisaintek_telegram import Credentials, preflight
     with requests.Session() as http:
         http.trust_env = False
-        verify_sources(plan, root, http)
+        warnings = verify_sources(plan, root, http) or []
         credentials = Credentials.from_environment(env)
         proof = preflight(credentials, at=now(), get=http.get)
         alias = 'EXPERIMENT-' + credentials.chat_sha256[:12]
@@ -383,9 +399,11 @@ def run(mode, env):
             print('MULTI_PREVIEW_PLAN_SHA256=' + plan_hash)
             if not sending:
                 return {'status': 'READY_FOR_OPERATOR_APPROVAL', 'post_attempts': 0,
-                        'planned_posts': len(plan['operations']), 'plan_sha256': plan_hash}
+                        'planned_posts': len(plan['operations']), 'plan_sha256': plan_hash,
+                        'warnings': warnings}
             ledger = Ledger(env.get('KEMDIKTISAINTEK_PREVIEW_STATE_TOKEN', ''), plan_hash)
-            return execute(plan, plan_hash, credentials, proof, http, paths, ledger)
+            result = execute(plan, plan_hash, credentials, proof, http, paths, ledger)
+            return {**result, 'warnings': warnings}
         finally:
             for path in paths.values():
                 path.unlink(missing_ok=True)

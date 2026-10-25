@@ -167,7 +167,7 @@ class GuardTests(unittest.TestCase):
         http = MagicMock()
         http.__enter__.return_value = http
         credentials = SimpleNamespace(chat_sha256='e73e971297b7' + '0' * 52)
-        with patch.object(multi, 'validate_plan'), patch.object(multi, 'verify_sources'), \
+        with patch.object(multi, 'validate_plan'), patch.object(multi, 'verify_sources', return_value=[]), \
                 patch.object(multi, 'verify_pdfs', return_value={}), \
                 patch.object(multi.requests, 'Session', return_value=http), \
                 patch.object(telegram.Credentials, 'from_environment', return_value=credentials), \
@@ -185,7 +185,7 @@ class GuardTests(unittest.TestCase):
         http = MagicMock()
         http.__enter__.return_value = http
         credentials = SimpleNamespace(chat_sha256='a' * 64)
-        with patch.object(multi, 'validate_plan'), patch.object(multi, 'verify_sources'), \
+        with patch.object(multi, 'validate_plan'), patch.object(multi, 'verify_sources', return_value=[]), \
                 patch.object(multi.requests, 'Session', return_value=http), \
                 patch.object(telegram.Credentials, 'from_environment', return_value=credentials), \
                 patch.object(telegram, 'preflight'), patch.object(multi, 'Ledger') as ledger:
@@ -287,6 +287,50 @@ class ArchivedProvenanceTests(unittest.TestCase):
         self.plan['inputs']['bima'][0]['title'] += ' altered'
         with self.assertRaisesRegex(multi.PreviewError, 'INPUT_OR_PROVENANCE_CHANGED'):
             self.verify()
+
+
+class SourceTransportTests(unittest.TestCase):
+    def test_bima_certificate_failure_uses_archive_without_disabling_tls_or_retry(self):
+        error = multi.urllib.error.URLError(multi.ssl.SSLCertVerificationError(1, 'fixture'))
+        with patch.object(multi.urllib.request, 'urlopen', side_effect=error) as get:
+            warnings = multi.verify_bima_live_url()
+        self.assertEqual(warnings, ['BIMA_LIVE_TLS_UNVERIFIED_USING_VERIFIED_PINNED_ARCHIVE'])
+        get.assert_called_once_with('https://bima.kemdiktisaintek.go.id/pengumuman', timeout=25)
+
+    def test_unexpected_network_failure_remains_blocked(self):
+        with patch.object(multi.urllib.request, 'urlopen',
+                          side_effect=multi.urllib.error.URLError(TimeoutError())):
+            with self.assertRaisesRegex(multi.PreviewError, 'BIMA_SOURCE_URL_UNAVAILABLE'):
+                multi.verify_bima_live_url()
+
+    def test_http_access_denial_is_not_a_certificate_fallback(self):
+        error = multi.urllib.error.HTTPError('https://bima.kemdiktisaintek.go.id/pengumuman',
+                                             403, 'Forbidden', {}, None)
+        with patch.object(multi.urllib.request, 'urlopen', side_effect=error):
+            with self.assertRaisesRegex(multi.PreviewError, 'BIMA_SOURCE_URL_UNAVAILABLE'):
+                multi.verify_bima_live_url()
+
+    def test_archive_provenance_is_required_before_live_transport_fallback(self):
+        with patch.object(multi, 'verify_archived_provenance',
+                          side_effect=multi.PreviewError('ARCHIVE_INVALID')), \
+                patch.object(multi, 'verify_bima_live_url') as live:
+            with self.assertRaisesRegex(multi.PreviewError, 'ARCHIVE_INVALID'):
+                multi.verify_sources({}, 'fixture-root', Mock())
+        live.assert_not_called()
+
+    def test_healthy_live_bima_url_has_no_warning(self):
+        response = MagicMock()
+        response.__enter__.return_value = SimpleNamespace(
+            status=200, url='https://bima.kemdiktisaintek.go.id/pengumuman')
+        with patch.object(multi.urllib.request, 'urlopen', return_value=response):
+            self.assertEqual(multi.verify_bima_live_url(), [])
+
+    def test_redirected_or_wrong_bima_url_is_rejected(self):
+        response = MagicMock()
+        response.__enter__.return_value = SimpleNamespace(status=200, url='https://example.org/')
+        with patch.object(multi.urllib.request, 'urlopen', return_value=response):
+            with self.assertRaisesRegex(multi.PreviewError, 'BIMA_SOURCE_URL_UNVERIFIED'):
+                multi.verify_bima_live_url()
 
 
 if __name__ == '__main__':
