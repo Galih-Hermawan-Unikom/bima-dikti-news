@@ -96,6 +96,16 @@ def run_poll(env, *, backend, clock=lambda: datetime.now(timezone.utc).isoformat
                     telegram.session.close()
     gap = timestamp(now_at) - prior_poll
     local = timestamp(now_at).astimezone(WIB)
+    captured = {item.get('id'): item for item in capture.items}
+    attention = []
+    for event in events:
+        if event.get('status') not in {'HOLD', 'NEEDS_REVIEW'}:
+            continue
+        item = captured.get(event.get('uuid'), {})
+        attention.append({"uuid": event.get('uuid'), "status": event.get('status'),
+            "title": item.get('title'), "url": item.get('url'),
+            "reasons": event.get('reasons', []), "classification": event.get('classification'),
+            "dedup_status": event.get('dedup_status')})
     summary = {"source": "kemdiktisaintek", "observed_at_utc": timestamp(now_at).isoformat(),
         "observed_at_wib": local.isoformat(), "pages": capture.coverage['captured_pages'],
         "articles_observed": capture.coverage['listing_count'], "details_checked": capture.coverage['detail_count'],
@@ -106,5 +116,6 @@ def run_poll(env, *, backend, clock=lambda: datetime.now(timezone.utc).isoformat
         "lateness_tolerance_seconds": int(TIMING.lateness_tolerance.total_seconds()),
         "bima_reference_status": bima_status, "recovered_sending_attempts": recovered,
         "capture_warnings": report.get('capture_warnings', []), "reference_error": report.get('reference_error'),
+        "hold_needs_review": attention,
         "delivery_enabled": switches_on, "delivery_authorized": bool(delivery_counts['delivered'])}
     return summary

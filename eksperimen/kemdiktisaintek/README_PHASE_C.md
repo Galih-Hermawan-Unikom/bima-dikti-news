@@ -68,7 +68,7 @@ State tetap schema v2 pada branch eksperimen `kemdiktisaintek-experiment-state`,
 
 ## Observability
 
-Setiap POLL mengeluarkan ringkasan tanpa token/chat ID: waktu UTC/WIB, halaman, item/detail, status NEW_CANDIDATE/KNOWN/HOLD/REJECTED/NEEDS_REVIEW, duplicate, admissions, reservation, delivered, ambiguous, kesehatan API, poll gap, coverage BIMA dan error class. Capture Kemdiktisaintek gagal melaporkan `api_health=FAILED` tanpa mengubah state. Capture Kemdiktisaintek yang sehat dengan BIMA yang gagal tetap dapat menyimpan observasi, tetapi kandidat ditahan.
+Setiap POLL mengeluarkan ringkasan tanpa token/chat ID: waktu UTC/WIB, halaman, item/detail, status NEW_CANDIDATE/KNOWN/HOLD/REJECTED/NEEDS_REVIEW, duplicate, admissions, reservation, delivered, ambiguous, kesehatan API, poll gap, coverage BIMA dan error class. Capture Kemdiktisaintek gagal melaporkan `api_health=FAILED` tanpa memajukan observation state; recovery boleh lebih dahulu mengubah attempt `SENDING` lama menjadi `AMBIGUOUS`. Capture Kemdiktisaintek yang sehat dengan BIMA yang gagal tetap dapat menyimpan observasi, tetapi kandidat ditahan.
 
 ## Aktivasi eksperimen
 
