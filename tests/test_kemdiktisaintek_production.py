@@ -1,4 +1,5 @@
 from copy import deepcopy
+import base64
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -201,6 +202,94 @@ def test_runtime_requires_production_source_gate_before_state_access():
 def test_remote_backend_rejects_nonallowlisted_scope(kwargs):
     with pytest.raises(StateError, match='REMOTE_SCOPE_OR_TOKEN_INVALID'):
         RemoteState('not-a-real-token', **kwargs)
+
+
+def _github_response(status, body=None):
+    response = Mock(status_code=status)
+    response.json.return_value = body
+    return response
+
+
+def _remote_content(state):
+    raw = canonical(state)
+    return {'path': STATE_PATH, 'encoding': 'base64',
+            'content': base64.b64encode(raw).decode('ascii'), 'sha': blob_sha(raw)}
+
+
+def test_remote_initialize_creates_only_allowlisted_absent_file():
+    state = new_state()
+    response = _github_response(201, {'content': {'sha': blob_sha(canonical(state))}})
+    session = Mock()
+    session.get.side_effect = [
+        _github_response(200, {'ref': 'refs/heads/' + STATE_BRANCH}),
+        _github_response(404),
+    ]
+    session.put.return_value = response
+    remote = RemoteState(TOKEN, session=session)
+
+    remote.create(state, approved=True)
+
+    assert session.get.call_args_list[0].args[0].endswith('/git/ref/heads/' + STATE_BRANCH)
+    assert session.get.call_args_list[1].args[0].endswith(
+        '/contents/' + STATE_PATH + '?ref=' + STATE_BRANCH)
+    assert session.put.call_count == 1
+    assert session.put.call_args.args[0].endswith('/contents/' + STATE_PATH)
+    assert session.put.call_args.kwargs['json']['branch'] == STATE_BRANCH
+    assert 'sha' not in session.put.call_args.kwargs['json']
+
+
+def test_remote_initialize_refuses_existing_state_without_put():
+    state = new_state()
+    session = Mock()
+    session.get.side_effect = [
+        _github_response(200, {'ref': 'refs/heads/' + STATE_BRANCH}),
+        _github_response(200, _remote_content(state)),
+    ]
+    remote = RemoteState(TOKEN, session=session)
+
+    with pytest.raises(StateError, match='REMOTE_INITIALIZATION_REFUSES_OVERWRITE'):
+        remote.create(state, approved=True)
+
+    session.put.assert_not_called()
+
+
+def test_remote_initialize_fails_closed_on_wrong_ref_or_contents_error():
+    for ref, content_status in [
+        ({'ref': 'refs/heads/master'}, 404),
+        ({'ref': 'refs/heads/' + STATE_BRANCH}, 403),
+    ]:
+        session = Mock()
+        session.get.side_effect = [
+            _github_response(200, ref), _github_response(content_status),
+        ]
+        remote = RemoteState(TOKEN, session=session)
+        with pytest.raises(StateError):
+            remote.create(new_state(), approved=True)
+        session.put.assert_not_called()
+
+
+def test_remote_checkpoint_sha_mismatch_prevents_put():
+    state = new_state()
+    session = Mock()
+    session.get.return_value = _github_response(200, _remote_content(state))
+    remote = RemoteState(TOKEN, session=session)
+
+    with pytest.raises(StateConflict, match='REMOTE_CAS_CONFLICT'):
+        remote.checkpoint(state, '0' * 40)
+
+    session.put.assert_not_called()
+
+
+def test_remote_checkpoint_api_cas_conflict_is_terminal():
+    state = new_state()
+    session = Mock()
+    session.put.return_value = _github_response(409)
+    remote = RemoteState(TOKEN, session=session)
+
+    with pytest.raises(StateConflict, match='REMOTE_CAS_CONFLICT'):
+        remote._put(state, blob_sha(canonical(state)))
+
+    assert session.put.call_count == 1
 
 
 def test_production_workflow_is_manual_and_all_delivery_gates_default_off():
