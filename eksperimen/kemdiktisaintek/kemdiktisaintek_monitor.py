@@ -147,7 +147,12 @@ def _changes(old, new):
         if fields:
             changes[group] = fields
     if old.get('content_sha256') and new.get('content_sha256') != old.get('content_sha256') and not changes:
-        changes['fingerprint'] = {'before': old['content_sha256'], 'after': new.get('content_sha256')}
+        old_material = {k: old.get(k) for k in ('title', 'category', 'body_text', 'attachments', 'external_links')}
+        new_material = {k: new.get(k) for k in ('title', 'category', 'body_text', 'attachments', 'external_links')}
+        old_material['category'] = normalized(old_material['category'])
+        new_material['category'] = normalized(new_material['category'])
+        if old_material != new_material:
+            changes['fingerprint'] = {'before': old['content_sha256'], 'after': new.get('content_sha256')}
     return changes
 
 
@@ -277,6 +282,10 @@ def apply_poll(previous, capture, *, bima_history=None, max_poll_gap=MAX_POLL_GA
         # Hydrating a baseline/list-only record is first evidence, not a revision.
         if old and not old['content_sha256']:
             changes = {k: v for k, v in changes.items() if k in {'metadata', 'url', 'dates'}}
+            if 'metadata' in changes:
+                changes['metadata'].pop('letter_number', None)
+                if not changes['metadata']:
+                    changes.pop('metadata')
             changes.pop('dates', None)
         if old and changes:
             revision = {'uuid': identifier, 'event_type': 'REVISION_CANDIDATE', 'status': 'NEEDS_REVIEW',

@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import socket
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -11,7 +12,8 @@ import requests
 import yaml
 
 from stage3_fixtures import AT, NOW, TARGET, Clock, FixtureGitHub, FixtureSource, FixtureTelegram
-from kemdiktisaintek_bima_reference import create_reference, validate_reference as validate_bima_reference
+from kemdiktisaintek_bima_reference import (create_reference, capture_live,
+    validate_reference as validate_bima_reference)
 from kemdiktisaintek_automation import run_poll
 from kemdiktisaintek_delivery_state import migrate_v1
 from kemdiktisaintek_monitor import capture_window, initialize
@@ -59,6 +61,94 @@ class BimaFixture:
         if self.error:
             raise self.error
         return deepcopy(self.rows), self.pagination, self.sorted_desc
+
+
+class BimaDiagnosticFixture:
+    def __init__(self, rows, *, pagination_state="FIRST_PAGE_HAS_NEXT", active=1,
+                 has_next=True, http_status=200, final_url="https://bima.kemdiktisaintek.go.id/pengumuman",
+                 error=None):
+        self.rows, self.pagination_state = rows, pagination_state
+        self.newest_first = all(rows[i]['date'] >= rows[i + 1]['date'] for i in range(len(rows) - 1))
+        self.error = error
+        self.scraper = SimpleNamespace(http_status=http_status, final_url=final_url,
+            dom_diagnostics={"pagination_found": pagination_state != "UNKNOWN", "active_page": active,
+                "has_next": has_next, "page_numbers": [1, 2] if has_next else [1]})
+
+    def fetch(self):
+        if self.error:
+            raise self.error
+        return deepcopy(self.rows), self.pagination_state, self.newest_first
+
+
+def _bima_rows(*dates):
+    return [{"title": "BIMA research notice " + str(i), "surat": f"{i}/ABC/2026",
+        "date": date, "documents": [{"name": "Panduan.pdf"}]}
+        for i, date in enumerate(dates)]
+
+
+def _capture_bima(collector):
+    return capture_live(env=env(enabled=False, auto=False),
+        clock=lambda: "2026-10-24T10:10:00Z", collector=collector)
+
+
+@pytest.mark.parametrize("dates,expected", [
+    (("24 Oktober 2026", "23 Oktober 2026"), []),
+    (("23 Oktober 2026", "24 Oktober 2026"), [0]),
+    (("24 Oktober 2026", "22 Oktober 2026", "23 Oktober 2026"), [1]),
+])
+def test_bima_date_order_and_violation_diagnostics(dates, expected):
+    collector=BimaDiagnosticFixture(_bima_rows(*dates))
+    if expected:
+        with pytest.raises(StateError) as error:
+            _capture_bima(collector)
+        diag=error.value.diagnostics
+        assert diag["newest_first_violation_indices"]==expected
+    else:
+        reference,_=_capture_bima(collector)
+        diag=reference["diagnostics"]
+        assert diag["newest_first_violation_indices"]==[]
+    assert diag["card_count"]==len(dates)
+    assert [x["raw"] for x in diag["date_order"]]==list(dates)
+    assert diag["scraper_preserved_dom_order"] is True
+    assert diag["http_status"]==200
+    assert diag["final_url"].endswith("/pengumuman")
+    assert diag["pagination_found"] is True and diag["active_page"]==1
+    assert len(diag["title_samples"])<=5
+
+
+def test_bima_pagination_coverage_and_unknown_page_are_conservative():
+    rows=_bima_rows("24 Oktober 2026", "20 Oktober 2026")
+    reference,_=_capture_bima(BimaDiagnosticFixture(rows, pagination_state="FIRST_PAGE_HAS_NEXT"))
+    assert reference["coverage_from"]=="2026-10-20T17:00:00+00:00"
+    diag=reference["diagnostics"]
+    assert diag["has_next_page"] is True and diag["pagination_state"]=="FIRST_PAGE_HAS_NEXT"
+    assert diag["coverage_from"]==reference["coverage_from"]
+    with pytest.raises(StateError, match="BIMA_REFERENCE_DOES_NOT_COVER_PUBLICATION"):
+        validate_bima_reference(reference, fingerprint(reference), at="2026-10-24T10:10:00Z",
+            env=env(enabled=False, auto=False), candidate={"published_at":"2026-10-20T12:00:00Z"})
+
+    unknown=BimaDiagnosticFixture(rows, pagination_state="UNKNOWN", has_next=None)
+    with pytest.raises(StateError) as error:
+        _capture_bima(unknown)
+    assert error.value.diagnostics["pagination_state"]=="UNKNOWN"
+    assert error.value.diagnostics["coverage_from"] is None
+
+
+def test_bima_invalid_date_empty_and_fetch_failure_keep_bounded_diagnostics():
+    with pytest.raises(StateError) as invalid:
+        _capture_bima(BimaDiagnosticFixture(_bima_rows("tanggal tidak valid"),
+            pagination_state="FIRST_PAGE_COMPLETE", has_next=False))
+    assert invalid.value.diagnostics["invalid_date_indices"]==[0]
+
+    with pytest.raises(StateError) as empty:
+        _capture_bima(BimaDiagnosticFixture([], pagination_state="FIRST_PAGE_COMPLETE", has_next=False))
+    assert empty.value.diagnostics["card_count"]==0
+
+    failed=BimaDiagnosticFixture([], error=TimeoutError())
+    with pytest.raises(StateError) as fetch_error:
+        _capture_bima(failed)
+    assert fetch_error.value.diagnostics["error_class"]=="TimeoutError"
+    assert fetch_error.value.diagnostics["http_status"]==200
 
 
 def make_context(*, historical=False, irrelevant=False, now=NOW, enabled=True, auto=True,

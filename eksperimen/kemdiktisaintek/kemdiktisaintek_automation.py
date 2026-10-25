@@ -31,12 +31,15 @@ def run_poll(env, *, backend, clock=lambda: datetime.now(timezone.utc).isoformat
     reference = None
     reference_sha = None
     bima_status = "UNAVAILABLE"
+    bima_diagnostics = {}
     try:
         reference, reference_sha = capture_live(env=env, clock=clock, collector=bima_collector)
         bima_status = reference['pagination_state']
+        bima_diagnostics = reference.get('diagnostics', {})
     except StateError as exc:
         # Never turn missing, stale, empty, or structurally unknown BIMA data into NO_MATCH.
         bima_status = str(exc)
+        bima_diagnostics = getattr(exc, 'diagnostics', {})
     now_at = timestamp(clock()).isoformat()
     client = source or AnnouncementClient()
     try:
@@ -51,6 +54,7 @@ def run_poll(env, *, backend, clock=lambda: datetime.now(timezone.utc).isoformat
                 "delivered_this_poll": 0, "ambiguous_this_poll": 0, "api_health": "FAILED",
                 "poll_gap_seconds": int((observed-prior_poll).total_seconds()),
                 "bima_reference_status": bima_status, "capture_error": type(exc).__name__,
+                "bima_diagnostics": bima_diagnostics,
                 "recovered_sending_attempts": recovered, "delivery_enabled": False,
                 "delivery_authorized": False}
     finally:
@@ -115,6 +119,7 @@ def run_poll(env, *, backend, clock=lambda: datetime.now(timezone.utc).isoformat
         "poll_gap_seconds": int(gap.total_seconds()), "planned_interval_seconds": int(TIMING.planned_interval.total_seconds()),
         "lateness_tolerance_seconds": int(TIMING.lateness_tolerance.total_seconds()),
         "bima_reference_status": bima_status, "recovered_sending_attempts": recovered,
+        "bima_diagnostics": bima_diagnostics,
         "capture_warnings": report.get('capture_warnings', []), "reference_error": report.get('reference_error'),
         "hold_needs_review": attention,
         "delivery_enabled": switches_on, "delivery_authorized": bool(delivery_counts['delivered'])}

@@ -10,6 +10,60 @@ WORKFLOW_SUFFIX = ".github/workflows/kemdiktisaintek-experiment.yml"
 WIB = ZoneInfo("Asia/Jakarta")
 
 
+class BimaReferenceError(StateError):
+    def __init__(self, code, diagnostics):
+        super().__init__(code)
+        self.diagnostics = diagnostics
+
+
+def _diagnostics(items, *, pagination_state="UNKNOWN", newest_first=False, collector=None):
+    rows = items if isinstance(items, list) else []
+    dates = [_date(row.get("date")) if isinstance(row, dict) else None for row in rows]
+    scraper = getattr(collector, "scraper", None)
+    dom = getattr(scraper, "dom_diagnostics", {})
+    date_order = dom.get("date_order") or [{"index": i, "raw": row.get("date"),
+        "parsed": dates[i].isoformat() if dates[i] else None} for i, row in enumerate(rows)
+        if isinstance(row, dict)]
+    parsed_dates = [datetime.fromisoformat(row["parsed"]).date() if row.get("parsed") else None
+                    for row in date_order]
+    row_dates = [value.date() if value else None for value in dates]
+    dom_titles = dom.get("title_samples", [])
+    row_titles = [str(row.get("title") or "")[:120] for row in rows[:5] if isinstance(row, dict)]
+    dom_title_samples = [row.get("title", "") for row in dom_titles]
+    violations = [i for i in range(len(parsed_dates) - 1)
+                  if parsed_dates[i] is not None and parsed_dates[i + 1] is not None
+                  and parsed_dates[i] < parsed_dates[i + 1]]
+    invalid = [i for i, value in enumerate(parsed_dates) if value is None]
+    active_page = dom.get("active_page")
+    has_next = dom.get("has_next")
+    coverage_from = None
+    if (dates and not invalid and newest_first is True and pagination_state in
+            {"FIRST_PAGE_HAS_NEXT", "FIRST_PAGE_COMPLETE"} and active_page == 1):
+        oldest = dates[-1].date()
+        if pagination_state == "FIRST_PAGE_HAS_NEXT":
+            oldest += timedelta(days=1)
+        coverage_from = datetime.combine(oldest, time.min, WIB).astimezone(timezone.utc).isoformat()
+    return {
+        "card_count": len(rows),
+        "title_samples": dom.get("title_samples") or [{"index": i, "title": str(row.get("title") or "")[:120]}
+                          for i, row in enumerate(rows[:5]) if isinstance(row, dict)],
+        "date_order": date_order,
+        "scraper_preserved_dom_order": (len(date_order) == len(rows) and parsed_dates == row_dates
+            and (not dom_title_samples or dom_title_samples == row_titles)),
+        "invalid_date_indices": invalid,
+        "newest_first": newest_first is True and not violations and not invalid,
+        "newest_first_violation_indices": violations,
+        "http_status": getattr(scraper, "http_status", None),
+        "final_url": getattr(scraper, "final_url", None),
+        "pagination_found": dom.get("pagination_found", False),
+        "active_page": active_page,
+        "has_next_page": has_next,
+        "pagination_page_numbers": dom.get("page_numbers", []),
+        "pagination_state": pagination_state,
+        "coverage_from": coverage_from,
+    }
+
+
 def _producer(env):
     sha = env.get("GITHUB_SHA", "")
     branch = env.get("GITHUB_REF", "")
@@ -62,8 +116,10 @@ def create_reference(items, *, capture_started_at, capture_finished_at, paginati
                      newest_first, producer):
     """Build a canonical reference. Timestamps come from the runner, never scraped records."""
     started, finished = timestamp(capture_started_at), timestamp(capture_finished_at)
-    if not isinstance(items, list) or not items or newest_first is not True:
-        raise StateError("BIMA_REFERENCE_EMPTY_OR_UNSORTED")
+    if not isinstance(items, list) or not items:
+        raise StateError("BIMA_REFERENCE_EMPTY")
+    if newest_first is not True:
+        raise StateError("BIMA_REFERENCE_NOT_NEWEST_FIRST")
     if pagination_state not in {"FIRST_PAGE_HAS_NEXT", "FIRST_PAGE_COMPLETE"}:
         raise StateError("BIMA_REFERENCE_COVERAGE_UNKNOWN")
     normalized = []
@@ -116,6 +172,13 @@ class _ReferenceScraper:
                 super().__init__()
                 self.pagination_state = "UNKNOWN"
                 self.newest_first = False
+                self.http_status = None
+                self.final_url = None
+                self.dom_diagnostics = {}
+
+            def _record_listing_response(self, response, page):
+                self.http_status = response.status if response is not None else None
+                self.final_url = page.url
 
             def _collect_cards(self, page):
                 meta = page.evaluate("""() => {
@@ -127,13 +190,29 @@ class _ReferenceScraper:
                   let hasNext = null;
                   if (currentPage && nums.length) hasNext = currentPage < Math.max(...nums);
                   else if (next) hasNext = !next.closest('.disabled') && next.getAttribute('aria-disabled') !== 'true';
-                  return {known: !!p, current: currentPage, hasNext};
+                  return {known: !!p, current: currentPage, hasNext, pageNumbers: [...new Set(nums)].sort((a,b) => a-b)};
                 }""")
                 if meta.get("known") and meta.get("current") == 1 and meta.get("hasNext") is not None:
                     self.pagination_state = "FIRST_PAGE_HAS_NEXT" if meta.get("hasNext") else "FIRST_PAGE_COMPLETE"
+                self.dom_diagnostics = {"pagination_found": bool(meta.get("known")),
+                    "active_page": meta.get("current"), "has_next": meta.get("hasNext"),
+                    "page_numbers": meta.get("pageNumbers", [])}
                 cards = super()._collect_cards(page)
                 dates = [__import__('scraper')._publication_date({"date": c.get("date", "")}) for c in cards]
                 self.newest_first = bool(dates) and all(dates[i] >= dates[i + 1] for i in range(len(dates) - 1))
+                violations = [i for i in range(len(dates) - 1)
+                    if dates[i] is not None and dates[i + 1] is not None and dates[i] < dates[i + 1]]
+                self.dom_diagnostics.update({"card_count": len(cards),
+                    "date_order": [{"index": i,
+                        "raw": ((c.get("times") or [{}])[0].get("iso")
+                                or (c.get("times") or [{}])[0].get("label") or c.get("date")),
+                        "parsed": dates[i].isoformat() if dates[i] else None,
+                        "normalized": c.get("date")}
+                        for i, c in enumerate(cards)],
+                    "newest_first": self.newest_first,
+                    "newest_first_violation_indices": violations,
+                    "title_samples": [{"index": i, "title": c.get("title", "")[:120]}
+                        for i, c in enumerate(cards[:5])]})
                 return cards
 
             def _resolve_documents(self, page, card_index, raw_documents, layout="legacy"):
@@ -156,13 +235,20 @@ def capture_live(*, env, clock=lambda: datetime.now(timezone.utc).isoformat(), c
     try:
         rows, pagination_state, newest_first = collector.fetch()
     except Exception as exc:
-        raise StateError("BIMA_REFERENCE_FETCH_FAILED:" + type(exc).__name__) from None
+        diagnostic = _diagnostics([], collector=collector)
+        diagnostic["error_class"] = type(exc).__name__
+        raise BimaReferenceError("BIMA_REFERENCE_FETCH_FAILED:" + type(exc).__name__, diagnostic) from None
     finished = timestamp(clock()).isoformat()
     try:
         reference = create_reference(rows, capture_started_at=started, capture_finished_at=finished,
             pagination_state=pagination_state, newest_first=newest_first, producer=producer)
-    except StateError:
-        raise
+    except StateError as exc:
+        diagnostic = _diagnostics(rows, pagination_state=pagination_state,
+            newest_first=newest_first, collector=collector)
+        diagnostic["error_class"] = str(exc)
+        raise BimaReferenceError(str(exc), diagnostic) from None
     except Exception as exc:
         raise StateError("BIMA_REFERENCE_BUILD_FAILED:" + type(exc).__name__) from None
+    reference["diagnostics"] = _diagnostics(rows, pagination_state=pagination_state,
+        newest_first=newest_first, collector=collector)
     return reference, fingerprint(reference)

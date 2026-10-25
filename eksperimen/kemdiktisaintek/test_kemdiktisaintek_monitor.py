@@ -182,6 +182,52 @@ def test_revision_evidence(initialized,mode):
     assert again['observations'][changed['id']]['detection_status']=='NEEDS_REVIEW'
 
 
+def test_detail_hydration_of_list_only_baseline_is_not_a_revision(initialized):
+    previous=deepcopy(initialized)
+    row=previous['observations'][item()['id']]
+    listing=row['last_item']
+    for key in ('body_text','letter_number','deadline_evidence','attachments','external_links','method'):
+        listing.pop(key,None)
+    listing.update(content_sha256=None,publication_basis='listing_display_timestamp',updated_at=None)
+    row.update(content_sha256=None,detail_checked_at=None)
+    validate_state(previous)
+
+    hydrated=item()
+    hydrated['letter_number']='2026/DST/DT.04.02/1'
+    hydrated['attachments']=[{'url':BASE+'/notice.pdf','kind':'pdf','label':'Pengumuman'}]
+    rehash(hydrated)
+    after,report=apply_poll(previous,capture([hydrated],LATER),bima_history=[])
+
+    assert after['revisions']==[]
+    assert report['revision_count']==0
+    assert after['observations'][hydrated['id']]['detection_status']=='KNOWN'
+    assert after['observations'][hydrated['id']]['last_item']['content_sha256']==hydrated['content_sha256']
+
+
+def test_category_display_normalization_does_not_create_fingerprint_revision(initialized):
+    previous=deepcopy(initialized)
+    old_row=previous['observations'][item()['id']]
+    old_row['last_item']['category']='Sains Dan-teknologi'
+    rehash(old_row['last_item'])
+    old_row['content_sha256']=old_row['last_item']['content_sha256']
+    validate_state(previous)
+
+    changed=deepcopy(old_row['last_item']); changed['category']='Sains-dan-teknologi'; rehash(changed)
+    after,report=apply_poll(previous,capture([changed],LATER),bima_history=[])
+
+    assert after['revisions']==[]
+    assert report['revision_count']==0
+    assert after['observations'][changed['id']]['detection_status']=='KNOWN'
+
+
+def test_substantive_category_change_remains_a_metadata_revision(initialized):
+    changed=item(); changed['category']='Pendidikan Tinggi'; rehash(changed)
+    after,_=apply_poll(initialized,capture([changed],LATER),bima_history=[])
+    assert len(after['revisions'])==1
+    assert after['revisions'][0]['changes']['metadata']['category']=={
+        'before':'Umum','after':'Pendidikan Tinggi'}
+
+
 def test_absent_temporarily_not_deleted(initialized):
     after,_=apply_poll(initialized,capture([],LATER),bima_history=[])
     assert item()['id'] in after['observations']
