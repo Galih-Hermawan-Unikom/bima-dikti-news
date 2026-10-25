@@ -22,53 +22,15 @@ jobs:
       actions: write
       contents: read
     steps:
-      - name: Verify production monitoring gates and dispatch one POLL
-        uses: actions/github-script@v7
-        env:
-          SCHEDULER_ENABLED: ${{ vars.KEMDIKTISAINTEK_PRODUCTION_SCHEDULER_ENABLED || 'false' }}
-          SOURCE_ENABLED: ${{ vars.KEMDIKTISAINTEK_PRODUCTION_ENABLED || 'false' }}
-          AUTO_SEND: ${{ vars.KEMDIKTISAINTEK_PRODUCTION_AUTO_SEND || 'false' }}
-          APPROVED_MASTER_SHA: ${{ vars.KEMDIKTISAINTEK_PRODUCTION_APPROVED_CODE_SHA || '' }}
+      - uses: actions/checkout@v4
         with:
-          github-token: ${{ github.token }}
-          script: |
-            const owner = 'Galih-Hermawan-Unikom';
-            const repo = 'bima-dikti-news';
-            const sha = context.sha;
-            if (context.repo.owner !== owner || context.repo.repo !== repo
-                || context.ref !== 'refs/heads/master'
-                || !['schedule', 'workflow_dispatch'].includes(context.eventName)) {
-              core.setFailed('PRODUCTION_SCHEDULER_CONTEXT_DENIED');
-              return;
-            }
-            if (process.env.SCHEDULER_ENABLED !== 'true') {
-              core.notice('PRODUCTION_SCHEDULER=OFF; no workflow dispatch');
-              return;
-            }
-            if (process.env.SOURCE_ENABLED !== 'true'
-                || process.env.AUTO_SEND !== 'false'
-                || !/^[a-f0-9]{40}$/.test(sha)
-                || process.env.APPROVED_MASTER_SHA !== sha) {
-              core.setFailed('PRODUCTION_OBSERVATION_GATES_DENIED');
-              return;
-            }
-            const master = await github.rest.git.getRef({ owner, repo, ref: 'heads/master' });
-            if (master.data.object.sha !== sha) {
-              core.setFailed('MASTER_HEAD_CHANGED_DURING_SCHEDULER_RUN');
-              return;
-            }
-            const target = await github.rest.actions.getWorkflow({
-              owner, repo, workflow_id: 'kemdiktisaintek-production.yml'
-            });
-            if (target.data.state !== 'active') {
-              core.setFailed('PRODUCTION_WORKFLOW_NOT_ACTIVE');
-              return;
-            }
-            await github.rest.actions.createWorkflowDispatch({
-              owner,
-              repo,
-              workflow_id: 'kemdiktisaintek-production.yml',
-              ref: 'master',
-              inputs: { mode: 'POLL', reviewed_code_sha: sha }
-            });
-            core.notice(`PRODUCTION_POLL_DISPATCH_ACK sha=${sha} mode=POLL`);
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Verify production gates and dispatch one POLL
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          KEMDIKTISAINTEK_PRODUCTION_SCHEDULER_ENABLED: ${{ vars.KEMDIKTISAINTEK_PRODUCTION_SCHEDULER_ENABLED || 'false' }}
+          KEMDIKTISAINTEK_PRODUCTION_ENABLED: ${{ vars.KEMDIKTISAINTEK_PRODUCTION_ENABLED || 'false' }}
+          KEMDIKTISAINTEK_PRODUCTION_AUTO_SEND: ${{ vars.KEMDIKTISAINTEK_PRODUCTION_AUTO_SEND || 'false' }}
+          KEMDIKTISAINTEK_PRODUCTION_APPROVED_CODE_SHA: ${{ vars.KEMDIKTISAINTEK_PRODUCTION_APPROVED_CODE_SHA || '' }}
+        run: python -B kemdiktisaintek_prod_scheduler.py

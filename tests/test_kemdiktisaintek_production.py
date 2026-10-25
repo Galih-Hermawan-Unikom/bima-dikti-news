@@ -12,6 +12,7 @@ import pytest
 import requests
 
 from kemdiktisaintek_prod_automation import run_poll
+from kemdiktisaintek_prod_delivery import Delivery
 from kemdiktisaintek_prod_delivery_state import migrate_v1, validate_delivery_state, validate_delivery_lineage
 from kemdiktisaintek_prod_monitor import Capture, initialize
 from kemdiktisaintek_prod_remote_state import REPOSITORY, RemoteState, blob_sha
@@ -148,6 +149,38 @@ def test_switch_off_observes_without_preflight_reservation_or_post():
     assert result['reserved_this_poll'] == 0 and result['delivered_this_poll'] == 0
     assert gateway.posts == []
     assert all(row['event_type'] != 'INITIAL' for row in remote.state['outbox'].values())
+
+
+def test_observation_only_does_not_require_telegram_credentials():
+    remote = MemoryRemote(new_state())
+    result = run_poll({'KEMDIKTISAINTEK_PRODUCTION_ENABLED': 'true',
+                       'KEMDIKTISAINTEK_PRODUCTION_AUTO_SEND': 'false'},
+                      backend=remote, clock=lambda: NOW, source=FakeClient(candidate()))
+
+    assert result['api_health'] == 'HEALTHY'
+    assert result['delivery_enabled'] is False
+    assert result['reserved_this_poll'] == result['delivered_this_poll'] == 0
+    assert not any(row['event_type'] == 'INITIAL' for row in remote.state['outbox'].values())
+
+
+def test_expired_admission_prevents_reservation_and_post():
+    remote, gateway, item = MemoryRemote(new_state()), FakeGateway(), candidate()
+    run_poll({'KEMDIKTISAINTEK_PRODUCTION_ENABLED': 'true',
+              'KEMDIKTISAINTEK_PRODUCTION_AUTO_SEND': 'false'},
+             backend=remote, clock=lambda: NOW, source=FakeClient(item))
+    state, _ = remote.load()
+    key = next(iter(state['admissions']))
+    state['admissions'][key]['expires_at'] = '2026-10-25T08:30:05+00:00'
+    remote = MemoryRemote(state)
+    at = '2026-10-25T08:30:06+00:00'
+    engine = Delivery(remote, gateway, environment=enabled_env(), clock=lambda: at)
+    proof = gateway.inspect(at=at)
+
+    with pytest.raises(StateError, match='NO_FRESH_EVENT_ADMISSION'):
+        engine.reserve_initial(item['id'], proof)
+
+    assert not remote.state['outbox']
+    assert gateway.posts == []
 
 
 def test_cas_conflict_on_durable_claim_prevents_post():
