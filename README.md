@@ -1,4 +1,3 @@
-
 # Dikti News Bot — Monitoring Informasi Pendidikan Tinggi
 
 Bot Python yang memantau informasi dari tiga sumber resmi Kementerian Pendidikan Tinggi, Sains, dan Teknologi (Kemdiktisaintek) dan mengirim pemberitahuan yang memenuhi kriteria ke kanal Telegram **[@dikti_news](https://t.me/dikti_news)**:
@@ -100,7 +99,7 @@ Sumber ini memantau [halaman pengumuman resmi](https://kemdiktisaintek.go.id/ann
 - Outbox dan receipt terpisah dari BIMA/YouTube. `AMBIGUOUS` atau pengiriman parsial perlu rekonsiliasi operator, tanpa retry otomatis.
 - Inventaris baseline hanya meliputi jendela pengamatan terbaru (`archive_complete=false`), **bukan klaim telah mengarsipkan seluruh pengumuman historis**.
 
-Pada checkpoint aktivasi 25 Oktober 2026, jalur ini berstatus **ARMED**, tanpa pengiriman artikel baru yang telah dikonfirmasi. Lihat [dokumentasi integrasi awal](README_KEMDIKTISAINTEK_PRODUCTION.md); beberapa petunjuk aktivasi di sana merupakan catatan historis, bukan status operasional terbaru.
+Pada pemeriksaan setelah aktivasi 25 Oktober 2026, jalur ini berstatus **ARMED**, tanpa pengiriman artikel baru yang telah dikonfirmasi. Lihat [dokumentasi integrasi awal](README_KEMDIKTISAINTEK_PRODUCTION.md); beberapa petunjuk aktivasi di sana merupakan catatan historis, bukan status operasional terbaru.
 
 ## State, deduplikasi, dan pemulihan
 
@@ -172,7 +171,7 @@ Atur melalui **Settings → Secrets and variables → Actions**. Jangan menaruh 
 
 Saklar boolean produksi menggunakan string persis `true`; default adalah **OFF** jika tidak diatur. Pengiriman setiap sumber mensyaratkan saklar source dan auto-send aktif. Kemdiktisaintek memerlukan approved SHA yang cocok dengan `master`, serta scheduler switch untuk polling otomatis. **Jangan menghapus baseline atau mereset state** untuk memaksa pengiriman. Setelah merge apa pun ke `master`, periksa rollover approved SHA sebelum scheduler berikutnya.
 
-Setiap eksekusi produksi menjalankan preflight read-only `getMe`, `getChat`, dan `getChatMember`: identitas kanal harus cocok dengan kanal resmi serta hash allowlist, dan bot harus memiliki hak posting. Tujuan pengiriman dipin ke ID numerik yang telah diverifikasi. Kredensial eksperimen tidak dipakai sebagai fallback. Jika verifikasi gagal, proses berhenti sebelum pengiriman.
+Jalur pengiriman produksi melakukan preflight read-only `getMe`, `getChat`, dan `getChatMember` sebelum POST Telegram: identitas kanal harus cocok dengan kanal resmi serta hash allowlist, dan bot harus memiliki hak posting. Tujuan pengiriman dipin ke ID numerik yang telah diverifikasi. Kredensial eksperimen tidak dipakai sebagai fallback. Jika verifikasi gagal, proses berhenti sebelum pengiriman.
 
 Branch `dikti-production-state` harus tersedia dan dapat ditulis oleh workflow. Mode `initialize` membuat state yang belum ada dengan UTC aktual serta initial inventory tanpa pengiriman; bukan alat reset. Mode `preflight` hanya memeriksa tujuan dan izin tanpa mengirim Telegram atau menginisialisasi state. Mode `run` menjalankan siklus normal menggunakan state yang sudah tersedia.
 
@@ -259,7 +258,7 @@ Siklus produksi normal menulis satu baris `PRODUCTION_RUN=` diikuti JSON. Interp
 | Job terjadwal dilewati | Periksa status workflow, branch `master`, dan variable `*_PRODUCTION_ENABLED`. |
 | Scheduler Kemdiktisaintek tidak mendispatch POLL | Cocokkan `KEMDIKTISAINTEK_PRODUCTION_APPROVED_CODE_SHA` dengan HEAD `master`; periksa scheduler/source switch dan workflow run. Jangan mematikan SHA gate. |
 | Kemdiktisaintek `UNHEALTHY_POLL_GAP` | Periksa jarak antar-run dan API health; lihat kemungkinan cron terlambat/terlewat. Jangan backfill atau mengirim arsip otomatis. |
-| Run terlambat atau pending tergantikan | Periksa antrean dan log kedua workflow pada concurrency group `dikti-production-state`. Cron menggunakan UTC dan tidak menjamin waktu mulai; `cancel-in-progress: false` tidak melindungi run pending dari penggantian oleh run baru. |
+| Run terlambat atau pending tergantikan | Periksa antrean dan log ketiga pipeline produksi pada concurrency group `dikti-production-state`. Cron menggunakan UTC dan tidak menjamin waktu mulai; `cancel-in-progress: false` tidak melindungi run pending dari penggantian oleh run baru. |
 | Eksperimen tidak berjalan otomatis | Sesuai konfigurasi: `youtube-observation-only.yml` tidak memiliki `schedule` dan hanya tersedia melalui `workflow_dispatch` manual. Auto-send eksperimen tetap OFF. |
 | Job berjalan tetapi tidak mengirim | Periksa auto-send, inventory/histori, fence, hasil eligibility, dan outbox; jangan menghapus histori. |
 | Allowlist atau izin Telegram gagal | Periksa secrets, hash ID numerik resmi, identitas kanal, serta hak admin bot. Jangan mencetak nilai rahasia. |
@@ -281,7 +280,7 @@ Siklus produksi normal menulis satu baris `PRODUCTION_RUN=` diikuti JSON. Interp
 
 Perubahan dokumentasi ke `master` juga mengubah SHA commit. Ketika Kemdiktisaintek aktif, operator perlu menyelaraskan approved SHA secara terkendali setelah merge.
 
-Dokumen fase terdahulu menjelaskan desain dan riwayat implementasi. Untuk operasi produksi saat ini, rujuk README ini beserta `production_runtime.py` dan kedua workflow produksi.
+Dokumen fase terdahulu menjelaskan desain dan riwayat implementasi. Untuk operasi produksi saat ini, rujuk README ini beserta workflow produksi setiap sumber; BIMA/YouTube menggunakan `production_runtime.py`, sedangkan Kemdiktisaintek menggunakan `kemdiktisaintek_prod_runtime.py`.
 
 ## Pengembang
 
