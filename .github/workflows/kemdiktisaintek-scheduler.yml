@@ -1,6 +1,7 @@
 name: Kemdiktisaintek Scheduler
 on:
   schedule:
+    # Kemdiktisaintek monitoring schedule; delivery controlled separately.
     - cron: '11,41 * * * *'
   workflow_dispatch:
 permissions:
