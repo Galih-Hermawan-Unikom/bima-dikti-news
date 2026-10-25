@@ -391,6 +391,10 @@ class BimaScraper:
             except Exception:
                 pass
 
+    def _record_listing_response(self, response, page):
+        """Optional observation hook; production scraping behavior is unchanged."""
+        return None
+
     def _resolve_documents(self, page, card_index, raw_documents, layout="legacy"):
         documents = []
         modern = layout == "ap-card"
@@ -470,6 +474,7 @@ class BimaScraper:
 
             try:
                 response = page.goto(self.url, wait_until="networkidle", timeout=30000)
+                self._record_listing_response(response, page)
                 if response is not None and response.status >= 400:
                     raise SourceError(f"BIMA HTTP {response.status}")
                 self._wait_for_cards(page)
