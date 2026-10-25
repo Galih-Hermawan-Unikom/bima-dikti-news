@@ -5,7 +5,7 @@ on:
       mode:
         type: choice
         default: COLLECT
-        options: [PREFLIGHT, COLLECT, INITIALIZE, POLL, SEND_TEST, PREVIEW_PLAN, SEND_PREVIEW]
+        options: [PREFLIGHT, COLLECT, INITIALIZE, POLL, SEND_TEST, PREVIEW_PLAN, SEND_PREVIEW, MULTI_PREVIEW_PLAN, SEND_MULTI_PREVIEW]
       confirmation:
         description: Explicit reviewed operation confirmation; blank keeps privileged modes blocked
         type: string
@@ -25,6 +25,10 @@ on:
         default: ''
       preview_plan_sha256:
         description: Exact plan hash from PREVIEW_PLAN; SEND_PREVIEW only
+        type: string
+        default: ''
+      multi_plan_sha256:
+        description: Exact reviewed multi-source plan SHA-256; SEND_MULTI_PREVIEW only
         type: string
         default: ''
 permissions:
@@ -135,6 +139,75 @@ jobs:
           KEMDIKTISAINTEK_EXPERIMENT_ENABLED: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_ENABLED || 'false' }}
           KEMDIKTISAINTEK_EXPERIMENT_AUTO_SEND: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_AUTO_SEND || 'false' }}
         run: python -B eksperimen/kemdiktisaintek/preview_real_announcement.py
+  multi_preview_plan:
+    needs: review
+    if: inputs.mode == 'MULTI_PREVIEW_PLAN'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: kemdiktisaintek-experiment
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.reviewed_code_sha }}
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: d022dab6c18c000cbff9b44c020ef498d580940f
+          path: production_formatter
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install requests==2.31.0 beautifulsoup4==4.12.3
+      - name: Verify multi-source plan without POST or state write
+        env:
+          YOUTUBE_EXPERIMENT_BOT_TOKEN: ${{ secrets.YOUTUBE_EXPERIMENT_BOT_TOKEN }}
+          YOUTUBE_EXPERIMENT_CHAT_ID: ${{ secrets.YOUTUBE_EXPERIMENT_CHAT_ID }}
+          YOUTUBE_EXPERIMENT_CHAT_ID_SHA256: ${{ secrets.YOUTUBE_EXPERIMENT_CHAT_ID_SHA256 }}
+          KEMDIKTISAINTEK_REVIEWED_CODE_SHA: ${{ inputs.reviewed_code_sha }}
+          KEMDIKTISAINTEK_APPROVED_CODE_SHA: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_APPROVED_CODE_SHA || '' }}
+          KEMDIKTISAINTEK_FORMATTER_ROOT: ${{ github.workspace }}/production_formatter
+          KEMDIKTISAINTEK_EXPERIMENT_ENABLED: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_ENABLED || 'false' }}
+          KEMDIKTISAINTEK_EXPERIMENT_AUTO_SEND: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_AUTO_SEND || 'false' }}
+        run: python -B eksperimen/telegram_preview/multi_preview.py MULTI_PREVIEW_PLAN
+  multi_preview_send:
+    needs: review
+    if: inputs.mode == 'SEND_MULTI_PREVIEW'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: kemdiktisaintek-experiment
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.reviewed_code_sha }}
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: d022dab6c18c000cbff9b44c020ef498d580940f
+          path: production_formatter
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install requests==2.31.0 beautifulsoup4==4.12.3
+      - name: Send one approved multi-source plan with durable per-operation claims
+        env:
+          YOUTUBE_EXPERIMENT_BOT_TOKEN: ${{ secrets.YOUTUBE_EXPERIMENT_BOT_TOKEN }}
+          YOUTUBE_EXPERIMENT_CHAT_ID: ${{ secrets.YOUTUBE_EXPERIMENT_CHAT_ID }}
+          YOUTUBE_EXPERIMENT_CHAT_ID_SHA256: ${{ secrets.YOUTUBE_EXPERIMENT_CHAT_ID_SHA256 }}
+          KEMDIKTISAINTEK_PREVIEW_STATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KEMDIKTISAINTEK_REVIEWED_CODE_SHA: ${{ inputs.reviewed_code_sha }}
+          KEMDIKTISAINTEK_APPROVED_CODE_SHA: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_APPROVED_CODE_SHA || '' }}
+          KEMDIKTISAINTEK_FORMATTER_ROOT: ${{ github.workspace }}/production_formatter
+          KEMDIKTISAINTEK_MULTI_PLAN_SHA256: ${{ inputs.multi_plan_sha256 }}
+          KEMDIKTISAINTEK_MULTI_PREVIEW_CONFIRMATION: ${{ inputs.confirmation }}
+          KEMDIKTISAINTEK_EXPERIMENT_ENABLED: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_ENABLED || 'false' }}
+          KEMDIKTISAINTEK_EXPERIMENT_AUTO_SEND: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_AUTO_SEND || 'false' }}
+        run: python -B eksperimen/telegram_preview/multi_preview.py SEND_MULTI_PREVIEW
   controlled:
     needs: review
     if: inputs.mode == 'INITIALIZE' || inputs.mode == 'POLL' || inputs.mode == 'SEND_TEST'
