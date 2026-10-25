@@ -18,14 +18,14 @@ TOKEN = '123456789:MOCK_TOKEN'
 
 def test_compact_formatter_iasp_preview_excludes_body_and_category():
     msg = format_announcement(IASP)['text']
-    assert '<b>PENGUMUMAN BARU KEMDIKTISAINTEK</b>' in msg
+    assert '<b>📢 PENGUMUMAN BARU KEMDIKTISAINTEK</b>' in msg
     assert '30 September 2026' in msg
     assert '1. Pendaftaran Beasiswa Indonesia-Austria Scholarship Programme (IASP) Tahun 2027' in msg
     assert 'paling lambat 01 Maret 2027' in msg
     assert '3414-Tawaran_Pendaftaran_Program_IASP_2027.pdf' in msg
     assert 'Sumber:' in msg and IASP['url'] in msg
     assert 'Teks panjang artikel' not in msg and 'Umum' not in msg
-    assert msg.endswith('━━━━━━━━━━━━━━━━━━━━\nBot Dikti News')
+    assert msg.endswith('━━━━━━━━━━━━━━━━━━━━\n<i>Bot Dikti News</i>')
 
 
 def test_formatter_without_attachments_or_optional_fields():

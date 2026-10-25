@@ -103,25 +103,25 @@ def format_announcement(item):
                 rendered_date = f'{stamp_date.day} {MONTHS[stamp_date.month-1].title()} {stamp_date.year}'
         except ValueError:
             pass
-    message = '<b>PENGUMUMAN BARU KEMDIKTISAINTEK</b>'
+    message = '<b>📢 PENGUMUMAN BARU KEMDIKTISAINTEK</b>'
     if rendered_date:
-        message += '\n\n' + rendered_date
+        message += '\n\n📅 ' + rendered_date
     title_marker = '<KEMDIKTISAINTEK_TITLE_MARKER>'
     while title_marker in title:
         title_marker += '_'
     message += '\n\n<b>1. ' + title_marker + '</b>'
     letter = item.get('letter_number')
     if isinstance(letter, str) and re.fullmatch(r'(?i)(?:nomor\s*:?\s*)?[A-Z0-9./_-]{4,80}', letter.strip()):
-        message += '\n\n' + escape(letter.strip())
+        message += '\n   📜 ' + escape(letter.strip())
     evidence = item.get('deadline_evidence')
     if isinstance(evidence, list):
         safe_evidence = [v.strip() for v in evidence if isinstance(v, str) and v.strip()]
         if safe_evidence:
-            message += '\n⏳ Tenggat: ' + escape(_clip('; '.join(safe_evidence), 500))
+            message += '\n   ⏳ Tenggat: ' + escape(_clip('; '.join(safe_evidence), 500))
     docs = item.get('attachments') if isinstance(item.get('attachments'), list) else []
     docs = [d for d in docs if isinstance(d, dict) and isinstance(d.get('url'), str)]
     if docs:
-        message += f'\n\nDokumen: {len(docs)} file'
+        message += f'\n\n📦 Dokumen: {len(docs)} file'
         for doc in docs:
             label = (doc.get('label') or doc.get('filename') or 'Dokumen resmi').strip()
             try:
@@ -133,10 +133,10 @@ def format_announcement(item):
             shown = escape(_clip(label, 180))
             if doc.get('kind') != 'pdf' and length(url) <= 450:
                 shown = f'<a href="{escape(url, quote=True)}">{shown}</a>'
-            message += '\n' + shown
+            message += '\n📎 ' + shown
     source = normalize_url(item['url'], article=True)
-    message += '\n\nSumber:\n' + escape(source)
-    message += '\n\n━━━━━━━━━━━━━━━━━━━━\nBot Dikti News'
+    message += '\n\n🔗 Sumber:\n' + escape(source)
+    message += '\n\n━━━━━━━━━━━━━━━━━━━━\n<i>Bot Dikti News</i>'
     if length(message.replace(title_marker, escape(title))) > 3900:
         available = 3900 - length(message.replace(title_marker, ''))
         if available < 4:

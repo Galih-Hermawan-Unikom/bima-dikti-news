@@ -151,6 +151,24 @@ def test_realistic_new_relevant_announcement_delivers_once_across_restart():
     assert gateway.posts == [key]
 
 
+def test_formatter_changes_do_not_reopen_delivered_operations_or_modify_receipts(monkeypatch):
+    remote, gateway, item = MemoryRemote(new_state()), FakeGateway(), candidate()
+    item['attachments'] = [{'url': 'https://kemdiktisaintek.go.id/api/file/humas-production/announcements/2026/9/files/b63cc6de-f84c-4737-b7d9-9f47f6deb583/test.pdf',
+                            'label': 'Panduan.pdf'}]
+    run_poll(enabled_env(), backend=remote, clock=lambda: NOW, source=FakeClient(item), gateway=gateway)
+    key = next(iter(remote.state['outbox']))
+    before, posts = deepcopy(remote.state), list(gateway.posts)
+    assert before['outbox'][key]['status'] == 'DELIVERED'
+    assert len(before['outbox'][key]['operations']) == 2
+    monkeypatch.setattr('kemdiktisaintek_prod_delivery.format_announcement',
+                        Mock(side_effect=AssertionError('Delivered payloads must not be reformatted')))
+    engine = Delivery(remote, gateway, environment=enabled_env(), clock=lambda: NOW)
+    result = engine.send(key, gateway.inspect(at=NOW))
+    assert result['post_attempted'] is False
+    assert remote.state == before
+    assert gateway.posts == posts
+
+
 def test_switch_off_observes_without_preflight_reservation_or_post():
     remote, gateway = MemoryRemote(new_state()), FakeGateway()
     env = {'KEMDIKTISAINTEK_PRODUCTION_ENABLED': 'true',

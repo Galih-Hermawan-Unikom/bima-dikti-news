@@ -49,6 +49,36 @@ def _format_rss_publication(value):
     return f"{local.day} {months[local.month - 1]} {local.year}, {local:%H:%M} WIB"
 
 
+def _format_bima_date(value):
+    """Translate recognized, valid English dates for display without editing source data."""
+    if not isinstance(value, str):
+        return str(value)
+    match = re.fullmatch(r"\s*([0-9]{1,2})\s+([A-Za-z]+)\s+([0-9]{4})\s*", value)
+    if match is None:
+        return value
+    english = "january february march april may june july august september october november december".split()
+    indonesian = ("Januari", "Februari", "Maret", "April", "Mei", "Juni",
+                  "Juli", "Agustus", "September", "Oktober", "November", "Desember")
+    day, name, year = match.groups()
+    try:
+        month = english.index(name.casefold())
+        datetime(int(year), month + 1, int(day))
+    except ValueError:
+        return value
+    return f"{day} {indonesian[month]} {year}"
+
+
+def _format_youtube_description(value):
+    """Collapse whitespace and shorten only the displayed description."""
+    text = " ".join((value or "").split())
+    if len(text) <= 180:
+        return text
+    shortened = text[:177]
+    if not text[177].isspace() and " " in shortened:
+        shortened = shortened.rsplit(" ", 1)[0]
+    return shortened.rstrip() + "..."
+
+
 def _message_length(text):
     # Conservative bound: count HTML markup/entities and UTF-16 surrogate pairs.
     return len(text.encode("utf-16-le")) // 2
@@ -279,8 +309,9 @@ class Notifier:
             if ann.get("published"):
                 message += f"   📆 Publikasi (RSS): {escape(_format_rss_publication(ann['published']))}\n"
 
-            if ann.get("description"):
-                message += f"   📝 {escape(ann['description'][:300])}...\n"
+            description = _format_youtube_description(ann.get("description"))
+            if description:
+                message += f"   📝 {escape(description)}\n"
             message += f"   🔗 {escape(ann.get('url', 'https://www.youtube.com/@kemdiktisaintek'))}\n\n"
             return message
 
@@ -288,7 +319,7 @@ class Notifier:
         if ann.get("surat"):
             message += f"   📜 {escape(ann['surat'])}\n"
         if ann.get("date"):
-            message += f"   📆 {escape(ann['date'])}\n"
+            message += f"   📆 {escape(_format_bima_date(ann['date']))}\n"
 
         documents = ann.get("documents", [])
         if documents:

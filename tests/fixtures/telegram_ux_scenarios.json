@@ -1,0 +1,191 @@
+{
+  "provenance": {
+    "preview_run_id": 40197078232,
+    "original_plan_sha256": "f91e348d22ba22b154cd1f15dab0311c39c9afa1dc15ac86871d6f4f6266da49",
+    "baseline_formatter_sha": "d022dab6c18c000cbff9b44c020ef498d580940f",
+    "rendered_at": "2026-10-25T12:01:49.095865+00:00"
+  },
+  "inputs": {
+    "bima": [
+      {
+        "title": "Pemberitahuan Pelaksanaan Monitoring dan Evaluasi PISN Tahun 2026",
+        "surat": "1236/DST/C3/DT.06.01/2026",
+        "date": "15 September 2026",
+        "documents": [
+          {
+            "name": "Pemberitahuan Pelaksanaan Monitoring dan Evaluasi PISN Tahun 2026.pdf"
+          }
+        ],
+        "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+        "scraped_at": "2026-10-15T11:08:30.776807"
+      },
+      {
+        "title": "Pengumuman Perpanjangan Penerimaan Proposal Program Aksara Mahasiswa Tahun Anggaran 2026",
+        "surat": "1099/DST/C3/DT.06.01/2026",
+        "date": "26 August 2026",
+        "documents": [
+          {
+            "name": "Pengumuman Perpanjangan Penerimaan Proposal Program Aksara Mahasiswa Tahun Anggaran 2026.pdf"
+          }
+        ],
+        "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+        "scraped_at": "2026-09-06T20:13:59.816301"
+      }
+    ],
+    "youtube": [
+      {
+        "source": "youtube",
+        "kind": "video",
+        "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
+        "title": "Informasi Publik Kini Semakin Mudah Diakses",
+        "video_id": "QFqYYjg51RA",
+        "date": "2026-10-15T02:32:29+00:00",
+        "published": "2026-10-15T02:32:29+00:00",
+        "description": "Informasi publik kini semakin mudah diakses\n\nHalo #InsanDiktisaintek\n\nPPID Kemdiktisaintek hadir dengan layanan yang lebih mudah, terbuka, dan inklusif, mulai dari pencarian informasi, permohonan dan pelacakan informasi, hingga fitur aksesibilitas dan live chat.\n\nYuk, kenali lebih dekat layanan terbaru PPID Kemdiktisaintek melalui video berikut!\n\n#Kemdiktisaintek\n#DiktisaintekBerdampak\n#PPIDKemdiktisaintek\n#KeterbukaanInformasiPublik",
+        "thumbnail": "https://i2.ytimg.com/vi/QFqYYjg51RA/hqdefault.jpg",
+        "url": "https://www.youtube.com/watch?v=QFqYYjg51RA",
+        "scraped_at": "2026-10-19T12:39:21.221300",
+        "status": "VOD",
+        "scheduled_start": "",
+        "actual_end": ""
+      },
+      {
+        "source": "youtube",
+        "kind": "video",
+        "channel_title": "Kementerian Pendidikan Tinggi, Sains dan Teknologi",
+        "title": "Sosialisasi Buku Panduan Kredensial Mikro",
+        "video_id": "X_4PalxnlWk",
+        "date": "2026-09-17T15:17:28+00:00",
+        "published": "2026-09-17T15:17:28+00:00",
+        "description": "Sosialisasi Buku Panduan Kredensial Mikro",
+        "thumbnail": "https://i1.ytimg.com/vi/X_4PalxnlWk/hqdefault.jpg",
+        "url": "https://www.youtube.com/watch?v=X_4PalxnlWk",
+        "scraped_at": "2026-09-25T11:31:27.708336",
+        "status": "VOD",
+        "scheduled_start": "2026-09-17T00:30:00+00:00",
+        "actual_end": ""
+      }
+    ],
+    "kemdiktisaintek": [
+      {
+        "source": "kemdiktisaintek",
+        "id": "b63cc6de-f84c-4737-b7d9-9f47f6deb583",
+        "identity": "kemdiktisaintek:b63cc6de-f84c-4737-b7d9-9f47f6deb583",
+        "identity_basis": "uuid",
+        "slug": "pendaftaran-beasiswa-indonesia-austria-scholarship-programme-iasp-tahun-2027",
+        "title": "Pendaftaran Beasiswa Indonesia-Austria Scholarship Programme (IASP) Tahun 2027",
+        "category": "Umum",
+        "published_at": "2026-09-30T00:00:00+07:00",
+        "publication_basis": "detail_datetime",
+        "url": "https://kemdiktisaintek.go.id/announcement/article/pendaftaran-beasiswa-indonesia-austria-scholarship-programme-iasp-tahun-2027",
+        "letter_number": null,
+        "deadline_evidence": [
+          "paling lambat 01 Maret 2027"
+        ],
+        "attachments": [
+          {
+            "url": "https://kemdiktisaintek.go.id/api/file/humas-production/announcements/2026/9/files/b63cc6de-f84c-4737-b7d9-9f47f6deb583/3414-Tawaran_Pendaftaran_Program_IASP_2027.pdf",
+            "label": "Lihat Pengumuman Selengkapnya",
+            "kind": "pdf",
+            "verification": "link_only"
+          }
+        ],
+        "content_sha256": "a2c47714de31b6e27a1e9e1459637f6eea70a8210ca4da329d062df4e59356b7"
+      },
+      {
+        "source": "kemdiktisaintek",
+        "id": "cc7f0989-b101-40aa-919c-434f41be5f6f",
+        "identity": "kemdiktisaintek:cc7f0989-b101-40aa-919c-434f41be5f6f",
+        "identity_basis": "uuid",
+        "slug": "akpt-tahap-iii-2026-dibuka-di-itb-pemimpin-perguruan-tinggi-dibekali-strategi-transformasi-dan-inovasi-institusi",
+        "title": "AKPT Tahap III 2026 Dibuka di ITB, Pemimpin Perguruan Tinggi Dibekali Strategi Transformasi dan Inovasi Institusi",
+        "category": "Umum",
+        "published_at": "2026-10-10T00:00:00+07:00",
+        "publication_basis": "detail_datetime",
+        "url": "https://kemdiktisaintek.go.id/announcement/article/akpt-tahap-iii-2026-dibuka-di-itb-pemimpin-perguruan-tinggi-dibekali-strategi-transformasi-dan-inovasi-institusi",
+        "letter_number": null,
+        "deadline_evidence": [],
+        "attachments": [
+          {
+            "url": "https://kemdiktisaintek.go.id/api/file/humas-production/announcements/2026/10/files/cc7f0989-b101-40aa-919c-434f41be5f6f/AKPT_ITB.pdf",
+            "label": "Lihat Pengumuman Selengkapnya",
+            "kind": "pdf",
+            "verification": "link_only"
+          }
+        ],
+        "content_sha256": "bc60c34bbe8ab9d73afdc47b05fc308f9bf1526f9208d941032c1710bbb224aa"
+      }
+    ]
+  },
+  "pdfs": {
+    "D": [
+      {
+        "url": "https://kemdiktisaintek.go.id/api/file/humas-production/announcements/2026/9/files/b63cc6de-f84c-4737-b7d9-9f47f6deb583/3414-Tawaran_Pendaftaran_Program_IASP_2027.pdf",
+        "filename": "3414-Tawaran_Pendaftaran_Program_IASP_2027.pdf",
+        "size": 339392,
+        "sha256": "52fd6c2793fad926b4857775722605cc9168668d2cb94234cfff5c1e34e704a1",
+        "signature": "%PDF-"
+      }
+    ],
+    "E": [
+      {
+        "url": "https://kemdiktisaintek.go.id/api/file/humas-production/announcements/2026/10/files/cc7f0989-b101-40aa-919c-434f41be5f6f/AKPT_ITB.pdf",
+        "filename": "AKPT_ITB.pdf",
+        "size": 9357419,
+        "sha256": "79faef5cbf9c519c5ecb15856b391a11b7db2414b87aeaa8f0eb6a2a77888e4c",
+        "signature": "%PDF-"
+      }
+    ]
+  },
+  "preview_receipts": [
+    {
+      "operation_id": "A-summary",
+      "message_id": 40,
+      "status": "DELIVERED",
+      "method": "sendMessage"
+    },
+    {
+      "operation_id": "B-summary",
+      "message_id": 41,
+      "status": "DELIVERED",
+      "method": "sendMessage"
+    },
+    {
+      "operation_id": "C-summary",
+      "message_id": 42,
+      "status": "DELIVERED",
+      "method": "sendMessage"
+    },
+    {
+      "operation_id": "D-summary",
+      "message_id": 43,
+      "status": "DELIVERED",
+      "method": "sendMessage"
+    },
+    {
+      "operation_id": "D-pdf-1",
+      "message_id": 44,
+      "status": "DELIVERED",
+      "method": "sendDocument"
+    },
+    {
+      "operation_id": "E-summary",
+      "message_id": 45,
+      "status": "DELIVERED",
+      "method": "sendMessage"
+    },
+    {
+      "operation_id": "E-pdf-1",
+      "message_id": 46,
+      "status": "DELIVERED",
+      "method": "sendDocument"
+    }
+  ],
+  "expected_html": {
+    "A": "<b>📢 PENGUMUMAN BARU BIMA KEMDIKTISAINTEK</b>\n\n📅 25/10/2026 19:01 WIB\n🔢 Jumlah: 2 item baru\n🏛️ BIMA: 2\n\n<b>1. Pemberitahuan Pelaksanaan Monitoring dan Evaluasi PISN Tahun 2026</b>\n   📜 1236/DST/C3/DT.06.01/2026\n   📆 15 September 2026\n   📦 Dokumen: 1 file\n   📎 Pemberitahuan Pelaksanaan Monitoring dan Evaluasi PISN Tahun 2026.pdf\n   🔗 https://bima.kemdiktisaintek.go.id/pengumuman\n\n<b>2. Pengumuman Perpanjangan Penerimaan Proposal Program Aksara Mahasiswa Tahun Anggaran 2026</b>\n   📜 1099/DST/C3/DT.06.01/2026\n   📆 26 Agustus 2026\n   📦 Dokumen: 1 file\n   📎 Pengumuman Perpanjangan Penerimaan Proposal Program Aksara Mahasiswa Tahun Anggaran 2026.pdf\n   🔗 https://bima.kemdiktisaintek.go.id/pengumuman\n\n━━━━━━━━━━━━━━━━━━━━\n<i>Bot Dikti News</i>",
+    "B": "<b>▶️ VIDEO BARU — YOUTUBE KEMDIKTISAINTEK</b>\n\n📅 25/10/2026 19:01 WIB\n🔢 Jumlah: 2 item baru\n📺 YouTube: 2\n\n<b>1. Informasi Publik Kini Semakin Mudah Diakses</b>\n   📺 Kementerian Pendidikan Tinggi, Sains dan Teknologi\n   📆 Publikasi (RSS): 15 Oktober 2026, 09:32 WIB\n   📝 Informasi publik kini semakin mudah diakses Halo #InsanDiktisaintek PPID Kemdiktisaintek hadir dengan layanan yang lebih mudah, terbuka, dan inklusif, mulai dari pencarian...\n   🔗 https://www.youtube.com/watch?v=QFqYYjg51RA\n\n<b>2. Sosialisasi Buku Panduan Kredensial Mikro</b>\n   📺 Kementerian Pendidikan Tinggi, Sains dan Teknologi\n   📆 Publikasi (RSS): 17 September 2026, 22:17 WIB\n   📝 Sosialisasi Buku Panduan Kredensial Mikro\n   🔗 https://www.youtube.com/watch?v=X_4PalxnlWk\n\n━━━━━━━━━━━━━━━━━━━━\n<i>Bot Dikti News</i>",
+    "C": "<b>📢 UPDATE BARU BIMA + YOUTUBE KEMDIKTISAINTEK</b>\n\n📅 25/10/2026 19:01 WIB\n🔢 Jumlah: 2 item baru\n🏛️ BIMA: 1\n📺 YouTube: 1\n\n<b>1. Pemberitahuan Pelaksanaan Monitoring dan Evaluasi PISN Tahun 2026</b>\n   📜 1236/DST/C3/DT.06.01/2026\n   📆 15 September 2026\n   📦 Dokumen: 1 file\n   📎 Pemberitahuan Pelaksanaan Monitoring dan Evaluasi PISN Tahun 2026.pdf\n   🔗 https://bima.kemdiktisaintek.go.id/pengumuman\n\n<b>2. Informasi Publik Kini Semakin Mudah Diakses</b>\n   📺 Kementerian Pendidikan Tinggi, Sains dan Teknologi\n   📆 Publikasi (RSS): 15 Oktober 2026, 09:32 WIB\n   📝 Informasi publik kini semakin mudah diakses Halo #InsanDiktisaintek PPID Kemdiktisaintek hadir dengan layanan yang lebih mudah, terbuka, dan inklusif, mulai dari pencarian...\n   🔗 https://www.youtube.com/watch?v=QFqYYjg51RA\n\n━━━━━━━━━━━━━━━━━━━━\n<i>Bot Dikti News</i>",
+    "D": "<b>📢 PENGUMUMAN BARU KEMDIKTISAINTEK</b>\n\n📅 30 September 2026\n\n<b>1. Pendaftaran Beasiswa Indonesia-Austria Scholarship Programme (IASP) Tahun 2027</b>\n   ⏳ Tenggat: paling lambat 01 Maret 2027\n\n📦 Dokumen: 1 file\n📎 3414-Tawaran_Pendaftaran_Program_IASP_2027.pdf\n\n🔗 Sumber:\nhttps://kemdiktisaintek.go.id/announcement/article/pendaftaran-beasiswa-indonesia-austria-scholarship-programme-iasp-tahun-2027\n\n━━━━━━━━━━━━━━━━━━━━\n<i>Bot Dikti News</i>",
+    "E": "<b>📢 PENGUMUMAN BARU KEMDIKTISAINTEK</b>\n\n📅 10 Oktober 2026\n\n<b>1. AKPT Tahap III 2026 Dibuka di ITB, Pemimpin Perguruan Tinggi Dibekali Strategi Transformasi dan Inovasi Institusi</b>\n\n📦 Dokumen: 1 file\n📎 AKPT_ITB.pdf\n\n🔗 Sumber:\nhttps://kemdiktisaintek.go.id/announcement/article/akpt-tahap-iii-2026-dibuka-di-itb-pemimpin-perguruan-tinggi-dibekali-strategi-transformasi-dan-inovasi-institusi\n\n━━━━━━━━━━━━━━━━━━━━\n<i>Bot Dikti News</i>"
+  }
+}
