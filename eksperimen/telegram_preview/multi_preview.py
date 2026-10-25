@@ -175,11 +175,33 @@ def render(inputs, prepared_at, notifier_module, telegram_module):
     return operations, scenarios
 
 
-def verify_sources(plan, root, http):
+def verify_archived_provenance(plan, root):
     archived, evidence = archived_inputs(root)
     for key in ('bima', 'youtube'):
-        if plan['inputs'][key] != archived[key] or plan['provenance'][key] != evidence[key]:
+        reviewed = plan['provenance'][key]
+        expected = dict(evidence[key], file_sha256=reviewed.get('file_sha256'))
+        if plan['inputs'][key] != archived[key] or reviewed != expected:
             raise PreviewError('ARCHIVED_INPUT_OR_PROVENANCE_CHANGED')
+        # Git checkouts may materialize this exact pinned text blob as LF or CRLF.
+        # Verify the original approved checksum against those bytes, not a new capture.
+        fixture = evidence[key]['fixture']
+        blob = subprocess.check_output(['git', '-C', str(root), 'show', FORMATTER_SHA + ':' + fixture])
+        lf = blob.replace(b'\r\n', b'\n')
+        actual = (Path(root) / fixture).read_bytes()
+        if actual.replace(b'\r\n', b'\n') != lf:
+            raise PreviewError('ARCHIVED_CHECKOUT_DIFFERS_FROM_PINNED_BLOB')
+        representations = {
+            hashlib.sha256(blob).hexdigest(): 'pinned_git_blob',
+            hashlib.sha256(lf.replace(b'\n', b'\r\n')).hexdigest(): 'CRLF_checkout_of_pinned_blob',
+        }
+        if reviewed.get('file_sha256') not in representations:
+            raise PreviewError('ARCHIVED_CHECKSUM_NOT_DERIVED_FROM_PINNED_BLOB')
+        print('ARCHIVED_PROVENANCE_PASS source=' + key + ' representation='
+              + representations[reviewed['file_sha256']])
+
+
+def verify_sources(plan, root, http):
+    verify_archived_provenance(plan, root)
     # Use OS trust, including Windows trust stores; never disable TLS verification.
     with urllib.request.urlopen('https://bima.kemdiktisaintek.go.id/pengumuman', timeout=25) as response:
         if response.status != 200 or response.url != 'https://bima.kemdiktisaintek.go.id/pengumuman':

@@ -1,6 +1,8 @@
 from copy import deepcopy
+import hashlib
 import json
 from pathlib import Path
+import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, Mock, patch
@@ -230,6 +232,61 @@ class GuardTests(unittest.TestCase):
         self.assertEqual(body['branch'], 'kemdiktisaintek-experiment-state')
         self.assertEqual(body['sha'], 'c' * 40)
         self.assertEqual(http.put.call_count, 1)
+
+
+class ArchivedProvenanceTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.inputs = json.loads(multi.PLAN_PATH.read_text(encoding='utf-8'))['plan']['inputs']
+        self.blobs = {}
+        for key, filename in [('bima', 'bima_history_89.json'), ('youtube', 'youtube_history_125.json')]:
+            relative = 'tests/fixtures/' + filename
+            raw = (json.dumps(self.inputs[key], ensure_ascii=False, indent=2) + '\n').encode()
+            path = self.root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(raw)
+            self.blobs[relative] = raw
+        inputs, evidence = multi.archived_inputs(self.root)
+        self.plan = {'inputs': inputs, 'provenance': evidence}
+        for row in evidence.values():
+            raw = self.blobs[row['fixture']].replace(b'\n', b'\r\n')
+            row['file_sha256'] = hashlib.sha256(raw).hexdigest()
+
+    def pinned_blob(self, command):
+        self.assertTrue(command[-1].startswith(multi.FORMATTER_SHA + ':'))
+        return self.blobs[command[-1].split(':', 1)[1]]
+
+    def verify(self):
+        with patch.object(multi.subprocess, 'check_output', side_effect=self.pinned_blob):
+            multi.verify_archived_provenance(self.plan, self.root)
+
+    def test_windows_approved_crlf_hash_matches_linux_lf_checkout(self):
+        before = deepcopy(self.plan)
+        self.verify()
+        self.assertEqual(self.plan, before)
+
+    def test_native_git_lf_hash_also_verifies(self):
+        for row in self.plan['provenance'].values():
+            row['file_sha256'] = hashlib.sha256(self.blobs[row['fixture']]).hexdigest()
+        self.verify()
+
+    def test_arbitrary_checksum_is_not_accepted(self):
+        self.plan['provenance']['bima']['file_sha256'] = 'f' * 64
+        with self.assertRaisesRegex(multi.PreviewError, 'CHECKSUM_NOT_DERIVED_FROM_PINNED_BLOB'):
+            self.verify()
+
+    def test_non_newline_checkout_change_is_rejected(self):
+        path = self.root / self.plan['provenance']['bima']['fixture']
+        path.write_bytes(path.read_bytes() + b' ')
+        with self.assertRaisesRegex(multi.PreviewError, 'CHECKOUT_DIFFERS_FROM_PINNED_BLOB'):
+            self.verify()
+
+    def test_changed_record_is_not_hidden_by_newline_handling(self):
+        self.plan['inputs']['bima'][0]['title'] += ' altered'
+        with self.assertRaisesRegex(multi.PreviewError, 'INPUT_OR_PROVENANCE_CHANGED'):
+            self.verify()
 
 
 if __name__ == '__main__':
