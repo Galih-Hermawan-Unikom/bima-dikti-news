@@ -77,16 +77,21 @@ class FakeClient:
             'title': self.item['title'], 'category': self.item['category'],
             'datetime': '2026-10-25T08:00:00Z', 'updated_at': '2026-10-25T08:01:00Z'}}
         embedded = json.dumps({'props': {'pageProps': props}})
-        return ('<html><body><div><h1>' + self.item['title'] + '</h1>'
-            '<time>25 Oktober 2026 | 15.00 WIB</time><article class="rich-content">'
-            '<p>Pendaftaran hibah penelitian perguruan tinggi dibuka. Dosen dan peneliti dapat mengajukan proposal sesuai panduan resmi.</p>'
-            '</article></div><script id="__NEXT_DATA__" type="application/json">' + embedded + '</script></body></html>')
+        links = ''.join('<a href="' + row['url'] + '">' + row.get('label', 'Dokumen') + '</a>'
+                        for row in self.item.get('attachments', []))
+        body = self.item.get('body_text',
+            'Pendaftaran hibah penelitian perguruan tinggi dibuka. Dosen dan peneliti dapat mengajukan proposal sesuai panduan resmi.')
+        return ('<html><body><div><h1>' + self.item['title'] + '</h1>' + links
+            + '<time>25 Oktober 2026 | 15.00 WIB</time><article class="rich-content">'
+            + '<p>' + body + '</p>'
+            + '</article></div><script id="__NEXT_DATA__" type="application/json">' + embedded + '</script></body></html>')
 
 
 class FakeGateway:
     def __init__(self, *, timeout=False):
         self.credentials = Credentials(TOKEN, TARGET, hashlib.sha256(TARGET.encode()).hexdigest(), 123456789)
         self.posts = []
+        self.operations = []
         self.timeout = timeout
 
     def inspect(self, *, at):
@@ -96,10 +101,17 @@ class FakeGateway:
         assert row['status'] == 'SENDING'
         assert row['destination'] == proof.identity
         self.posts.append(row['event_key'])
+        self.operations.append(row.get('operation', {}).get('kind', 'SUMMARY'))
         if self.timeout:
             return None, 'TIMEOUT'
-        return {'http_status': 200, 'ok': True, 'message_id': 71,
-                'destination_sha256': self.credentials.chat_sha256}, None
+        receipt = {'http_status': 200, 'ok': True, 'message_id': 70 + len(self.posts),
+                   'destination_sha256': self.credentials.chat_sha256}
+        if row.get('operation', {}).get('kind') == 'ATTACHMENT':
+            receipt.update(method='sendDocument', file_id_sha256=hashlib.sha256(b'mock-file').hexdigest(),
+                           file_name=row['operation']['payload']['filename'])
+        else:
+            receipt['method'] = 'sendMessage'
+        return receipt, None
 
 
 def new_state():
@@ -184,12 +196,116 @@ def test_expired_admission_prevents_reservation_and_post():
 
 
 def test_cas_conflict_on_durable_claim_prevents_post():
-    remote, gateway = MemoryRemote(new_state(), conflict_on=3), FakeGateway()
+    remote, gateway = MemoryRemote(new_state(), conflict_on=4), FakeGateway()
     report = run_poll(enabled_env(), backend=remote, clock=lambda: NOW,
                       source=FakeClient(candidate()), gateway=gateway)
     assert gateway.posts == []
     assert report['delivery_error'] == 'MOCK_CAS_CONFLICT'
     assert next(iter(remote.state['outbox'].values()))['status'] == 'RESERVED'
+
+
+def test_summary_then_pdf_are_independent_durable_operations():
+    remote, gateway, item = MemoryRemote(new_state()), FakeGateway(), candidate()
+    item['attachments'] = [{'url': 'https://kemdiktisaintek.go.id/api/file/humas-production/announcements/2026/9/files/b63cc6de-f84c-4737-b7d9-9f47f6deb583/test.pdf',
+                            'label': 'Panduan.pdf'}]
+    result = run_poll(enabled_env(), backend=remote, clock=lambda: NOW, source=FakeClient(item), gateway=gateway)
+    assert result['delivery_error'] is None, result
+    event = next(iter(remote.state['outbox'].values()))
+    assert result['delivered_this_poll'] == 1
+    assert gateway.operations == ['SUMMARY', 'ATTACHMENT']
+    assert event['status'] == 'DELIVERED'
+    assert [op['status'] for op in event['operations']] == ['DELIVERED', 'DELIVERED']
+
+
+def test_multiple_official_pdfs_have_separate_receipts():
+    remote, gateway, item = MemoryRemote(new_state()), FakeGateway(), candidate()
+    base = 'https://kemdiktisaintek.go.id/api/file/humas-production/announcements/2026/9/files/b63cc6de-f84c-4737-b7d9-9f47f6deb583/'
+    item['attachments'] = [{'url': base + name, 'label': name} for name in ('panduan.pdf', 'formulir.pdf')]
+    run_poll(enabled_env(), backend=remote, clock=lambda: NOW, source=FakeClient(item), gateway=gateway)
+    event = next(iter(remote.state['outbox'].values()))
+    assert gateway.operations == ['SUMMARY', 'ATTACHMENT', 'ATTACHMENT']
+    assert [op['operation_id'] for op in event['operations']] == ['summary', 'attachment-1', 'attachment-2']
+    assert [op['status'] for op in event['operations']] == ['DELIVERED'] * 3
+    assert len({op['receipt']['message_id'] for op in event['operations']}) == 3
+
+
+def test_attachment_claim_cas_conflict_does_not_post_or_resend_summary():
+    remote, gateway, item = MemoryRemote(new_state(), conflict_on=6), FakeGateway(), candidate()
+    item['attachments'] = [{'url': 'https://kemdiktisaintek.go.id/api/file/humas-production/announcements/2026/9/files/b63cc6de-f84c-4737-b7d9-9f47f6deb583/test.pdf',
+                            'label': 'Panduan.pdf'}]
+    report = run_poll(enabled_env(), backend=remote, clock=lambda: NOW, source=FakeClient(item), gateway=gateway)
+    event = next(iter(remote.state['outbox'].values()))
+    assert report['delivery_error'] == 'MOCK_CAS_CONFLICT'
+    assert gateway.operations == ['SUMMARY']
+    assert event['status'] == 'PARTIAL'
+    assert [op['status'] for op in event['operations']] == ['DELIVERED', 'RESERVED']
+
+
+def test_receipt_checkpoint_conflict_becomes_ambiguous_after_restart_without_resend():
+    remote, gateway, item = MemoryRemote(new_state(), conflict_on=5), FakeGateway(), candidate()
+    report = run_poll(enabled_env(), backend=remote, clock=lambda: NOW,
+                      source=FakeClient(item), gateway=gateway)
+    event = next(iter(remote.state['outbox'].values()))
+    assert report['ambiguous_this_poll'] == 1
+    assert gateway.posts == [event['event_key']]
+    assert event['status'] == 'SENDING'
+    engine = Delivery(remote, gateway, environment=enabled_env(), clock=lambda: NOW)
+    assert engine.recover() == 1
+    assert remote.state['outbox'][event['event_key']]['status'] == 'AMBIGUOUS'
+    assert gateway.posts == [event['event_key']]
+
+
+def test_attachment_failure_keeps_delivered_summary_and_does_not_resend_it():
+    remote, gateway, item = MemoryRemote(new_state()), FakeGateway(), candidate()
+    item['attachments'] = [{'url': 'https://kemdiktisaintek.go.id/api/file/humas-production/announcements/2026/9/files/b63cc6de-f84c-4737-b7d9-9f47f6deb583/test.pdf',
+                            'label': 'Panduan.pdf'}]
+    original = gateway.post_claimed
+    def fail_attachment(row, proof, *, at):
+        if row.get('operation', {}).get('kind') == 'ATTACHMENT':
+            gateway.posts.append(row['event_key'])
+            gateway.operations.append('ATTACHMENT')
+            return None, 'TELEGRAM_REJECTED'
+        return original(row, proof, at=at)
+    gateway.post_claimed = fail_attachment
+    report = run_poll(enabled_env(), backend=remote, clock=lambda: NOW, source=FakeClient(item), gateway=gateway)
+    assert report['delivery_error'] == 'PARTIAL_DELIVERY_RECONCILIATION_REQUIRED'
+    event = next(iter(remote.state['outbox'].values()))
+    assert event['status'] == 'PARTIAL'
+    assert [op['status'] for op in event['operations']] == ['DELIVERED', 'FAILED']
+    before = list(gateway.operations)
+    engine = Delivery(remote, gateway, environment=enabled_env(), clock=lambda: NOW)
+    result = engine.send(event['event_key'], gateway.inspect(at=NOW))
+    assert result['post_attempted'] is False
+    assert gateway.operations == before
+
+
+def test_operation_schema_migration_preserves_test_receipt_and_observation_history():
+    remote, gateway = MemoryRemote(new_state()), FakeGateway()
+    engine = Delivery(remote, gateway, environment=enabled_env(), clock=lambda: NOW)
+    proof = gateway.inspect(at=NOW)
+    key = engine.reserve_test('KDTS-TEST-MIGRATION-01', proof, approval='SEND_ONE_EXPERIMENT_TEST')
+    engine.send(key, proof)
+    migrated, _ = remote.load()
+    delivered = deepcopy(migrated['outbox'][key])
+    legacy = deepcopy(migrated)
+    legacy.pop('operation_schema_version')
+    legacy.pop('operation_migration')
+    for row in legacy['outbox'].values():
+        row.pop('operations')
+    legacy['generation'] += 1
+    old_remote = MemoryRemote(legacy)
+    before_baseline = deepcopy(old_remote.state['observation_state']['baseline'])
+    before_fence = old_remote.state['observation_state']['activation_at']
+    new_engine = Delivery(old_remote, gateway, environment=enabled_env(), clock=lambda: NOW)
+    result, _ = new_engine._ensure_operations()
+    row = result['outbox'][key]
+    assert row['status'] == 'DELIVERED'
+    assert row['receipt'] == delivered['receipt']
+    assert row['operations'][0]['receipt'] == delivered['receipt']
+    assert result['observation_state']['baseline'] == before_baseline
+    assert result['observation_state']['activation_at'] == before_fence
+    assert result['test_authorizations'] == migrated['test_authorizations']
+    assert result['operation_migration']['source_sha256']
 
 
 def test_timeout_is_ambiguous_and_never_retried():
