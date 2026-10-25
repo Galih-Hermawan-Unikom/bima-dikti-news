@@ -15,7 +15,7 @@ import requests
 import yaml
 
 from kemdiktisaintek_parser import BASE, FetchError
-from kemdiktisaintek_policy import classify, cross_source_dedup, POLICY_VERSION
+from kemdiktisaintek_policy import classify, POLICY_VERSION
 from kemdiktisaintek_state import (LocalStateStore, StateError, StateConflict, STATE_BRANCH, STATE_PATH,
     MockContentsTransport, ContentsCAS, fingerprint, timestamp, validate_state)
 from kemdiktisaintek_monitor import (Capture, CaptureError, capture_window, initialize, apply_poll, poll)
@@ -71,8 +71,8 @@ def initialized(store):
     return initialize(store, capture([item()]))
 
 
-def transition(initialized, new, **kwargs):
-    return apply_poll(initialized, capture([item(),new], LATER), bima_history=kwargs.pop('history', []), **kwargs)
+def transition(initialized, new):
+    return apply_poll(initialized, capture([item(),new], LATER))
 
 
 def test_baseline_persists_coverage_and_fence(store):
@@ -130,7 +130,7 @@ def test_new_relevant_candidate_and_then_known(initialized):
     row=after['observations'][new['id']]
     assert row['detection_status']=='NEW_CANDIDATE' and row['classification']['decision']=='RELEVANT'
     assert after['outbox']=={} and report['telegram_calls']==0
-    again,_=apply_poll(after,capture([item(),new],'2026-10-24T10:20:00Z'),bima_history=[])
+    again,_=apply_poll(after,capture([item(),new],'2026-10-24T10:20:00Z'))
     assert again['observations'][new['id']]['detection_status']=='KNOWN'
     assert again['observations'][new['id']]['initial_decision']=='NEW_CANDIDATE'
 
@@ -155,10 +155,10 @@ def test_unknown_relevance_needs_review(initialized):
     assert after['observations'][new['id']]['detection_status']=='NEEDS_REVIEW'
 
 
-def test_missing_bima_reference_blocks_candidate(initialized):
+def test_new_candidate_does_not_require_bima_reference(initialized):
     new=item('new','2026-10-24T10:05:00Z')
-    after,_=transition(initialized,new,history=None)
-    assert after['observations'][new['id']]['detection_status']=='HOLD'
+    after,_=transition(initialized,new)
+    assert after['observations'][new['id']]['detection_status']=='NEW_CANDIDATE'
 
 
 @pytest.mark.parametrize('mode', ['body','attachments','dates','url','metadata','deadline'])
@@ -171,13 +171,13 @@ def test_revision_evidence(initialized,mode):
     if mode=='metadata':changed['title']+=' Revisi'
     if mode=='deadline':changed['deadline_evidence']=['Batas pendaftaran diperpanjang']
     rehash(changed)
-    after,_=apply_poll(initialized,capture([changed],LATER),bima_history=[])
+    after,_=apply_poll(initialized,capture([changed],LATER))
     revision=after['revisions'][0]
     assert revision['event_type']=='REVISION_CANDIDATE' and revision['status']=='NEEDS_REVIEW'
     assert mode in revision['changes']
     assert after['outbox']=={}
     assert after['observations'][changed['id']]['detection_status']=='NEEDS_REVIEW'
-    again,_=apply_poll(after,capture([changed],'2026-10-24T10:20:00Z'),bima_history=[])
+    again,_=apply_poll(after,capture([changed],'2026-10-24T10:20:00Z'))
     assert len(again['revisions'])==1
     assert again['observations'][changed['id']]['detection_status']=='NEEDS_REVIEW'
 
@@ -196,7 +196,7 @@ def test_detail_hydration_of_list_only_baseline_is_not_a_revision(initialized):
     hydrated['letter_number']='2026/DST/DT.04.02/1'
     hydrated['attachments']=[{'url':BASE+'/notice.pdf','kind':'pdf','label':'Pengumuman'}]
     rehash(hydrated)
-    after,report=apply_poll(previous,capture([hydrated],LATER),bima_history=[])
+    after,report=apply_poll(previous,capture([hydrated],LATER))
 
     assert after['revisions']==[]
     assert report['revision_count']==0
@@ -213,7 +213,7 @@ def test_category_display_normalization_does_not_create_fingerprint_revision(ini
     validate_state(previous)
 
     changed=deepcopy(old_row['last_item']); changed['category']='Sains-dan-teknologi'; rehash(changed)
-    after,report=apply_poll(previous,capture([changed],LATER),bima_history=[])
+    after,report=apply_poll(previous,capture([changed],LATER))
 
     assert after['revisions']==[]
     assert report['revision_count']==0
@@ -222,30 +222,30 @@ def test_category_display_normalization_does_not_create_fingerprint_revision(ini
 
 def test_substantive_category_change_remains_a_metadata_revision(initialized):
     changed=item(); changed['category']='Pendidikan Tinggi'; rehash(changed)
-    after,_=apply_poll(initialized,capture([changed],LATER),bima_history=[])
+    after,_=apply_poll(initialized,capture([changed],LATER))
     assert len(after['revisions'])==1
     assert after['revisions'][0]['changes']['metadata']['category']=={
         'before':'Umum','after':'Pendidikan Tinggi'}
 
 
 def test_absent_temporarily_not_deleted(initialized):
-    after,_=apply_poll(initialized,capture([],LATER),bima_history=[])
+    after,_=apply_poll(initialized,capture([],LATER))
     assert item()['id'] in after['observations']
     assert after['observations'][item()['id']]['last_seen_at']==AT
 
 
 def test_fallback_identity_and_return_require_reconciliation(initialized):
     fallback=item();fallback.update(id=None,identity_basis='url',identity='kemdiktisaintek:url:'+fallback['url'])
-    after,report=apply_poll(initialized,capture([fallback],LATER),bima_history=[])
+    after,report=apply_poll(initialized,capture([fallback],LATER))
     assert report['events'][0]['status']=='HOLD' and len(after['identity_holds'])==1
     assert after['observations'][item()['id']]['detection_status']=='NEEDS_REVIEW'
-    again,_=apply_poll(after,capture([item()],'2026-10-24T10:20:00Z'),bima_history=[])
+    again,_=apply_poll(after,capture([item()],'2026-10-24T10:20:00Z'))
     assert again['observations'][item()['id']]['detection_status']=='NEEDS_REVIEW'
 
 
 def test_new_uuid_same_historical_url_is_hold(initialized):
     conflict=item('conflict');conflict['url']=item()['url']
-    after,report=apply_poll(initialized,capture([conflict],LATER),bima_history=[])
+    after,report=apply_poll(initialized,capture([conflict],LATER))
     assert report['events'][0]['status']=='HOLD'
     assert conflict['id'] not in after['observations']
 
@@ -253,7 +253,7 @@ def test_new_uuid_same_historical_url_is_hold(initialized):
 def test_same_uuid_different_urls_in_capture_fails(initialized):
     conflict=item();conflict['url']=BASE+'/announcement/article/other'
     with pytest.raises(ValueError):
-        apply_poll(initialized,capture([item(),conflict],LATER),bima_history=[])
+        apply_poll(initialized,capture([item(),conflict],LATER))
 
 
 @pytest.mark.parametrize('context',['gap','overlap','duplicates'])
@@ -261,21 +261,21 @@ def test_unsafe_pagination_and_gaps_hold(initialized,context):
     new=item('new','2026-10-24T10:05:00Z')
     at='2026-10-24T11:00:00Z' if context=='gap' else LATER
     items=[new] if context=='overlap' else [item(),new]
-    after,_=apply_poll(initialized,capture(items,at,[new['id']] if context=='duplicates' else []),bima_history=[])
+    after,_=apply_poll(initialized,capture(items,at,[new['id']] if context=='duplicates' else []))
     assert after['observations'][new['id']]['detection_status']=='HOLD'
 
 
 def test_hold_after_gap_recovers_only_after_a_clean_poll(initialized):
     new=item('new','2026-10-24T10:05:00Z')
-    after,_=apply_poll(initialized,capture([item(),new],'2026-10-24T11:00:00Z'),bima_history=[])
+    after,_=apply_poll(initialized,capture([item(),new],'2026-10-24T11:00:00Z'))
     assert after['observations'][new['id']]['detection_status']=='HOLD'
-    again,_=apply_poll(after,capture([item(),new],'2026-10-24T11:10:00Z'),bima_history=[])
+    again,_=apply_poll(after,capture([item(),new],'2026-10-24T11:10:00Z'))
     assert again['observations'][new['id']]['detection_status']=='NEW_CANDIDATE'
 
 
 def test_partial_capture_never_mutates_previous(initialized):
     before=deepcopy(initialized);cap=capture([item()],LATER);cap.healthy=False
-    with pytest.raises(CaptureError):apply_poll(initialized,cap,bima_history=[])
+    with pytest.raises(CaptureError):apply_poll(initialized,cap)
     assert initialized==before
 
 
@@ -306,20 +306,26 @@ def test_real_stage1_sample_classifications():
     assert decisions[:4]==['NOT_RELEVANT','NOT_RELEVANT','RELEVANT','RELEVANT']
 
 
-@pytest.mark.parametrize('evidence,status',[('letter','NEEDS_REVIEW'),('title','NEEDS_REVIEW'),
-    ('letter_title_date','DUPLICATE'),('title_document','DUPLICATE'),('nothing','NO_MATCH')])
-def test_bima_dedup_requires_combined_evidence(evidence,status):
-    row=item();row['letter_number']='123/DST/2026'
-    old={'title':'Different announcement','surat':'999/DST/2026','date':'1 Januari 2026','documents':[]}
-    if 'letter' in evidence:old['surat']=row['letter_number']
-    if 'title' in evidence:old['title']=row['title']
-    if 'date' in evidence:old['date']='23 Oktober 2026'
-    if 'document' in evidence:
-        row['attachments']=[{'url':BASE+'/document.pdf'}]
-        old['documents']=[{'name':'Document','download_url':BASE+'/document.pdf'}]
-    before=deepcopy(old)
-    assert cross_source_dedup(row,[old])['status']==status
-    assert old==before
+def test_new_relevant_admission_does_not_require_cross_source_reference(initialized):
+    new=item('new','2026-10-24T10:05:00Z')
+    after,report=transition(initialized,new)
+    assert after['observations'][new['id']]['detection_status']=='NEW_CANDIDATE'
+    assert report['telegram_calls']==0
+    assert 'deduplication' not in after['observations'][new['id']]
+
+
+def test_old_bima_blocked_observation_is_not_promoted(initialized):
+    new=item('new','2026-10-24T10:05:00Z')
+    previous,_=transition(initialized,new)
+    row=previous['observations'][new['id']]
+    row.update(detection_status='HOLD',reasons=['BIMA_REFERENCE_UNAVAILABLE'],
+               deduplication={'status':'NEEDS_REVIEW','reason':'BIMA_REFERENCE_MISSING'})
+    later='2026-10-24T10:20:00Z'
+    after,report=apply_poll(previous,capture([item(),new],later))
+    held=after['observations'][new['id']]
+    assert held['detection_status']=='HOLD'
+    assert held['reasons']==['BIMA_REFERENCE_UNAVAILABLE']
+    assert report['events'][-1]['status']=='HOLD'
 
 
 def test_local_cas_conflict(store,initialized):
@@ -398,14 +404,14 @@ def test_capture_pagination_shift_duplicate_detected():
 @pytest.mark.parametrize('case',['http','partial'])
 def test_poll_failed_capture_leaves_checkpoint_identical(store,initialized,case):
     before=store.path.read_bytes();client=FakeClient(fail_page=2 if case=='http' else None,partial=case=='partial')
-    with pytest.raises((FetchError,CaptureError)):poll(store,client,at=LATER,bima_history=[])
+    with pytest.raises((FetchError,CaptureError)):poll(store,client,at=LATER)
     assert store.path.read_bytes()==before
 
 
 def test_checkpoint_failure_no_success_report(store,initialized,monkeypatch):
     before=store.path.read_bytes()
     monkeypatch.setattr(store,'commit',Mock(side_effect=StateConflict('CONFLICT')))
-    with pytest.raises(StateConflict):poll(store,FakeClient(),at=LATER,bima_history=[])
+    with pytest.raises(StateConflict):poll(store,FakeClient(),at=LATER)
     assert store.path.read_bytes()==before
 
 
@@ -421,7 +427,7 @@ def test_cli_missing_or_existing_state_does_not_fetch(store,initialized,monkeypa
 def test_checkpoint_lineage_is_immutable(store,initialized,change):
     old,sha=store.load();new,_=transition(old,item('new','2026-10-24T10:05:00Z'))
     store.commit(new,sha);current,sha=store.load()
-    next_state,_=apply_poll(current,capture([item()],'2026-10-24T10:20:00Z'),bima_history=[])
+    next_state,_=apply_poll(current,capture([item()],'2026-10-24T10:20:00Z'))
     if change=='first_seen':next_state['observations'][item()['id']]['first_seen_at']=LATER
     if change=='baseline':
         next_state['baseline']['coverage']['detail_budget']=9
@@ -435,7 +441,7 @@ def test_checkpoint_lineage_is_immutable(store,initialized,change):
 
 def test_missing_capture_items_detected(initialized):
     cap=capture([item()],LATER);cap.items=[];cap.coverage['listing_count']=0
-    with pytest.raises(CaptureError,match='CAPTURE_ITEMS_MISSING'):apply_poll(initialized,cap,bima_history=[])
+    with pytest.raises(CaptureError,match='CAPTURE_ITEMS_MISSING'):apply_poll(initialized,cap)
 
 
 def test_listing_timestamp_cannot_admit_even_with_content(initialized):
@@ -455,7 +461,7 @@ def test_detail_failure_aborts_entire_poll(store,initialized):
         if '/article/' in url:raise FetchError('DETAIL_TIMEOUT')
         return original(url)
     client.fetch=fail;before=store.path.read_bytes()
-    with pytest.raises(FetchError):poll(store,client,at=LATER,bima_history=[])
+    with pytest.raises(FetchError):poll(store,client,at=LATER)
     assert store.path.read_bytes()==before
 
 
@@ -532,17 +538,8 @@ def test_remote_mock_409_stops_checkpoint(initialized,monkeypatch):
 def test_without_hydration_new_article_is_hold(initialized):
     new=item('new','2026-10-24T10:05:00Z');new.pop('body_text');new.pop('content_sha256')
     cap=capture([item(),new],LATER);cap.coverage['detail_count']=1
-    after,_=apply_poll(initialized,cap,bima_history=[])
+    after,_=apply_poll(initialized,cap)
     assert after['observations'][new['id']]['detection_status']=='HOLD'
-
-
-def test_bima_duplicate_rejected_without_mutating_reference(initialized):
-    new=item('new','2026-10-24T10:05:00Z');new['letter_number']='123/DST/2026'
-    reference=[{'title':new['title'],'surat':new['letter_number'],'date':'24 Oktober 2026'}]
-    before=deepcopy(reference)
-    after,_=transition(initialized,new,history=reference)
-    assert after['observations'][new['id']]['detection_status']=='REJECTED'
-    assert reference==before
 
 
 def test_lost_state_cannot_be_reinitialized(store,initialized,monkeypatch):

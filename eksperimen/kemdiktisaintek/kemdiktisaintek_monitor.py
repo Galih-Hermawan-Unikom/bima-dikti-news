@@ -6,7 +6,7 @@ import json
 from urllib.parse import urlencode
 
 from kemdiktisaintek_parser import BASE, parse_api_list, parse_detail, normalize_url, _dedupe
-from kemdiktisaintek_policy import POLICY_VERSION, classify, cross_source_dedup, normalized
+from kemdiktisaintek_policy import POLICY_VERSION, classify, normalized
 from kemdiktisaintek_state import (SOURCE, StateError, StateConflict, fingerprint,
                                   timestamp, uid, validate_state)
 
@@ -175,7 +175,7 @@ def _observation(item, at, *, initial=False):
         'detection_status': 'KNOWN' if initial else 'HOLD', 'delivery_status': 'BLOCKED_STAGE2',
         'initial_inventory': initial, 'reasons': ['BASELINE_INVENTORY'] if initial else [],
         'detail_checked_at': at if 'body_text' in item else None, 'last_item': deepcopy(item),
-        'initial_decision': 'KNOWN' if initial else None, 'deduplication': None,
+        'initial_decision': 'KNOWN' if initial else None,
         'url_history': [item['url']]}
 
 
@@ -201,7 +201,7 @@ def initialize(store, capture):
     return state
 
 
-def _admission(item, state, at, classification, dedup, context, first_seen):
+def _admission(item, state, at, classification, context, first_seen):
     reasons = []
     try:
         publication = timestamp(item.get('published_at'))
@@ -223,12 +223,6 @@ def _admission(item, state, at, classification, dedup, context, first_seen):
     reasons.extend(context)
     if reasons:
         return 'HOLD', reasons
-    if dedup['status'] == 'DUPLICATE':
-        return 'REJECTED', ['CONFIRMED_CROSS_SOURCE_DUPLICATE']
-    if dedup['status'] == 'NEEDS_REVIEW':
-        if dedup.get('reason') == 'BIMA_REFERENCE_MISSING':
-            return 'HOLD', ['BIMA_REFERENCE_UNAVAILABLE']
-        return 'NEEDS_REVIEW', ['CROSS_SOURCE_EVIDENCE_REQUIRES_REVIEW']
     if classification['decision'] == 'NOT_RELEVANT':
         return 'REJECTED', ['NOT_RELEVANT_TO_AUDIENCE']
     if classification['decision'] != 'RELEVANT':
@@ -236,7 +230,7 @@ def _admission(item, state, at, classification, dedup, context, first_seen):
     return 'NEW_CANDIDATE', ['POLICY_COMPLETE_OBSERVATION_ONLY']
 
 
-def apply_poll(previous, capture, *, bima_history=None, max_poll_gap=MAX_POLL_GAP):
+def apply_poll(previous, capture, *, max_poll_gap=MAX_POLL_GAP):
     """Pure transition. Caller must checkpoint before publishing a successful report."""
     validate_state(previous)
     validate_capture(capture)
@@ -276,7 +270,6 @@ def apply_poll(previous, capture, *, bima_history=None, max_poll_gap=MAX_POLL_GA
                                for h in state['identity_holds'].values())
         latest = _snapshot(item, old['last_item'] if old else None)
         classification = classify(latest)
-        dedup = cross_source_dedup(latest, bima_history)
         row = deepcopy(old) if old else _observation(latest, at)
         changes = _changes(old['last_item'], latest) if old else {}
         # Hydrating a baseline/list-only record is first evidence, not a revision.
@@ -297,17 +290,25 @@ def apply_poll(previous, capture, *, bima_history=None, max_poll_gap=MAX_POLL_GA
             status, reasons = 'NEEDS_REVIEW', ['REVISION_CANDIDATE']
         elif identity_pending:
             status, reasons = 'NEEDS_REVIEW', ['IDENTITY_RECONCILIATION_PENDING']
-        elif (old and old['detection_status'] == 'NEEDS_REVIEW'
-              and old.get('reasons') != ['BIMA_REFERENCE_COVERAGE_INSUFFICIENT']):
+        elif (old and old['detection_status'] in {'HOLD', 'NEEDS_REVIEW'}
+              and ((old.get('deduplication') or {}).get('status') == 'NEEDS_REVIEW'
+                   or any(reason in {'BIMA_REFERENCE_UNAVAILABLE',
+                                     'BIMA_REFERENCE_COVERAGE_INSUFFICIENT',
+                                     'CROSS_SOURCE_EVIDENCE_REQUIRES_REVIEW'}
+                          for reason in old.get('reasons', [])))):
+            # The source-independence policy applies only to genuinely new observations.
+            # Do not promote records previously held by the retired BIMA cross-check.
+            status, reasons = old['detection_status'], old['reasons']
+        elif (old and old['detection_status'] == 'NEEDS_REVIEW'):
             status, reasons = old['detection_status'], old['reasons']
         elif old and (old['initial_inventory'] or old['detection_status'] in {'NEW_CANDIDATE', 'KNOWN', 'REJECTED'}):
             status, reasons = 'KNOWN', ['PREVIOUSLY_OBSERVED']
         else:
-            status, reasons = _admission(latest, state, at, classification, dedup,
+            status, reasons = _admission(latest, state, at, classification,
                                          context, row['first_seen_at'])
         row.update(url=latest['url'], title=latest['title'], published_at=latest.get('published_at'),
             last_seen_at=at, content_sha256=latest.get('content_sha256'), classification=classification,
-            detection_status=status, reasons=reasons, deduplication=dedup, last_item=latest)
+            detection_status=status, reasons=reasons, last_item=latest)
         if 'body_text' in item:
             row['detail_checked_at'] = at
         if latest['url'] not in row['url_history']:
@@ -316,18 +317,17 @@ def apply_poll(previous, capture, *, bima_history=None, max_poll_gap=MAX_POLL_GA
             row['initial_decision'] = status
         state['observations'][identifier] = row
         events.append({'uuid': identifier, 'status': status, 'reasons': reasons,
-                       'classification': classification['decision'], 'dedup_status': dedup['status']})
+                       'classification': classification['decision']})
     state.update(last_successful_poll_at=at, generation=previous['generation'] + 1,
-                 last_capture_coverage=deepcopy(capture.coverage),
-                 bima_reference_sha256=fingerprint(bima_history) if bima_history is not None else None)
+                 last_capture_coverage=deepcopy(capture.coverage))
     validate_state(state)
     return state, {'source': SOURCE, 'delivery_authorized': False, 'telegram_calls': 0,
                    'events': events, 'capture_warnings': context, 'revision_count': len(state['revisions'])}
 
 
-def poll(store, client, *, at, bima_history=None, pages=2, detail_budget=10):
+def poll(store, client, *, at, pages=2, detail_budget=10):
     previous, expected = store.load()  # Missing/corrupt state fails before network.
     capture = capture_window(client, previous, at=at, pages=pages, detail_budget=detail_budget)
-    state, report = apply_poll(previous, capture, bima_history=bima_history)
+    state, report = apply_poll(previous, capture)
     store.commit(state, expected)  # No success report escapes a failed checkpoint.
     return report

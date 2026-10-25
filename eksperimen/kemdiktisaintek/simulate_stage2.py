@@ -49,7 +49,7 @@ def run_simulation():
         store = LocalStateStore(Path(directory)/STATE_BRANCH)
         initialize(store,_capture([known],'2026-10-24T10:00:00Z'))
         state,sha=store.load()
-        state,first=apply_poll(state,_capture([known,historical,new,irrelevant],'2026-10-24T10:10:00Z'),bima_history=[])
+        state,first=apply_poll(state,_capture([known,historical,new,irrelevant],'2026-10-24T10:10:00Z'))
         store.commit(state,sha)
         first_cases=[{'case':name,'status':state['observations'][row['id']]['detection_status'],
                       'reasons':state['observations'][row['id']]['reasons']}
@@ -60,7 +60,7 @@ def run_simulation():
         revision['attachments']=[{'url':BASE+'/simulation-revision.pdf','label':'Revisi','kind':'pdf','verification':'link_only'}]
         revision['content_sha256']=fingerprint({k:revision[k] for k in ('title','category','body_text','attachments','external_links')})
         state,sha=store.load()
-        state,second=apply_poll(state,_capture([revision,historical,new,irrelevant],'2026-10-24T10:20:00Z'),bima_history=[])
+        state,second=apply_poll(state,_capture([revision,historical,new,irrelevant],'2026-10-24T10:20:00Z'))
         store.commit(state,sha)
         cases=first_cases+[
             {'case':'old_revised','status':state['observations'][known['id']]['detection_status'],

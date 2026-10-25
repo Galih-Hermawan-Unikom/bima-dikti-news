@@ -2,7 +2,6 @@
 import argparse
 from datetime import datetime, timezone
 import json
-from pathlib import Path
 
 from kemdiktisaintek_parser import AnnouncementClient
 from kemdiktisaintek_monitor import capture_window, initialize, poll
@@ -13,7 +12,6 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('mode', choices=['collect', 'initialize', 'poll'])
     parser.add_argument('--state-dir')
-    parser.add_argument('--bima-history', help='Explicit read-only JSON reference snapshot; never modified')
     parser.add_argument('--pages', type=int, default=2)
     parser.add_argument('--details', type=int, default=10)
     args = parser.parse_args(argv)
@@ -26,11 +24,10 @@ def main(argv=None):
             store.assert_can_initialize()
         if args.mode == 'poll':
             store.load()  # fail before request on missing/corrupt state
-        history = json.loads(Path(args.bima_history).read_text(encoding='utf-8')) if args.bima_history else None
         at = datetime.now(timezone.utc).isoformat()
         client = AnnouncementClient()
         if args.mode == 'poll':
-            result = poll(store, client, at=at, bima_history=history, pages=args.pages, detail_budget=args.details)
+            result = poll(store, client, at=at, pages=args.pages, detail_budget=args.details)
         else:
             capture = capture_window(client, at=at, pages=args.pages, detail_budget=args.details)
             if args.mode == 'initialize':

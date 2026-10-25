@@ -23,14 +23,6 @@ on:
         description: Stable unique test ID, reused after restart; at least 8 characters
         type: string
         default: ''
-      bima_reference_path:
-        description: Reviewed fresh BIMA snapshot available in checked-out files; blank blocks admissions
-        type: string
-        default: ''
-      bima_reference_sha256:
-        description: Externally reviewed canonical SHA256 of the BIMA snapshot
-        type: string
-        default: ''
 permissions:
   contents: read
 concurrency:
@@ -120,10 +112,6 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install requests==2.31.0 beautifulsoup4==4.12.3
-      - if: inputs.mode == 'POLL'
-        run: python -m pip install playwright==1.49.0
-      - if: inputs.mode == 'POLL'
-        run: python -m playwright install --with-deps chromium
       - name: Observation, baseline initialization, or one-run delivery
         if: inputs.mode == 'POLL' || inputs.mode == 'INITIALIZE'
         env:

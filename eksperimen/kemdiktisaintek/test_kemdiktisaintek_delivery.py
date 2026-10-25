@@ -9,12 +9,12 @@ import pytest
 import requests
 import yaml
 
-from stage3_fixtures import setup, reference, NOW, OBSERVED, AT, TARGET, FixtureTelegram, Clock, Response
+from stage3_fixtures import setup, NOW, OBSERVED, AT, TARGET, FixtureTelegram, Clock, Response
 from kemdiktisaintek_state import StateError, StateConflict, fingerprint, canonical
-from kemdiktisaintek_delivery_state import (event_key, change, migrate_v1, validate_delivery_state,
-                                          validate_delivery_lineage)
+from kemdiktisaintek_delivery_state import (event_key, change, migrate_v1, migrate_delivery_policy,
+    LEGACY_DELIVERY_POLICY, DELIVERY_POLICY, validate_delivery_state, validate_delivery_lineage)
 from kemdiktisaintek_delivery import Delivery, observe, ReconciliationRequired
-from kemdiktisaintek_delivery_policy import validate_reference, eligibility
+from kemdiktisaintek_delivery_policy import eligibility
 from kemdiktisaintek_remote_state import RemoteState, MemoryRemote, blob_sha, EMPTY_TREE_SHA
 from kemdiktisaintek_telegram import (Credentials, Proof, TelegramGateway, format_announcement,
                                     format_test, payload, length, switches)
@@ -42,12 +42,11 @@ def proof(c):
 
 
 def reserve(c, p=None):
-    return c['engine'].reserve_initial(c['source'].new_id, p or proof(c),
-        reference=c['reference'], reference_sha=c['reference_sha'])
+    return c['engine'].reserve_initial(c['source'].new_id, p or proof(c))
 
 
 def send(c, key, p=None):
-    return c['engine'].send(key, p or proof(c), reference=c['reference'], reference_sha=c['reference_sha'])
+    return c['engine'].send(key, p or proof(c))
 
 
 def test_preflight_reuses_existing_identity_permission_and_production_separation(context):
@@ -172,24 +171,21 @@ def test_concurrent_workflow_cas_claim_conflict(context):
     assert c['telegram'].posts==[]
 
 
-@pytest.mark.parametrize('case',['historical','irrelevant','revision','legacy','no_reference'])
+@pytest.mark.parametrize('case',['historical','irrelevant','revision','legacy'])
 def test_ineligible_events_never_reserve_or_post(case):
     c=setup(historical=case=='historical',irrelevant=case=='irrelevant')
     identifier=c['source'].known_id if case in {'revision','legacy'} else c['source'].new_id
     if case=='revision':
         c['source'].revised=True;state,_=c['remote'].load()
-        observe(c['remote'],capture_window(c['source'],state['observation_state'],at='2026-10-24T10:12:00Z'),
-                reference=c['reference'],reference_sha=c['reference_sha'])
+        observe(c['remote'],capture_window(c['source'],state['observation_state'],at='2026-10-24T10:12:00Z'))
         c['clock'].value='2026-10-24T10:13:00Z'
-    if case=='no_reference':c['reference']=None
-    with pytest.raises(StateError):c['engine'].reserve_initial(identifier,proof(c),reference=c['reference'],reference_sha=c['reference_sha'])
+    with pytest.raises(StateError):c['engine'].reserve_initial(identifier,proof(c))
     assert c['remote'].load()[0]['outbox']=={} and c['telegram'].posts==[]
 
 
 def test_known_on_next_poll_not_promoted(context):
     c=context;state,_=c['remote'].load()
-    observe(c['remote'],capture_window(c['source'],state['observation_state'],at='2026-10-24T10:12:00Z'),
-            reference=c['reference'],reference_sha=c['reference_sha'])
+    observe(c['remote'],capture_window(c['source'],state['observation_state'],at='2026-10-24T10:12:00Z'))
     c['clock'].value='2026-10-24T10:13:00Z'
     assert c['remote'].load()[0]['observation_state']['observations'][c['source'].new_id]['detection_status']=='KNOWN'
     with pytest.raises(StateError,match='CURRENT_CANDIDATE'):reserve(c)
@@ -214,15 +210,10 @@ def test_restart_with_stale_evidence_not_eligible(context):
     assert c['telegram'].posts==[]
 
 
-@pytest.mark.parametrize('change_case',['empty','stale','hash','incomplete','future'])
-def test_reference_empty_stale_untrusted_never_no_match(context,change_case):
-    c=context;ref=deepcopy(c['reference'])
-    if change_case=='empty':ref['items']=[]
-    if change_case=='stale':ref['captured_at']='2026-10-23T09:00:00Z'
-    if change_case=='incomplete':ref['complete_window']=False
-    if change_case=='future':ref['captured_at']='2026-10-25T09:00:00Z'
-    digest='0'*64 if change_case=='hash' else fingerprint(ref)
-    with pytest.raises(StateError):validate_reference(ref,digest,at=NOW)
+def test_eligibility_has_no_cross_source_reference_inputs(context):
+    import inspect
+    parameters=set(inspect.signature(eligibility).parameters)
+    assert not {'reference','reference_sha','reference_env','bima_history'} & parameters
 
 
 def test_formatter_escapes_html_and_uses_article_deadline_only(context):
@@ -249,7 +240,7 @@ def test_migration_explicit_and_cannot_replay_old_initial_decision(context):
     state,_=context['remote'].load();v1=state['observation_state'];v2=migrate_v1(v1,at=NOW)
     assert v2['admissions']=={} and v2['outbox']=={}
     assert context['source'].new_id in v2['migration']['legacy_ids']
-    with pytest.raises(StateError):eligibility(v2,context['source'].new_id,context['reference'],context['reference_sha'],at=NOW)
+    with pytest.raises(StateError):eligibility(v2,context['source'].new_id,at=NOW)
     assert v1['schema_version']==1
 
 
@@ -329,11 +320,11 @@ def test_e2e_simulation_all_eight_cases_offline():
     assert report['live_http_requests']==0 and report['live_telegram_posts']==0
 
 
-def test_reference_loss_during_observation_creates_no_admissions(context):
+def test_observation_admission_is_independent_of_bima(context):
     c=context;state,_=c['remote'].load();old_count=len(state['admissions'])
-    report=observe(c['remote'],capture_window(c['source'],state['observation_state'],at='2026-10-24T10:12:00Z'),
-                   reference=None,reference_sha=None)
-    assert report['reference_error'] and len(c['remote'].load()[0]['admissions'])==old_count
+    cap=capture_window(c['source'],state['observation_state'],at='2026-10-24T10:12:00Z')
+    report=observe(c['remote'],cap)
+    assert len(c['remote'].load()[0]['admissions'])==old_count
     assert c['telegram'].posts==[]
 
 
@@ -370,8 +361,7 @@ def test_failed_observation_cas_creates_no_durable_admission(context):
     c=context;state,_=c['remote'].load();before=deepcopy(state)
     c['github'].fail_put=c['github'].put_count+1
     with pytest.raises(StateConflict):
-        observe(c['remote'],capture_window(c['source'],state['observation_state'],at='2026-10-24T10:12:00Z'),
-                reference=c['reference'],reference_sha=c['reference_sha'])
+        observe(c['remote'],capture_window(c['source'],state['observation_state'],at='2026-10-24T10:12:00Z'))
     assert c['remote'].load()[0]==before and c['telegram'].posts==[]
 
 
@@ -457,6 +447,34 @@ def test_explicit_remote_migration_keeps_all_old_history_quarantined(context):
     migrated,_=remote.load()
     assert migrated['observation_state']==v1 and migrated['admissions']=={} and migrated['outbox']=={}
     assert set(migrated['migration']['legacy_ids'])==set(v1['observations'])
+
+
+def test_explicit_source_independence_migration_preserves_baseline_history_and_test_receipt(context):
+    c=context
+    test_key=c['engine'].reserve_test('migration-receipt-01',proof(c),approval='SEND_ONE_EXPERIMENT_TEST')
+    assert c['engine'].send(test_key,proof(c))['status']=='DELIVERED'
+    prior,_=c['remote'].load()
+    legacy=deepcopy(prior)
+    legacy['policy_version']=LEGACY_DELIVERY_POLICY
+    legacy.pop('policy_migration',None)
+    legacy_remote=MemoryRemote(legacy)
+    before,_=legacy_remote.load()
+    capture=capture_window(c['source'],before['observation_state'],at='2026-10-24T10:12:00Z')
+    observe(legacy_remote,capture)
+    after,_=legacy_remote.load()
+    assert after['policy_version']==DELIVERY_POLICY
+    assert after['policy_migration']['from']==LEGACY_DELIVERY_POLICY
+    assert after['policy_migration']['to']==DELIVERY_POLICY
+    assert after['policy_migration']['source_sha256']==fingerprint(before)
+    assert after['observation_state']['baseline']==before['observation_state']['baseline']
+    assert after['observation_state']['activation_at']==before['observation_state']['activation_at']
+    assert {k:v['first_seen_at'] for k,v in after['observation_state']['observations'].items()} == \
+           {k:v['first_seen_at'] for k,v in before['observation_state']['observations'].items()}
+    assert after['observation_state']['revisions']==before['observation_state']['revisions']
+    assert after['admissions']==before['admissions']
+    assert after['outbox'][test_key]==before['outbox'][test_key]
+    assert after['outbox'][test_key]['status']=='DELIVERED'
+    assert after['test_authorizations']==before['test_authorizations']
 
 
 class InitializationTransport:
@@ -613,7 +631,7 @@ def test_new_admission_needs_detail_from_current_capture():
     state,_=c['remote'].load()
     assert not state['admissions']
     cap=capture_window(c['source'],state['observation_state'],at='2026-10-24T10:16:00Z',detail_budget=1)
-    observe(c['remote'],cap,reference=c['reference'],reference_sha=c['reference_sha'])
+    observe(c['remote'],cap)
     state,_=c['remote'].load()
     assert state['observation_state']['observations'][c['source'].new_id]['detection_status']=='NEW_CANDIDATE'
     assert not state['admissions']

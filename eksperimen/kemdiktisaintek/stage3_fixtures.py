@@ -144,14 +144,6 @@ class FixtureTelegram:
         return Response(200, {'ok': True, 'result': {'message_id': 101, 'chat': {'id': int(self.target)}}})
 
 
-def reference(at=OBSERVED):
-    return {'schema_version': 1, 'source': 'bima', 'source_url': 'https://bima.kemdiktisaintek.go.id/pengumuman',
-            'scope': 'unfiltered_recent', 'healthy': True, 'complete_window': True,
-            'captured_at': at, 'coverage_from': '2026-10-22T00:00:00Z', 'coverage_until': at,
-            'items': [{'title': 'Program lain yang berbeda sepenuhnya', 'surat': '999/FIXTURE/2026',
-                       'date': '23 Oktober 2026', 'documents': []}]}
-
-
 def setup(*, historical=False, irrelevant=False, observed=OBSERVED, now=NOW, new_published='2026-10-24T10:05:00Z'):
     source = FixtureSource(historical=historical, irrelevant=irrelevant, new_published=new_published)
     class Sink:
@@ -162,8 +154,7 @@ def setup(*, historical=False, irrelevant=False, observed=OBSERVED, now=NOW, new
     github = FixtureGitHub(migrate_v1(baseline, at=AT))
     remote = RemoteState('synthetic-github-credential', session=github)
     source.include_new = True
-    ref = reference(observed)
-    observe(remote, capture_window(source, baseline, at=observed), reference=ref, reference_sha=fingerprint(ref))
+    observe(remote, capture_window(source, baseline, at=observed))
     env = {'YOUTUBE_EXPERIMENT_BOT_TOKEN': '73:synthetic_fixture_only', 'YOUTUBE_EXPERIMENT_CHAT_ID': TARGET,
            'YOUTUBE_EXPERIMENT_CHAT_ID_SHA256': __import__('hashlib').sha256(TARGET.encode()).hexdigest(),
            'KEMDIKTISAINTEK_EXPERIMENT_ENABLED': 'true', 'KEMDIKTISAINTEK_EXPERIMENT_AUTO_SEND': 'true'}
@@ -171,5 +162,5 @@ def setup(*, historical=False, irrelevant=False, observed=OBSERVED, now=NOW, new
     gateway = TelegramGateway(Credentials.from_environment(env), session=telegram)
     clock = Clock(now)
     engine = Delivery(remote, gateway, environment=env, clock=clock)
-    return {'remote': remote, 'github': github, 'source': source, 'reference': ref, 'reference_sha': fingerprint(ref),
-            'env': env, 'telegram': telegram, 'gateway': gateway, 'clock': clock, 'engine': engine}
+    return {'remote': remote, 'github': github, 'source': source, 'env': env,
+            'telegram': telegram, 'gateway': gateway, 'clock': clock, 'engine': engine}

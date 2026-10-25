@@ -8,11 +8,11 @@ from kemdiktisaintek_state import StateError
 
 
 def _reserve(c, p):
-    return c['engine'].reserve_initial(c['source'].new_id, p, reference=c['reference'], reference_sha=c['reference_sha'])
+    return c['engine'].reserve_initial(c['source'].new_id, p)
 
 
 def _send(c, key, p):
-    return c['engine'].send(key, p, reference=c['reference'], reference_sha=c['reference_sha'])
+    return c['engine'].send(key, p)
 
 
 def run_simulation():
@@ -27,8 +27,7 @@ def run_simulation():
                   'receipt': delivered['receipt'], 'durable_claim_before_post': True})
     preview = c['telegram'].posts[0]['text']
     state, _ = c['remote'].load()
-    observe(c['remote'], capture_window(c['source'], state['observation_state'], at='2026-10-24T10:12:00Z'),
-            reference=c['reference'], reference_sha=c['reference_sha'])
+    observe(c['remote'], capture_window(c['source'], state['observation_state'], at='2026-10-24T10:12:00Z'))
     c['clock'].value = '2026-10-24T10:13:00Z'
     p = c['gateway'].inspect(at=c['clock']())
     assert _send(c, key, p)['post_attempted'] is False and len(c['telegram'].posts) == 1
@@ -44,14 +43,12 @@ def run_simulation():
         assert actual == status and not c['telegram'].posts
         cases.append({'case': label, 'scenario': option, 'status': actual, 'mock_posts': 0})
     c = setup(); c['source'].revised = True; state, _ = c['remote'].load()
-    observe(c['remote'], capture_window(c['source'], state['observation_state'], at='2026-10-24T10:12:00Z'),
-            reference=c['reference'], reference_sha=c['reference_sha'])
+    observe(c['remote'], capture_window(c['source'], state['observation_state'], at='2026-10-24T10:12:00Z'))
     revised = c['remote'].load()[0]['observation_state']
     assert revised['revisions'] and revised['observations'][c['source'].known_id]['detection_status'] == 'NEEDS_REVIEW'
     c['clock'].value = '2026-10-24T10:13:00Z'
     try:
-        c['engine'].reserve_initial(c['source'].known_id, c['gateway'].inspect(at=c['clock']()),
-            reference=c['reference'], reference_sha=c['reference_sha'])
+        c['engine'].reserve_initial(c['source'].known_id, c['gateway'].inspect(at=c['clock']()))
         raise AssertionError('Revision unexpectedly admitted')
     except StateError:
         pass

@@ -9,27 +9,26 @@ from uuid import uuid4
 
 from kemdiktisaintek_state import StateError, fingerprint, timestamp
 from kemdiktisaintek_monitor import apply_poll, validate_capture
-from kemdiktisaintek_delivery_policy import TIMING, validate_reference, eligibility
-from kemdiktisaintek_delivery_state import (validate_delivery_state, event_key, change)
+from kemdiktisaintek_delivery_policy import TIMING, eligibility
+from kemdiktisaintek_delivery_state import (validate_delivery_state, event_key, change,
+    migrate_delivery_policy, LEGACY_DELIVERY_POLICY, DELIVERY_POLICY)
 from kemdiktisaintek_telegram import switches, format_announcement, format_test
 
 
-def observe(backend, capture, *, reference=None, reference_sha=None, reference_env=None):
+def observe(backend, capture):
     """Observation/admission checkpoint only. Does not inspect or POST Telegram."""
     old, sha = backend.load()
     validate_capture(capture)
-    try:
-        history = validate_reference(reference, reference_sha, at=capture.observed_at, env=reference_env)
-        reference_error = None
-    except StateError as exc:
-        history, reference_error = None, str(exc)
-    monitor, report = apply_poll(old['observation_state'], capture, bima_history=history,
-                                 max_poll_gap=TIMING.max_gap)
+    if old['policy_version'] == LEGACY_DELIVERY_POLICY:
+        migrated = migrate_delivery_policy(old, at=capture.observed_at)
+        sha = backend.checkpoint(migrated, sha)
+        old, sha = backend.load()
+    monitor, report = apply_poll(old['observation_state'], capture, max_poll_gap=TIMING.max_gap)
     state = change(old)
     state['observation_state'] = monitor
     for event in report['events']:
         identifier = event.get('uuid')
-        if event['status'] != 'NEW_CANDIDATE' or reference_error or identifier in old['migration']['legacy_ids']:
+        if event['status'] != 'NEW_CANDIDATE' or identifier in old['migration']['legacy_ids']:
             continue
         key = event_key(identifier)
         if key in state['admissions'] or key in state['outbox']:
@@ -37,23 +36,17 @@ def observe(backend, capture, *, reference=None, reference_sha=None, reference_e
         if monitor['observations'][identifier]['detail_checked_at'] != capture.observed_at:
             continue
         try:
-            item = eligibility(state, identifier, reference, reference_sha, at=capture.observed_at,
-                               require_admission=False, reference_env=reference_env)
-        except StateError as exc:
-            if 'BIMA_REFERENCE_DOES_NOT_COVER_PUBLICATION' in str(exc):
-                observation = state['observation_state']['observations'][identifier]
-                observation['detection_status'] = 'NEEDS_REVIEW'
-                observation['reasons'] = ['BIMA_REFERENCE_COVERAGE_INSUFFICIENT']
-                event['status'] = 'NEEDS_REVIEW'
-                event['reasons'] = observation['reasons']
+            item = eligibility(state, identifier, at=capture.observed_at,
+                               require_admission=False)
+        except StateError:
             continue
         state['admissions'][key] = {'event_key': key, 'uuid': identifier, 'event_type': 'INITIAL',
             'decision': 'ELIGIBLE', 'observed_at': capture.observed_at,
             'expires_at': (timestamp(capture.observed_at) + TIMING.evidence_freshness).isoformat(),
             'item_sha256': fingerprint(item), 'baseline_sha256': monitor['baseline']['sha256'],
-            'reference_sha256': reference_sha}
+            'admission_policy_version': DELIVERY_POLICY}
     backend.checkpoint(state, sha)
-    report.update(reference_error=reference_error, admissions=len(state['admissions']))
+    report.update(admissions=len(state['admissions']))
     return report
 
 
@@ -91,12 +84,12 @@ class Delivery:
         self.backend.checkpoint(state, sha)
         return len(keys)
 
-    def reserve_initial(self, identifier, proof, *, reference, reference_sha, reference_env=None):
+    def reserve_initial(self, identifier, proof):
         old, sha = self._gate(proof)
         key = event_key(identifier)
         if key in old['outbox']:
             return key
-        item = eligibility(old, identifier, reference, reference_sha, at=self.clock(), reference_env=reference_env)
+        item = eligibility(old, identifier, at=self.clock())
         message = format_announcement(item)
         state = change(old)
         state['outbox'][key] = self._reservation(key, identifier, 'INITIAL', message, proof)
@@ -129,10 +122,9 @@ class Delivery:
             'reserved_at': self.clock(), 'attempt_id': None, 'sending_claimed_at': None,
             'delivered_at': None, 'message_id': None, 'receipt': None, 'error_classification': None}
 
-    def _eligible_reserved(self, state, row, *, reference, reference_sha, reference_env=None):
+    def _eligible_reserved(self, state, row):
         if row['event_type'] == 'INITIAL':
-            item = eligibility(state, row['source_uuid'], reference, reference_sha, at=self.clock(),
-                               reference_env=reference_env)
+            item = eligibility(state, row['source_uuid'], at=self.clock())
             if fingerprint(format_announcement(item)) != row['payload_hash']:
                 raise StateError('RESERVED_PAYLOAD_CHANGED')
         elif row['event_type'] == 'TEST':
@@ -144,7 +136,7 @@ class Delivery:
         else:
             raise StateError('REVISION_AUTOSEND_DISABLED')
 
-    def send(self, key, proof, *, reference=None, reference_sha=None, reference_env=None):
+    def send(self, key, proof):
         old, sha = self._gate(proof)
         row = old['outbox'].get(key)
         if row is None:
@@ -156,8 +148,7 @@ class Delivery:
             return {'status': 'AMBIGUOUS', 'post_attempted': False}
         if row['destination'] != proof.identity:
             raise StateError('RESERVED_DESTINATION_MISMATCH')
-        self._eligible_reserved(old, row, reference=reference, reference_sha=reference_sha,
-                                reference_env=reference_env)
+        self._eligible_reserved(old, row)
         state = change(old)
         claimed = state['outbox'][key]
         claimed.update(status='SENDING', attempt_id=uuid4().hex, sending_claimed_at=self.clock())
@@ -166,8 +157,7 @@ class Delivery:
         current_row = current['outbox'][key]
         if current_row['status'] != 'SENDING' or current_row['attempt_id'] != claimed['attempt_id']:
             raise StateError('CLAIM_LOST_NO_POST')
-        self._eligible_reserved(current, current_row, reference=reference, reference_sha=reference_sha,
-                                reference_env=reference_env)
+        self._eligible_reserved(current, current_row)
         receipt, error = self.gateway.post_claimed(current_row, proof, at=self.clock())
         final = change(current)
         final_row = final['outbox'][key]

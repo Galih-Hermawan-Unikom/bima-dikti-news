@@ -54,7 +54,7 @@ def dispatch(env, request=_request):
         return plan_row
     payload = {"ref": FEATURE_BRANCH, "inputs": {"mode": "POLL",
         "reviewed_code_sha": plan_row["reviewed_code_sha"], "confirmation": "SCHEDULED_POLL",
-        "empty_branch_sha": "", "test_id": "", "bima_reference_path": "", "bima_reference_sha256": ""}}
+        "empty_branch_sha": "", "test_id": ""}}
     status, _ = request("POST", f"/repos/{REPOSITORY}/actions/workflows/{WORKFLOW}/dispatches", token, payload)
     if status not in (200, 201, 202, 204):
         raise SchedulerError("WORKFLOW_DISPATCH_REJECTED")

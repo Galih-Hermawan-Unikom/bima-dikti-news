@@ -152,7 +152,7 @@ def test_bima_invalid_date_empty_and_fetch_failure_keep_bounded_diagnostics():
 
 
 def make_context(*, historical=False, irrelevant=False, now=NOW, enabled=True, auto=True,
-                 bima=None, telegram_outcome="success", detail_patch=None):
+                 telegram_outcome="success", detail_patch=None):
     source = FixtureSource(historical=historical, irrelevant=irrelevant)
     class Sink:
         def create(self, state):
@@ -173,13 +173,12 @@ def make_context(*, historical=False, irrelevant=False, now=NOW, enabled=True, a
     gateway = TelegramGateway(Credentials.from_environment(envs), session=telegram)
     clock = Clock(now)
     return {"source": source, "github": github, "remote": remote, "env": envs,
-            "telegram": telegram, "gateway": gateway, "clock": clock,
-            "bima": bima or BimaFixture()}
+            "telegram": telegram, "gateway": gateway, "clock": clock}
 
 
 def run(c):
     return run_poll(c["env"], backend=c["remote"], clock=c["clock"],
-                    source=c["source"], bima_collector=c["bima"], gateway=c["gateway"])
+                    source=c["source"], gateway=c["gateway"])
 
 
 def test_new_relevant_article_runs_full_pipeline_once_then_known_after_restart():
@@ -211,62 +210,19 @@ def test_historical_or_nonacademic_items_never_post(case, expected):
     assert c["telegram"].posts == []
 
 
-def test_bima_confirmed_duplicate_is_rejected_without_post():
-    def with_letter(url, value):
-        return value.replace("Perguruan tinggi membuka pendaftaran",
-            "No Surat: 123/ABC/2026. Perguruan tinggi membuka pendaftaran") if url.endswith("fixture-new") else value
-    bima = BimaFixture([{"title": "Penawaran Hibah Penelitian untuk Dosen",
-        "surat": "123/ABC/2026", "date": "24 Oktober 2026", "documents": []}])
-    c = make_context(bima=bima, detail_patch=with_letter)
-    report = run(c)
-    assert report["status_counts"]["DUPLICATE"] == 1
-    assert report["status_counts"]["REJECTED"] == 1
-    assert c["telegram"].posts == []
-
-
-@pytest.mark.parametrize("bima", [BimaFixture(error=TimeoutError()),
-    BimaFixture(pagination="UNKNOWN"), BimaFixture(rows=[])])
-def test_missing_failed_or_incomplete_bima_reference_holds_candidate(bima):
-    c = make_context(bima=bima)
+def test_bima_unavailable_or_pagination_unknown_does_not_affect_source_local_eligibility():
+    import inspect
+    from kemdiktisaintek_automation import run_poll as poll_automation
+    params = inspect.signature(poll_automation).parameters
+    assert 'bima_collector' not in params
+    c = make_context()
     report = run(c)
     state, _ = c["remote"].load()
-    assert report["status_counts"]["HOLD"] + report["status_counts"]["NEEDS_REVIEW"] >= 1
-    assert not state["admissions"] and c["telegram"].posts == []
-
-
-def test_stale_corrupt_and_uncovered_bima_evidence_fails_closed():
-    producer = {"repository": REPO, "workflow_ref": env()["GITHUB_WORKFLOW_REF"],
-        "workflow_sha": SHA, "run_id": "12345", "run_attempt": "1",
-        "event": "workflow_dispatch", "ref": "refs/heads/" + FEATURE}
-    ref = create_reference(BimaFixture().rows, capture_started_at=NOW,
-        capture_finished_at=NOW, pagination_state="FIRST_PAGE_COMPLETE", newest_first=True,
-        producer=producer)
-    digest = fingerprint(ref)
-    with pytest.raises(StateError):
-        validate_bima_reference(ref, digest, at="2026-10-24T11:11:01Z", env=env())
-    with pytest.raises(StateError):
-        validate_bima_reference(ref, "0" * 64, at=NOW, env=env())
-    incomplete = create_reference([{"title": "Recent BIMA", "surat": "1/A/2026",
-        "date": "24 Oktober 2026", "documents": []}], capture_started_at=NOW,
-        capture_finished_at=NOW, pagination_state="FIRST_PAGE_HAS_NEXT", newest_first=True,
-        producer=producer)
-    with pytest.raises(StateError, match="DOES_NOT_COVER"):
-        validate_bima_reference(incomplete, fingerprint(incomplete), at=NOW, env=env(),
-            candidate={"published_at": "2026-10-24T10:05:00Z"})
-    with pytest.raises(StateError, match="COVERAGE_UNKNOWN"):
-        create_reference(BimaFixture().rows, capture_started_at=NOW,
-            capture_finished_at=NOW, pagination_state="UNKNOWN", newest_first=True, producer=producer)
-
-
-def test_bima_empty_or_fetch_error_never_yields_no_match():
-    c = make_context(bima=BimaFixture(error=TimeoutError("secret-bearing network error")))
-    report = run(c)
-    state, _ = c["remote"].load()
-    row = next(r for r in state["observation_state"]["observations"].values()
-               if r["title"] == "Penawaran Hibah Penelitian untuk Dosen")
-    assert row["detection_status"] == "HOLD"
-    assert "secret-bearing" not in json.dumps(report)
-    assert not state["admissions"] and not c["telegram"].posts
+    observation = state["observation_state"]["observations"][c["source"].new_id]
+    assert observation["detection_status"] == "NEW_CANDIDATE"
+    assert state["admissions"] and report["delivered_this_poll"] == 1
+    assert report["delivery_error"] is None and len(c["telegram"].posts) == 1
+    assert not any(key.startswith('bima_') for key in report)
 
 
 def test_revision_candidate_is_review_only_and_kemdiktisaintek_api_failure_is_reported():
@@ -283,7 +239,7 @@ def test_revision_candidate_is_review_only_and_kemdiktisaintek_api_failure_is_re
     c = make_context()
     before, _ = c["remote"].load()
     report = run_poll(c["env"], backend=c["remote"], clock=c["clock"],
-                       source=FailedSource(), bima_collector=c["bima"], gateway=c["gateway"])
+                       source=FailedSource(), gateway=c["gateway"])
     after, _ = c["remote"].load()
     assert report["api_health"] == "FAILED" and report["capture_error"] == "TimeoutError"
     assert before == after and c["telegram"].posts == []
@@ -297,7 +253,7 @@ def test_switch_off_and_wrong_destination_never_post():
     c["telegram"].target = c["telegram"].production_id
     report = run(c)
     assert c["telegram"].posts == []
-    assert "DELIVERY_BLOCKED" in report["bima_reference_status"]
+    assert report["delivery_error"]
 
 
 def test_cas_conflict_before_post_and_timeout_after_claim_do_not_retry():
