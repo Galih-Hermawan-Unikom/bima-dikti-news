@@ -5,7 +5,7 @@ on:
       mode:
         type: choice
         default: COLLECT
-        options: [PREFLIGHT, COLLECT, INITIALIZE, POLL, SEND_TEST]
+        options: [PREFLIGHT, COLLECT, INITIALIZE, POLL, SEND_TEST, PREVIEW_PLAN, SEND_PREVIEW]
       confirmation:
         description: Explicit reviewed operation confirmation; blank keeps privileged modes blocked
         type: string
@@ -21,6 +21,10 @@ on:
         default: ''
       test_id:
         description: Stable unique test ID, reused after restart; at least 8 characters
+        type: string
+        default: ''
+      preview_plan_sha256:
+        description: Exact plan hash from PREVIEW_PLAN; SEND_PREVIEW only
         type: string
         default: ''
 permissions:
@@ -95,6 +99,42 @@ jobs:
           KEMDIKTISAINTEK_EXPERIMENT_AUTO_SEND: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_AUTO_SEND || 'false' }}
           KEMDIKTISAINTEK_PREFLIGHT_APPROVAL: ${{ inputs.confirmation }}
         run: python -B eksperimen/kemdiktisaintek/kemdiktisaintek_stage3_runtime.py PREFLIGHT
+  preview:
+    needs: review
+    if: inputs.mode == 'PREVIEW_PLAN' || inputs.mode == 'SEND_PREVIEW'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: kemdiktisaintek-experiment
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.reviewed_code_sha }}
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: d022dab6c18c000cbff9b44c020ef498d580940f
+          path: production_formatter
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install requests==2.31.0 beautifulsoup4==4.12.3
+      - name: Prepare preview or send after explicit approval
+        env:
+          YOUTUBE_EXPERIMENT_BOT_TOKEN: ${{ secrets.YOUTUBE_EXPERIMENT_BOT_TOKEN }}
+          YOUTUBE_EXPERIMENT_CHAT_ID: ${{ secrets.YOUTUBE_EXPERIMENT_CHAT_ID }}
+          YOUTUBE_EXPERIMENT_CHAT_ID_SHA256: ${{ secrets.YOUTUBE_EXPERIMENT_CHAT_ID_SHA256 }}
+          KEMDIKTISAINTEK_PREVIEW_MODE: ${{ inputs.mode }}
+          KEMDIKTISAINTEK_PREVIEW_CONFIRMATION: ${{ inputs.confirmation }}
+          KEMDIKTISAINTEK_PREVIEW_PLAN_SHA256: ${{ inputs.preview_plan_sha256 }}
+          KEMDIKTISAINTEK_REVIEWED_CODE_SHA: ${{ inputs.reviewed_code_sha }}
+          KEMDIKTISAINTEK_FORMATTER_SHA: d022dab6c18c000cbff9b44c020ef498d580940f
+          KEMDIKTISAINTEK_FORMATTER_ROOT: ${{ github.workspace }}/production_formatter
+          KEMDIKTISAINTEK_EXPERIMENT_ENABLED: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_ENABLED || 'false' }}
+          KEMDIKTISAINTEK_EXPERIMENT_AUTO_SEND: ${{ vars.KEMDIKTISAINTEK_EXPERIMENT_AUTO_SEND || 'false' }}
+        run: python -B eksperimen/kemdiktisaintek/preview_real_announcement.py
   controlled:
     needs: review
     if: inputs.mode == 'INITIALIZE' || inputs.mode == 'POLL' || inputs.mode == 'SEND_TEST'
