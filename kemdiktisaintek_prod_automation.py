@@ -38,7 +38,8 @@ def run_poll(env, *, backend, clock=lambda: datetime.now(timezone.utc).isoformat
                 "observed_at_wib": observed.astimezone(WIB).isoformat(), "pages": 0,
                 "articles_observed": 0, "details_checked": 0, "status_counts": _counts([]),
                 "admissions_total": len(prior['admissions']), "reserved_this_poll": 0,
-                "delivered_this_poll": 0, "ambiguous_this_poll": 0, "api_health": "FAILED",
+                "delivered_this_poll": 0, "partial_this_poll": 0, "failed_this_poll": 0,
+                "ambiguous_this_poll": 0, "api_health": "FAILED",
                 "poll_gap_seconds": int((observed-prior_poll).total_seconds()),
                 "capture_error": type(exc).__name__,
                 "recovered_sending_attempts": recovered, "delivery_enabled": False,
@@ -48,7 +49,7 @@ def run_poll(env, *, backend, clock=lambda: datetime.now(timezone.utc).isoformat
             client.session.close()
     report = observe(backend, capture)
     events = report['events']
-    delivery_counts = {"reserved": 0, "delivered": 0, "ambiguous": 0}
+    delivery_counts = {"reserved": 0, "delivered": 0, "partial": 0, "failed": 0, "ambiguous": 0}
     delivery_error = None
     switches_on = (env.get('KEMDIKTISAINTEK_PRODUCTION_ENABLED') == 'true'
                    and env.get('KEMDIKTISAINTEK_PRODUCTION_AUTO_SEND') == 'true')
@@ -69,6 +70,14 @@ def run_poll(env, *, backend, clock=lambda: datetime.now(timezone.utc).isoformat
                         delivery_counts['delivered'] += 1
                     elif result['status'] == 'AMBIGUOUS':
                         delivery_counts['ambiguous'] += 1
+                        break
+                    elif result['status'] == 'PARTIAL':
+                        delivery_counts['partial'] += 1
+                        delivery_error = 'PARTIAL_DELIVERY_RECONCILIATION_REQUIRED'
+                        break
+                    elif result['status'] == 'FAILED':
+                        delivery_counts['failed'] += 1
+                        delivery_error = 'DELIVERY_OPERATION_FAILED'
                         break
             except ReconciliationRequired:
                 delivery_counts['ambiguous'] += 1
@@ -98,6 +107,7 @@ def run_poll(env, *, backend, clock=lambda: datetime.now(timezone.utc).isoformat
         "articles_observed": capture.coverage['listing_count'], "details_checked": capture.coverage['detail_count'],
         "status_counts": _counts(events), "admissions_total": report['admissions'],
         "reserved_this_poll": delivery_counts['reserved'], "delivered_this_poll": delivery_counts['delivered'],
+        "partial_this_poll": delivery_counts['partial'], "failed_this_poll": delivery_counts['failed'],
         "ambiguous_this_poll": delivery_counts['ambiguous'], "api_health": "HEALTHY",
         "poll_gap_seconds": int(gap.total_seconds()), "planned_interval_seconds": int(TIMING.planned_interval.total_seconds()),
         "lateness_tolerance_seconds": int(TIMING.lateness_tolerance.total_seconds()),
