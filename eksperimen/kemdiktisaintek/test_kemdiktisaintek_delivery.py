@@ -15,7 +15,7 @@ from kemdiktisaintek_delivery_state import (event_key, change, migrate_v1, valid
                                           validate_delivery_lineage)
 from kemdiktisaintek_delivery import Delivery, observe, ReconciliationRequired
 from kemdiktisaintek_delivery_policy import validate_reference, eligibility
-from kemdiktisaintek_remote_state import RemoteState, MemoryRemote, blob_sha
+from kemdiktisaintek_remote_state import RemoteState, MemoryRemote, blob_sha, EMPTY_TREE_SHA
 from kemdiktisaintek_telegram import (Credentials, Proof, TelegramGateway, format_announcement,
                                     format_test, payload, length, switches)
 from kemdiktisaintek_monitor import capture_window
@@ -461,22 +461,40 @@ def test_explicit_remote_migration_keeps_all_old_history_quarantined(context):
 
 class InitializationTransport:
     def __init__(self):
-        self.raw=None;self.sha=None;self.nonempty=False;self.puts=0;self.parents=[]
+        self.raw=None;self.sha=None;self.puts=0;self.parents=[]
+        self.head_sha='a'*40;self.tree_sha=EMPTY_TREE_SHA;self.tree_status=200
+        self.tree_entries=[];self.root_status=200;self.root_payload=[]
+        self.state_status=404;self.ref_reads=0;self.change_head_on_ref_call=None
+        self.gets=[]
     def get(self,url,**kwargs):
         assert kwargs['allow_redirects'] is False
-        if '/git/ref/' in url:return Response(200,{'object':{'sha':'a'*40}})
-        if '/git/commits/' in url:return Response(200,{'tree':{'sha':'b'*40},'parents':self.parents})
-        if '/git/trees/' in url:return Response(200,{'tree':[{'path':'old-state'}] if self.nonempty else [],'truncated':False})
-        if self.raw is None:return Response(404,{})
-        from kemdiktisaintek_state import STATE_PATH
-        import base64
-        return Response(200,{'encoding':'base64','path':STATE_PATH,'sha':self.sha,'content':base64.b64encode(self.raw).decode()})
+        self.gets.append(url)
+        if '/git/ref/heads/' in url:
+            self.ref_reads+=1
+            if self.change_head_on_ref_call==self.ref_reads:self.head_sha='c'*40
+            from kemdiktisaintek_state import STATE_BRANCH
+            return Response(200,{'ref':'refs/heads/'+STATE_BRANCH,'object':{'sha':self.head_sha}})
+        if '/git/commits/' in url:
+            reviewed=url.rsplit('/',1)[-1]
+            return Response(200,{'sha':reviewed,'tree':{'sha':self.tree_sha},'parents':self.parents})
+        if '/git/trees/' in url:
+            return Response(self.tree_status,{'sha':self.tree_sha,'tree':self.tree_entries,'truncated':False})
+        if url.split('?',1)[0].endswith('/contents'):
+            return Response(self.root_status,self.root_payload)
+        if '/contents/.bot-state/kemdiktisaintek_experiment.json?' in url:
+            if self.state_status==404:return Response(404,{})
+            import base64
+            from kemdiktisaintek_state import STATE_PATH
+            return Response(self.state_status,{'encoding':'base64','path':STATE_PATH,
+                'sha':self.sha,'content':base64.b64encode(self.raw).decode()})
+        return Response(404,{})
     def put(self,url,*,json,**kwargs):
         import base64
         self.puts+=1
         if self.raw is not None:return Response(409,{})
         assert 'sha' not in json
         self.raw=base64.b64decode(json['content']);self.sha=blob_sha(self.raw)
+        self.state_status=200
         return Response(201,{'content':{'sha':self.sha}})
 
 
@@ -485,10 +503,10 @@ def test_remote_initialization_requires_reviewed_empty_branch_and_does_not_creat
     state=migrate_v1(context['remote'].load()[0]['observation_state'],at=NOW)
     with pytest.raises(StateError):remote.create(state,approved=True,empty_branch_sha='c'*40)
     assert transport.puts==0
-    transport.nonempty=True
+    transport.tree_entries=[{'path':'old-state'}]
     with pytest.raises(StateError):remote.create(state,approved=True,empty_branch_sha='a'*40)
     assert transport.puts==0
-    transport.nonempty=False;remote.create(state,approved=True,empty_branch_sha='a'*40)
+    transport.tree_entries=[];remote.create(state,approved=True,empty_branch_sha='a'*40)
     assert remote.load()[0]==state and transport.puts==1
     with pytest.raises(StateError):remote.create(state,approved=True,empty_branch_sha='a'*40)
     assert transport.puts==1
@@ -501,6 +519,69 @@ def test_empty_tree_after_deleted_state_cannot_reinitialize(context):
     with pytest.raises(StateError,match='NOT_REVIEWED_EMPTY_TREE'):
         remote.create(state,approved=True,empty_branch_sha='a'*40)
     assert transport.puts==0
+
+
+def _initial_state(context):
+    return migrate_v1(context['remote'].load()[0]['observation_state'],at=NOW)
+
+
+def test_remote_initialize_accepts_real_empty_orphan_when_tree_api_is_404(context):
+    transport=InitializationTransport();transport.tree_status=404
+    remote=RemoteState('fixture-github',session=transport)
+    assert remote.create(_initial_state(context),approved=True,empty_branch_sha='a'*40)
+    assert transport.puts==1
+    assert any(url.endswith('/contents?ref=kemdiktisaintek-experiment-state') for url in transport.gets)
+    assert any(url.endswith('/contents/.bot-state/kemdiktisaintek_experiment.json?ref=kemdiktisaintek-experiment-state')
+               for url in transport.gets)
+
+
+@pytest.mark.parametrize('scenario',[
+    'tree_404_root_nonempty','tree_404_tree_sha_mismatch','root_parent','head_changed',
+    'state_exists','root_http_error','state_http_error','root_invalid','tree_truncated',
+])
+def test_remote_initialize_rejects_unproven_empty_branch_without_put(context,scenario):
+    transport=InitializationTransport();remote=RemoteState('fixture-github',session=transport)
+    if scenario=='tree_404_root_nonempty':
+        transport.tree_status=404;transport.root_payload=[{'name':'existing'}]
+    elif scenario=='tree_404_tree_sha_mismatch':
+        transport.tree_status=404;transport.tree_sha='b'*40
+    elif scenario=='root_parent':
+        transport.parents=[{'sha':'d'*40}]
+    elif scenario=='head_changed':
+        transport.change_head_on_ref_call=2
+    elif scenario=='state_exists':
+        transport.state_status=200
+    elif scenario=='root_http_error':
+        transport.root_status=503
+    elif scenario=='state_http_error':
+        transport.state_status=503
+    elif scenario=='root_invalid':
+        transport.root_payload={'unexpected':'object'}
+    elif scenario=='tree_truncated':
+        transport.tree_entries=[]
+        original=transport.get
+        def truncated(url,**kwargs):
+            result=original(url,**kwargs)
+            if '/git/trees/' in url:result.result['truncated']=True
+            return result
+        transport.get=truncated
+    with pytest.raises(StateError):
+        remote.create(_initial_state(context),approved=True,empty_branch_sha='a'*40)
+    assert transport.puts==0
+
+
+def test_remote_initialize_rejects_wrong_branch_before_any_request(context):
+    transport=InitializationTransport()
+    with pytest.raises(StateError,match='REMOTE_SCOPE_OR_TOKEN_INVALID'):
+        RemoteState('fixture-github',session=transport,branch='master')
+    assert transport.gets==[] and transport.puts==0
+
+
+def test_remote_initialize_rejects_invalid_initial_state_before_any_request(context):
+    transport=InitializationTransport();remote=RemoteState('fixture-github',session=transport)
+    invalid=_initial_state(context);invalid['generation']=2
+    with pytest.raises(StateError):remote.create(invalid,approved=True,empty_branch_sha='a'*40)
+    assert transport.gets==[] and transport.puts==0
 
 
 @pytest.mark.parametrize('fail',['getChat','getMe','getChatMember'])

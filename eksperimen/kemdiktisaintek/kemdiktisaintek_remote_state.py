@@ -11,6 +11,7 @@ from kemdiktisaintek_state import STATE_BRANCH, STATE_PATH, MAX_BYTES, StateErro
 from kemdiktisaintek_delivery_state import validate_delivery_state, validate_delivery_lineage, migrate_v1
 
 REPOSITORY = 'Galih-Hermawan-Unikom/bima-dikti-news'
+EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 
 
 def blob_sha(raw):
@@ -89,24 +90,57 @@ class RemoteState:
         """Future operator-authorized initialization: existing empty tree at pinned SHA only."""
         if approved is not True or not re.fullmatch('[a-f0-9]{40}', empty_branch_sha or ''):
             raise StateError('REMOTE_INITIALIZATION_NOT_AUTHORIZED')
-        ref = self._get(self._base + 'git/ref/heads/' + STATE_BRANCH)
-        try:
-            if ref.status_code != 200 or ref.json()['object']['sha'] != empty_branch_sha:
+        validate_delivery_state(state)
+        if (state['generation'] != 1 or state['outbox'] or state['admissions']
+                or state['test_authorizations']):
+            raise StateError('INVALID_INITIAL_REMOTE_STATE')
+
+        ref_url = self._base + 'git/ref/heads/' + STATE_BRANCH
+        root_url = self._base + 'contents?ref=' + STATE_BRANCH
+        state_url = self._contents + '?ref=' + STATE_BRANCH
+
+        def reviewed_head():
+            ref = self._get(ref_url)
+            body = ref.json() if ref.status_code == 200 else {}
+            if (ref.status_code != 200 or body.get('ref') != 'refs/heads/' + STATE_BRANCH
+                    or body.get('object', {}).get('sha') != empty_branch_sha):
                 raise ValueError()
+
+        try:
+            reviewed_head()
             commit = self._get(self._base + 'git/commits/' + empty_branch_sha)
-            tree_sha = commit.json()['tree']['sha']
-            if (commit.status_code != 200 or not re.fullmatch('[a-f0-9]{40}', tree_sha)
-                    or commit.json().get('parents') != []):
+            if commit.status_code != 200:
+                raise ValueError()
+            commit_body = commit.json()
+            tree_sha = commit_body.get('tree', {}).get('sha')
+            if (commit_body.get('sha') != empty_branch_sha or tree_sha != EMPTY_TREE_SHA
+                    or commit_body.get('parents') != []):
                 raise ValueError()
             tree = self._get(self._base + 'git/trees/' + tree_sha)
-            if tree.status_code != 200 or tree.json().get('tree') != [] or tree.json().get('truncated') is not False:
+            if tree.status_code == 200:
+                tree_body = tree.json()
+                if (tree_body.get('sha') != EMPTY_TREE_SHA or tree_body.get('tree') != []
+                        or tree_body.get('truncated') is not False):
+                    raise ValueError()
+            elif tree.status_code != 404:
                 raise ValueError()
-        except (KeyError, TypeError, ValueError):
+
+            root = self._get(root_url)
+            root_body = root.json() if root.status_code == 200 else None
+            if root.status_code != 200 or not isinstance(root_body, list) or root_body != []:
+                raise ValueError()
+        except (AttributeError, KeyError, TypeError, ValueError):
             raise StateError('REMOTE_BRANCH_NOT_REVIEWED_EMPTY_TREE') from None
-        if self._get(self._contents + '?ref=' + STATE_BRANCH).status_code != 404:
+
+        state_response = self._get(state_url)
+        if state_response.status_code != 404:
             raise StateError('REMOTE_INITIALIZATION_REFUSES_OVERWRITE')
-        if state['generation'] != 1 or state['outbox'] or state['admissions']:
-            raise StateError('INVALID_INITIAL_REMOTE_STATE')
+
+        # Pin the reviewed ref again after all content checks, immediately before the write.
+        try:
+            reviewed_head()
+        except (AttributeError, KeyError, TypeError, ValueError):
+            raise StateError('REMOTE_BRANCH_NOT_REVIEWED_EMPTY_TREE') from None
         return self._put(state, None)
 
     def migrate(self, *, expected, at, approved=False):
