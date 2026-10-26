@@ -19,6 +19,6 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install HTTP dependency only
-        run: python -m pip install requests==2.31.0
+        run: python -m pip install requests==2.34.2
       - name: Inspect regular videos without delivery or state writes
         run: python -B youtube_videos_preflight.py --state-dir .
