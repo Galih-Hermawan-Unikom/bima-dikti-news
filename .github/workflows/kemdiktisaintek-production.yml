@@ -65,7 +65,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: python -m pip install requests==2.31.0 beautifulsoup4==4.12.3
+      - run: python -m pip install requests==2.34.2 beautifulsoup4==4.12.3
       - run: python -B kemdiktisaintek_prod_runtime.py COLLECT
   controlled:
     needs: review
@@ -82,7 +82,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: python -m pip install requests==2.31.0 beautifulsoup4==4.12.3
+      - run: python -m pip install requests==2.34.2 beautifulsoup4==4.12.3
       - name: Source-local production state operation
         env:
           MODE: ${{ inputs.mode }}
