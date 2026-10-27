@@ -50,6 +50,9 @@ def validate_bima(state):
             or type(state.get("initialized")) is not bool or not isinstance(state.get("inventory"), list)
             or not isinstance(state.get("first_seen"), dict) or not isinstance(state.get("outbox"), dict)):
         raise ValueError("Invalid production BIMA state")
+    if (state.get("last_successful_poll_at") is not None
+            and parse_timestamp(state["last_successful_poll_at"]) is None):
+        raise ValueError("Invalid BIMA successful poll timestamp")
     if any(not announcement_identity(item) for item in state["inventory"]):
         raise ValueError("Invalid BIMA inventory identity")
     if any(parse_timestamp(stamp) is None for stamp in state["first_seen"].values()):
@@ -68,6 +71,20 @@ def bima_after_fence(item, fence, observed_at):
     local_day = observed_at.astimezone(ZoneInfo("Asia/Jakarta")).date()
     return (day is not None and fence.astimezone(ZoneInfo("Asia/Jakarta")).date()
             < day.date() <= local_day)
+
+
+def poll_gap_seconds(previous, current):
+    previous_at = parse_timestamp(previous)
+    current_at = parse_timestamp(current)
+    if previous_at is None or current_at is None:
+        return None
+    return max(0, int((current_at - previous_at).total_seconds()))
+
+
+def poll_gap_warning(gap_seconds, planned_interval_seconds):
+    if gap_seconds is not None and gap_seconds > 2 * planned_interval_seconds:
+        return "UNHEALTHY_POLL_GAP"
+    return None
 
 
 def backend(source, initialize):
@@ -145,6 +162,19 @@ def bima_cycle(state, current, historical, notifier, checkpoint, *, enabled, at)
         report["confirmed_messages"] += messages
         report["delivered_events"] += int(delivered)
     checkpoint()
+    return report
+
+
+def bima_poll(state, current, historical, notifier, checkpoint, *, enabled, at):
+    previous_poll = state.get("last_successful_poll_at")
+    report = bima_cycle(state, current, historical, notifier, checkpoint,
+                        enabled=enabled, at=at)
+    state["last_successful_poll_at"] = at.isoformat()
+    checkpoint()
+    report.update(poll_gap_seconds=poll_gap_seconds(previous_poll, at),
+        planned_interval_seconds=10800)
+    report["poll_gap_warning"] = poll_gap_warning(
+        report["poll_gap_seconds"], report["planned_interval_seconds"])
     return report
 
 
@@ -228,6 +258,7 @@ def run(source, mode):
                 print("PRODUCTION_INITIALIZATION=ALREADY_EXISTS no_overwrite=true")
                 return 0
             current = BimaScraper().fetch_announcements()
+            poll_at = now()
             history = read("announcements_cache.json") + [item for batch in journal["batches"]
                 for item in batch["items"] if item.get("source") != "youtube"]
             if mode == "backfill-1454":
@@ -237,8 +268,8 @@ def run(source, mode):
                 report = perform(state, current, read("announcements_cache.json"), journal,
                                  notifier, checkpoint, at=at)
             else:
-                report = bima_cycle(state, current, history, notifier, checkpoint,
-                    enabled=enabled and mode != "initialize", at=at)
+                report = bima_poll(state, current, history, notifier, checkpoint,
+                    enabled=enabled and mode != "initialize", at=poll_at)
             report["activation_at"] = state["activation_at"]
         else:
             if loaded:
@@ -260,8 +291,13 @@ def run(source, mode):
                 window=timedelta(hours=24), ttl=timedelta(hours=4), skew=timedelta(minutes=5),
                 capture_interval=timedelta(minutes=10), approved=True, automatic_tabs_verification=True)
             adapter = ChannelTabsAdapter(channel_id=CHANNEL_ID, policy=policy, observation_store=store)
+            previous_capture = store._state.get("last_capture_at")
             report = youtube_cycle(store, adapter, cache, journal, notifier,
                                    enabled=enabled, startup=startup)
+            report.update(poll_gap_seconds=poll_gap_seconds(previous_capture,
+                    store._state.get("last_capture_at")), planned_interval_seconds=1800)
+            report["poll_gap_warning"] = poll_gap_warning(
+                report["poll_gap_seconds"], report["planned_interval_seconds"])
             report.update(activation_at=store._state["activation_at"], capture_seq=store._state["capture_seq"],
                 initial_inventory=sum(row["initial_inventory"] for row in store._state["observations"].values()))
         print("PRODUCTION_RUN=" + json.dumps(report, sort_keys=True))
