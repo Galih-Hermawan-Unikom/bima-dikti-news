@@ -135,7 +135,8 @@
     }
   ],
   "first_seen": {
-    "bima:surat:1465/dst/c3/dt.06.01/2026|title:pemutakhiran capaian luaran program pengabdian kepada masyarakat tahun pelaksanaan 2023-2025:initial": "2026-10-24T15:52:32.411079+00:00"
+    "bima:surat:1465/dst/c3/dt.06.01/2026|title:pemutakhiran capaian luaran program pengabdian kepada masyarakat tahun pelaksanaan 2023-2025:initial": "2026-10-24T15:52:32.411079+00:00",
+    "bima:surat:1031/dst/c2/pp.01.07/2026|title:undangan peserta workshop penulisan artikel ilmiah mahasiswa pascasarjana tahun 2026:initial": "2026-10-27T08:54:54.470360+00:00"
   },
   "outbox": {
     "bima:surat:1454/dst/c3/dt.06.01/2026|title:pemberitahuan jadwal pelaporan dan monitoring dan evaluasi internal program pengabdian kepada masyarakat tahun anggaran 2026:initial": {
@@ -197,6 +198,32 @@
         "github_run_id": "39900962619"
       },
       "attempted_at": "2026-10-23T04:34:12.426985+00:00"
+    },
+    "bima:surat:1031/dst/c2/pp.01.07/2026|title:undangan peserta workshop penulisan artikel ilmiah mahasiswa pascasarjana tahun 2026:initial": {
+      "event_key": "bima:surat:1031/dst/c2/pp.01.07/2026|title:undangan peserta workshop penulisan artikel ilmiah mahasiswa pascasarjana tahun 2026:initial",
+      "status": "reserved",
+      "attempts": 0,
+      "items": [
+        {
+          "title": "Undangan Peserta Workshop Penulisan Artikel Ilmiah Mahasiswa Pascasarjana Tahun 2026",
+          "surat": "1031/DST/C2/PP.01.07/2026",
+          "date": "27 Oktober 2026",
+          "documents": [
+            {
+              "name": "Undangan Peserta Workshop Penulisan Artikel Ilmiah Mahasiswa Pascasarjana Tahun 2026.pdf"
+            }
+          ],
+          "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+          "scraped_at": "2026-10-27T08:54:16.965000"
+        }
+      ],
+      "chunks": [
+        "<b>📢 PENGUMUMAN BARU BIMA KEMDIKTISAINTEK</b>\n\n📅 27/10/2026 15:54 WIB\n🔢 Jumlah: 1 item baru\n🏛️ BIMA: 1\n\n<b>1. Undangan Peserta Workshop Penulisan Artikel Ilmiah Mahasiswa Pascasarjana Tahun 2026</b>\n   📜 1031/DST/C2/PP.01.07/2026\n   📆 27 Oktober 2026\n   📦 Dokumen: 1 file\n   📎 Undangan Peserta Workshop Penulisan Artikel Ilmiah Mahasiswa Pascasarjana Tahun 2026.pdf\n   🔗 https://bima.kemdiktisaintek.go.id/pengumuman\n\n━━━━━━━━━━━━━━━━━━━━\n<i>Bot Dikti News</i>"
+      ],
+      "sent_chunks": [],
+      "sent_documents": [],
+      "receipts": [],
+      "send_files": true
     }
   }
 }
