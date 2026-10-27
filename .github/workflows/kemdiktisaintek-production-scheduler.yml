@@ -1,8 +1,6 @@
 name: Kemdiktisaintek Production Scheduler
 
 on:
-  schedule:
-    - cron: '7,37 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -15,7 +13,7 @@ concurrency:
 
 jobs:
   dispatch-poll:
-    if: github.ref == 'refs/heads/master'
+    if: vars.DIKTI_NEWS_PRODUCTION_SCHEDULER_ENABLED != 'true' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     timeout-minutes: 3
     permissions:

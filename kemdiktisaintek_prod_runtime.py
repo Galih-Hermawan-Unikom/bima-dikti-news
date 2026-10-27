@@ -21,7 +21,11 @@ class _BaselineSink:
 def _review_gate(env, *, initialize_mode=False):
     reviewed = env.get('KEMDIKTISAINTEK_PRODUCTION_REVIEWED_SHA', '')
     approved = env.get('KEMDIKTISAINTEK_PRODUCTION_APPROVED_SHA', '')
-    if (env.get('GITHUB_ACTIONS') != 'true' or env.get('GITHUB_EVENT_NAME') != 'workflow_dispatch'
+    unified = env.get('GITHUB_WORKFLOW_REF') == (
+        REPOSITORY + '/.github/workflows/dikti-news-production.yml@refs/heads/master')
+    valid_event = (env.get('GITHUB_EVENT_NAME') == 'workflow_dispatch'
+                   or (unified and not initialize_mode and env.get('GITHUB_EVENT_NAME') == 'schedule'))
+    if (env.get('GITHUB_ACTIONS') != 'true' or not valid_event
             or env.get('GITHUB_REPOSITORY') != REPOSITORY
             or env.get('GITHUB_REF') != 'refs/heads/master'
             or not re.fullmatch('[a-f0-9]{40}', reviewed)

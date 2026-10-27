@@ -70,7 +70,7 @@ jobs:
       - run: python -B kemdiktisaintek_prod_runtime.py COLLECT
   controlled:
     needs: review
-    if: inputs.mode == 'INITIALIZE' || inputs.mode == 'POLL'
+    if: (inputs.mode == 'INITIALIZE' || inputs.mode == 'POLL') && vars.DIKTI_NEWS_PRODUCTION_SCHEDULER_ENABLED != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

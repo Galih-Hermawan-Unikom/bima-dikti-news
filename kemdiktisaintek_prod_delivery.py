@@ -11,7 +11,8 @@ from kemdiktisaintek_prod_state import StateError, fingerprint, timestamp
 from kemdiktisaintek_prod_monitor import apply_poll, validate_capture
 from kemdiktisaintek_prod_delivery_policy import TIMING, eligibility
 from kemdiktisaintek_prod_delivery_state import (validate_delivery_state, event_key, change,
-    migrate_delivery_policy, migrate_operation_schema, LEGACY_DELIVERY_POLICY, DELIVERY_POLICY)
+    migrate_delivery_policy, migrate_operation_schema, LEGACY_DELIVERY_POLICY, DELIVERY_POLICY,
+    migrate_official_policy, OFFICIAL_POLICY)
 from kemdiktisaintek_prod_telegram import (switches, format_announcement, format_test,
     document_filename, safe_pdf_url)
 
@@ -22,6 +23,10 @@ def observe(backend, capture):
     validate_capture(capture)
     if old['policy_version'] == LEGACY_DELIVERY_POLICY:
         migrated = migrate_delivery_policy(old, at=capture.observed_at)
+        sha = backend.checkpoint(migrated, sha)
+        old, sha = backend.load()
+    if old['policy_version'] == DELIVERY_POLICY:
+        migrated = migrate_official_policy(old, at=capture.observed_at)
         sha = backend.checkpoint(migrated, sha)
         old, sha = backend.load()
     monitor, report = apply_poll(old['observation_state'], capture, max_poll_gap=TIMING.max_gap)
@@ -45,7 +50,7 @@ def observe(backend, capture):
             'decision': 'ELIGIBLE', 'observed_at': capture.observed_at,
             'expires_at': (timestamp(capture.observed_at) + TIMING.evidence_freshness).isoformat(),
             'item_sha256': fingerprint(item), 'baseline_sha256': monitor['baseline']['sha256'],
-            'admission_policy_version': DELIVERY_POLICY}
+            'admission_policy_version': OFFICIAL_POLICY}
     backend.checkpoint(state, sha)
     report.update(admissions=len(state['admissions']))
     return report

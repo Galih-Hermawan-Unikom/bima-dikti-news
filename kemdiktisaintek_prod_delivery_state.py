@@ -7,6 +7,7 @@ from kemdiktisaintek_prod_state import (validate_state as validate_v1, validate_
 
 LEGACY_DELIVERY_POLICY = 'kemdiktisaintek-delivery-v1'
 DELIVERY_POLICY = 'kemdiktisaintek-delivery-v2-independent-sources'
+OFFICIAL_POLICY = 'kemdiktisaintek-delivery-v3-all-official'
 STATUSES = {'RESERVED', 'SENDING', 'DELIVERED', 'AMBIGUOUS', 'PARTIAL', 'FAILED'}
 OPERATION_STATUSES = {'RESERVED', 'SENDING', 'DELIVERED', 'AMBIGUOUS', 'FAILED'}
 
@@ -75,11 +76,25 @@ def migrate_operation_schema(state, *, at):
     return validate_delivery_state(result)
 
 
+def migrate_official_policy(state, *, at):
+    """Preserve all observations/admissions/receipts; only future IDs use new policy."""
+    validate_delivery_state(state)
+    if state['policy_version'] != DELIVERY_POLICY:
+        raise StateError('OFFICIAL_POLICY_MIGRATION_NOT_APPLICABLE')
+    if timestamp(at) < timestamp(state['observation_state']['last_successful_poll_at']):
+        raise StateError('POLICY_MIGRATION_TIME_BEFORE_STATE')
+    result = change(state)
+    result['policy_version'] = OFFICIAL_POLICY
+    result['official_policy_migration'] = {'from': DELIVERY_POLICY, 'to': OFFICIAL_POLICY,
+        'at': at, 'source_sha256': fingerprint(state)}
+    return validate_delivery_state(result)
+
+
 def validate_delivery_state(state):
     try:
         if (not isinstance(state, dict) or type(state.get('schema_version')) is not int or state['schema_version'] != 2
                 or state.get('source') != SOURCE
-                or state.get('policy_version') not in {LEGACY_DELIVERY_POLICY, DELIVERY_POLICY}
+                or state.get('policy_version') not in {LEGACY_DELIVERY_POLICY, DELIVERY_POLICY, OFFICIAL_POLICY}
                 or type(state.get('generation')) is not int or state['generation'] < 1
                 or not all(isinstance(state.get(k), dict) for k in ('admissions', 'outbox', 'test_authorizations'))):
             raise StateError('INVALID_DELIVERY_SCHEMA')
@@ -98,11 +113,20 @@ def validate_delivery_state(state):
         policy_migration = state.get('policy_migration')
         if policy_migration is not None:
             timestamp(policy_migration['at'])
-            if (state['policy_version'] != DELIVERY_POLICY
+            if (state['policy_version'] not in {DELIVERY_POLICY, OFFICIAL_POLICY}
                     or policy_migration.get('from') != LEGACY_DELIVERY_POLICY
                     or policy_migration.get('to') != DELIVERY_POLICY
                     or not re.fullmatch('[a-f0-9]{64}', policy_migration.get('source_sha256', ''))):
                 raise StateError('INVALID_DELIVERY_POLICY_MIGRATION')
+        official = state.get('official_policy_migration')
+        if state['policy_version'] == OFFICIAL_POLICY:
+            if (not isinstance(official, dict) or official.get('from') != DELIVERY_POLICY
+                    or official.get('to') != OFFICIAL_POLICY
+                    or not re.fullmatch('[a-f0-9]{64}', official.get('source_sha256', ''))):
+                raise StateError('INVALID_OFFICIAL_POLICY_MIGRATION')
+            timestamp(official['at'])
+        elif official is not None:
+            raise StateError('UNEXPECTED_OFFICIAL_POLICY_MIGRATION')
         migration = state['migration']
         timestamp(migration['at'])
         if migration['from_schema'] != 1 or not re.fullmatch('[a-f0-9]{64}', migration['source_sha256']):
@@ -116,11 +140,11 @@ def validate_delivery_state(state):
                     or admission['uuid'] not in observations['observations']
                     or not all(re.fullmatch('[a-f0-9]{64}', admission.get(field, '')) for field in
                                ('item_sha256', 'baseline_sha256'))
-                    or (admission.get('admission_policy_version') == DELIVERY_POLICY
+                    or (admission.get('admission_policy_version') in {DELIVERY_POLICY, OFFICIAL_POLICY}
                         and 'reference_sha256' in admission)
                     or (admission.get('admission_policy_version') is None
                         and not re.fullmatch('[a-f0-9]{64}', admission.get('reference_sha256', '')))
-                    or (admission.get('admission_policy_version') not in {None, DELIVERY_POLICY})
+                    or (admission.get('admission_policy_version') not in {None, DELIVERY_POLICY, OFFICIAL_POLICY})
                     or timestamp(admission['expires_at']) <= timestamp(admission['observed_at'])):
                 raise StateError('INVALID_ADMISSION')
         for key, row in state['outbox'].items():
@@ -255,6 +279,7 @@ def validate_delivery_state(state):
 def validate_delivery_lineage(old, new):
     validate_delivery_state(old); validate_delivery_state(new)
     policy_transition = old['policy_version'] == LEGACY_DELIVERY_POLICY and new['policy_version'] == DELIVERY_POLICY
+    official_transition = old['policy_version'] == DELIVERY_POLICY and new['policy_version'] == OFFICIAL_POLICY
     operation_migration = old.get('operation_schema_version') is None and new.get('operation_schema_version') == 1
     if (new['generation'] != old['generation'] + 1 or new['migration'] != old['migration']
             or not old['admissions'].keys() <= new['admissions'].keys()
@@ -268,7 +293,13 @@ def validate_delivery_lineage(old, new):
     elif (old.get('operation_schema_version') != new.get('operation_schema_version')
           or old.get('operation_migration') != new.get('operation_migration')):
         raise StateError('OPERATION_SCHEMA_MIGRATION_IMMUTABLE')
-    if old['policy_version'] != new['policy_version']:
+    if official_transition:
+        expected = migrate_official_policy(old, at=new['official_policy_migration']['at'])
+        if new != expected:
+            raise StateError('OFFICIAL_POLICY_MIGRATION_MUST_PRESERVE_HISTORY')
+    elif old.get('official_policy_migration') != new.get('official_policy_migration'):
+        raise StateError('OFFICIAL_POLICY_MIGRATION_IMMUTABLE')
+    if old['policy_version'] != new['policy_version'] and not official_transition:
         marker = new.get('policy_migration') or {}
         if (not policy_transition or marker.get('from') != old['policy_version']
                 or marker.get('to') != new['policy_version'] or marker.get('source_sha256') != fingerprint(old)):

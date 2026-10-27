@@ -1,8 +1,6 @@
 name: YouTube Production
 
 on:
-  schedule:
-    - cron: '23,53 * * * *'
   workflow_dispatch:
     inputs:
       mode:
@@ -21,7 +19,7 @@ concurrency:
 
 jobs:
   production:
-    if: github.ref == 'refs/heads/master' && (vars.YOUTUBE_PRODUCTION_ENABLED == 'true' || github.event_name == 'workflow_dispatch')
+    if: vars.DIKTI_NEWS_PRODUCTION_SCHEDULER_ENABLED != 'true' && github.ref == 'refs/heads/master' && (vars.YOUTUBE_PRODUCTION_ENABLED == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

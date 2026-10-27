@@ -10,8 +10,11 @@ from kemdiktisaintek_prod_policy import POLICY_VERSION, classify, normalized
 from kemdiktisaintek_prod_state import (SOURCE, StateError, StateConflict, fingerprint,
                                   timestamp, uid, validate_state)
 
-MAX_POLL_GAP = timedelta(minutes=30)
-NEW_WINDOW = timedelta(hours=24)
+MAX_POLL_GAP = timedelta(hours=12)
+NEW_WINDOW = timedelta(hours=72)
+FIRST_SEEN_TTL = timedelta(hours=24)
+MAX_CAPTURE_PAGES = 10
+MAX_CAPTURE_DETAILS = 100
 
 
 class CaptureError(RuntimeError):
@@ -27,17 +30,22 @@ class Capture:
     healthy: bool = True
 
 
-def capture_window(client, state=None, *, at, pages=2, detail_budget=10):
+def capture_window(client, state=None, *, at, pages=2, detail_budget=10, adaptive=False):
     """Reuse Stage 1 API/detail parsers. All requested pages/details must succeed.
 
-    At most 3*10 listings + 10 details. No category or search filters. Known
-    articles receive up to three rotating detail checks, even amid new arrivals.
+    Adaptive production polls extend to a full known page or archive end, up to
+    100 listings/details. A hard cap without overlap holds candidates. Created
+    order is checked as traversal evidence, never used as publication time.
     """
     timestamp(at)
-    if type(pages) is not int or not 1 <= pages <= 3 or type(detail_budget) is not int or not 1 <= detail_budget <= 10:
+    if (type(pages) is not int or not 1 <= pages <= MAX_CAPTURE_PAGES
+            or type(detail_budget) is not int or not 1 <= detail_budget <= MAX_CAPTURE_DETAILS
+            or type(adaptive) is not bool or (adaptive and state is None)):
         raise CaptureError('INVALID_CAPTURE_BUDGET')
+    observations = state['observations'] if state else {}
     records, all_items, total, seen, duplicates = [], [], None, {}, []
-    for number in range(1, pages + 1):
+    boundary, first_page = False, None
+    for number in range(1, (MAX_CAPTURE_PAGES if adaptive else pages) + 1):
         url = BASE + '/api/announcement?' + urlencode({'page': number, 'size': 10, 'search': ''})
         body = client.fetch(url)
         parsed = parse_api_list(body, url)
@@ -56,25 +64,42 @@ def capture_window(client, state=None, *, at, pages=2, detail_budget=10):
         records.append({'page': number, 'url': url, 'count': len(raw['data']),
                         'total': total, 'method': 'public_json_api', 'healthy': True})
         all_items.extend(parsed['items'])
-        if not parsed['next_url']:
+        if first_page is None:
+            first_page = parsed['items']
+        known_page = (len(parsed['items']) == 10
+                      and all(i.get('id') in observations for i in parsed['items']))
+        if not parsed['next_url'] or (adaptive and number >= pages and known_page):
+            boundary = True
             break
     items = _dedupe(all_items)
-    observations = state['observations'] if state else {}
     unknown = [i for i, row in enumerate(items) if row['id'] not in observations]
     known = [i for i, row in enumerate(items) if row['id'] in observations]
     known.sort(key=lambda i: observations[items[i]['id']].get('detail_checked_at') or '')
     reserved_known = min(3, len(known), detail_budget)
     selected = unknown[:detail_budget - reserved_known] + known[:reserved_known]
-    if len(selected) < detail_budget:
+    if len(selected) < detail_budget and not adaptive:
         selected.extend(i for i in known[reserved_known:] if i not in selected)
         selected = selected[:detail_budget]
     for index in selected:
         listing = items[index]
         items[index] = parse_detail(client.fetch(listing['url']), listing['url'], listing)
-    coverage = {'requested_pages': pages, 'captured_pages': len(records), 'pages': records,
+    coverage = {'requested_pages': len(records) if adaptive else pages, 'captured_pages': len(records), 'pages': records,
                 'total_reported': total, 'listing_count': len(items), 'detail_count': len(selected),
                 'detail_budget': detail_budget, 'archive_complete': False,
                 'all_requested_pages_healthy': True, 'unfiltered': True}
+    if adaptive:
+        # Detect movement during capture rather than sorting away conflicting evidence.
+        head = parse_api_list(client.fetch(records[0]['url']), records[0]['url'])
+        if head['total'] != total or head['items'] != first_page:
+            raise CaptureError('PAGINATION_CHANGED_DURING_CAPTURE')
+        try:
+            created = [timestamp(i.get('created_at')) for i in all_items]
+            ordered = all(a >= b for a, b in zip(created, created[1:]))
+        except StateError:
+            ordered = False
+        coverage.update(adaptive=True, boundary_reached=boundary,
+                        listing_order_valid=ordered, head_rechecked=True,
+                        max_pages=MAX_CAPTURE_PAGES, max_details=MAX_CAPTURE_DETAILS)
     return Capture(at, items, coverage, sorted(set(duplicates)))
 
 
@@ -86,7 +111,7 @@ def validate_capture(capture):
     records = coverage.get('pages', [])
     if (coverage.get('all_requested_pages_healthy') is not True or coverage.get('unfiltered') is not True
             or coverage.get('archive_complete') is not False
-            or type(coverage.get('requested_pages')) is not int or not 1 <= coverage['requested_pages'] <= 3
+            or type(coverage.get('requested_pages')) is not int or not 1 <= coverage['requested_pages'] <= MAX_CAPTURE_PAGES
             or coverage.get('captured_pages') != len(records) or not records
             or len(records) > coverage['requested_pages'] or coverage.get('listing_count') != len(capture.items)):
         raise CaptureError('INVALID_CAPTURE_COVERAGE')
@@ -102,10 +127,14 @@ def validate_capture(capture):
     expected_rows = sum(row['count'] for row in records)
     if len(capture.items) > expected_rows or (len(capture.items) < expected_rows and not capture.duplicate_ids):
         raise CaptureError('CAPTURE_ITEMS_MISSING')
-    if (type(coverage.get('detail_budget')) is not int or not 1 <= coverage['detail_budget'] <= 10
+    if (type(coverage.get('detail_budget')) is not int or not 1 <= coverage['detail_budget'] <= MAX_CAPTURE_DETAILS
             or coverage.get('detail_count') != sum('body_text' in row for row in capture.items)
             or coverage['detail_count'] > coverage['detail_budget']):
         raise CaptureError('INVALID_DETAIL_COVERAGE')
+    if coverage.get('adaptive') is True and (coverage.get('head_rechecked') is not True
+            or type(coverage.get('boundary_reached')) is not bool
+            or type(coverage.get('listing_order_valid')) is not bool):
+        raise CaptureError('INVALID_ADAPTIVE_COVERAGE')
     # Same UUID/URL but inconsistent metadata is a failed capture, not zero new.
     _dedupe(capture.items)
     if len({row['url'] for row in capture.items}) != len(capture.items):
@@ -216,17 +245,15 @@ def _admission(item, state, at, classification, context, first_seen):
             reasons.append('FUTURE_PUBLICATION')
         if timestamp(at) - publication > NEW_WINDOW:
             reasons.append('HISTORICAL_OUTSIDE_NEW_WINDOW')
-    if timestamp(at) - timestamp(first_seen) > NEW_WINDOW:
+    if timestamp(at) - timestamp(first_seen) > FIRST_SEEN_TTL:
         reasons.append('FIRST_SEEN_TTL_EXPIRED')
     if not item.get('body_text') or not item.get('content_sha256'):
         reasons.append('DETAIL_EVIDENCE_UNAVAILABLE')
     reasons.extend(context)
     if reasons:
         return 'HOLD', reasons
-    if classification['decision'] == 'NOT_RELEVANT':
-        return 'REJECTED', ['NOT_RELEVANT_TO_AUDIENCE']
-    if classification['decision'] != 'RELEVANT':
-        return 'NEEDS_REVIEW', ['RELEVANCE_UNCERTAIN']
+    if item.get('warnings'):
+        return 'HOLD', ['ARTICLE_WARNINGS_REQUIRE_REVIEW']
     return 'NEW_CANDIDATE', ['POLICY_COMPLETE_OBSERVATION_ONLY']
 
 
@@ -234,7 +261,7 @@ def apply_poll(previous, capture, *, max_poll_gap=MAX_POLL_GAP):
     """Pure transition. Caller must checkpoint before publishing a successful report."""
     validate_state(previous)
     validate_capture(capture)
-    if not isinstance(max_poll_gap, timedelta) or not timedelta(0) < max_poll_gap <= timedelta(minutes=90):
+    if not isinstance(max_poll_gap, timedelta) or not timedelta(0) < max_poll_gap <= timedelta(hours=12):
         raise CaptureError('INVALID_POLL_GAP_POLICY')
     at = capture.observed_at
     if timestamp(at) <= timestamp(previous['last_successful_poll_at']):
@@ -248,6 +275,11 @@ def apply_poll(previous, capture, *, max_poll_gap=MAX_POLL_GAP):
         context.append('WINDOW_OVERLAP_LOST')
     if capture.duplicate_ids:
         context.append('PAGINATION_SHIFT_DUPLICATES')
+    if capture.coverage.get('adaptive') is True:
+        if not capture.coverage['boundary_reached']:
+            context.append('CAPTURE_WINDOW_LIMIT_REACHED')
+        if not capture.coverage['listing_order_valid']:
+            context.append('LISTING_ORDER_UNVERIFIED')
     known_urls = {url: key for key, row in previous['observations'].items() for url in row['url_history']}
     events = []
     for item in capture.items:
@@ -299,7 +331,7 @@ def apply_poll(previous, capture, *, max_poll_gap=MAX_POLL_GAP):
             # The source-independence policy applies only to genuinely new observations.
             # Do not promote records previously held by the retired BIMA cross-check.
             status, reasons = old['detection_status'], old['reasons']
-        elif (old and old['detection_status'] == 'NEEDS_REVIEW'):
+        elif (old and old['detection_status'] in {'HOLD', 'NEEDS_REVIEW'}):
             status, reasons = old['detection_status'], old['reasons']
         elif old and (old['initial_inventory'] or old['detection_status'] in {'NEW_CANDIDATE', 'KNOWN', 'REJECTED'}):
             status, reasons = 'KNOWN', ['PREVIOUSLY_OBSERVED']
@@ -320,8 +352,11 @@ def apply_poll(previous, capture, *, max_poll_gap=MAX_POLL_GAP):
                        'classification': classification['decision']})
     state.update(last_successful_poll_at=at, generation=previous['generation'] + 1,
                  last_capture_coverage=deepcopy(capture.coverage))
+    if not context:
+        state['last_healthy_poll_at'] = at
     validate_state(state)
     return state, {'source': SOURCE, 'delivery_authorized': False, 'telegram_calls': 0,
+                   'last_healthy_poll_at': state.get('last_healthy_poll_at'),
                    'events': events, 'capture_warnings': context, 'revision_count': len(state['revisions'])}
 
 

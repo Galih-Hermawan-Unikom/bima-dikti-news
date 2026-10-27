@@ -214,7 +214,7 @@ def test_expired_admission_prevents_reservation_and_post():
 
 
 def test_cas_conflict_on_durable_claim_prevents_post():
-    remote, gateway = MemoryRemote(new_state(), conflict_on=4), FakeGateway()
+    remote, gateway = MemoryRemote(new_state(), conflict_on=5), FakeGateway()
     report = run_poll(enabled_env(), backend=remote, clock=lambda: NOW,
                       source=FakeClient(candidate()), gateway=gateway)
     assert gateway.posts == []
@@ -248,7 +248,7 @@ def test_multiple_official_pdfs_have_separate_receipts():
 
 
 def test_attachment_claim_cas_conflict_does_not_post_or_resend_summary():
-    remote, gateway, item = MemoryRemote(new_state(), conflict_on=6), FakeGateway(), candidate()
+    remote, gateway, item = MemoryRemote(new_state(), conflict_on=7), FakeGateway(), candidate()
     item['attachments'] = [{'url': 'https://kemdiktisaintek.go.id/api/file/humas-production/announcements/2026/9/files/b63cc6de-f84c-4737-b7d9-9f47f6deb583/test.pdf',
                             'label': 'Panduan.pdf'}]
     report = run_poll(enabled_env(), backend=remote, clock=lambda: NOW, source=FakeClient(item), gateway=gateway)
@@ -260,7 +260,7 @@ def test_attachment_claim_cas_conflict_does_not_post_or_resend_summary():
 
 
 def test_receipt_checkpoint_conflict_becomes_ambiguous_after_restart_without_resend():
-    remote, gateway, item = MemoryRemote(new_state(), conflict_on=5), FakeGateway(), candidate()
+    remote, gateway, item = MemoryRemote(new_state(), conflict_on=6), FakeGateway(), candidate()
     report = run_poll(enabled_env(), backend=remote, clock=lambda: NOW,
                       source=FakeClient(item), gateway=gateway)
     event = next(iter(remote.state['outbox'].values()))

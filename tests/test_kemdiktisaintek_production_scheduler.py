@@ -114,7 +114,8 @@ def test_production_scheduler_is_observation_only_and_fail_closed():
     production = (ROOT / '.github' / 'workflows' /
                   'kemdiktisaintek-production.yml').read_text(encoding='utf-8')
 
-    assert "cron: '7,37 * * * *'" in workflow
+    assert "schedule:" not in workflow
+    assert "DIKTI_NEWS_PRODUCTION_SCHEDULER_ENABLED != 'true'" in workflow
     assert 'workflow_dispatch:' in workflow
     assert 'KEMDIKTISAINTEK_PRODUCTION_SCHEDULER_ENABLED || \'false\'' in workflow
     assert 'KEMDIKTISAINTEK_PRODUCTION_ENABLED || \'false\'' in workflow

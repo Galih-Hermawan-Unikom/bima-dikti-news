@@ -1,32 +1,84 @@
-# Kemdiktisaintek Production Integration (Gated)
+# Operasi Unified Dikti News Production
 
-This change adds the Kemdiktisaintek source as an isolated production integration. It does not change the BIMA or YouTube runtime, cache, workflow, credentials, destination, or production state.
+Implementasi ini masih menunggu review dan cutover. Pengembangan tidak mengubah Variables, Secrets, baseline, atau state remote, dan tidak melakukan Telegram POST. Master audit: `089e29856a2062a810ae7b5f52348c17f5830cb6`.
 
-## Isolation and state
+## Scheduler, izin, dan isolasi
 
-- Source identity and event keys use the Kemdiktisaintek UUID. No BIMA cross-source match is required.
-- The dedicated file is `.bot-state/kemdiktisaintek_production.json` on the existing `dikti-production-state` branch. It is separate from the BIMA and YouTube state files and from the experiment state branch.
-- The schema retains the activation fence, bounded initial inventory, first-seen evidence, revisions, admissions, and durable outbox. The inventory covers only the requested recent API pages; it does not claim the 928-record archive is complete.
-- Remote writes use the GitHub Contents API with the expected blob SHA. A conflict or unknown result stops the operation. A claimed Telegram attempt is never retried automatically; an uncertain result is `AMBIGUOUS` and requires reconciliation.
-- BIMA, YouTube, and Kemdiktisaintek share the existing `dikti-production-state` concurrency group when they write the production state branch.
+`.github/workflows/dikti-news-production.yml` adalah satu-satunya file dengan `schedule` pada branch perubahan. Dua cron yang tidak beririsan: `17 */3 * * *` (8 slot/hari, tiga sumber), dan `17 1-23/3,2-23/3 * * *` (16 slot/hari, YouTube + Kemdiktisaintek). Total 24 slot nominal/hari. WIB = UTC+7; giliran BIMA pada 01.17, 04.17, 07.17, 10.17, 13.17, 16.17, 19.17, 22.17 WIB. Sumber lain setiap jam menit 17.
 
-## Eligibility and delivery
+`dikti_news_scheduler.py plan` memakai string cron event, bukan jam aktual runner. Master switch baru `DIKTI_NEWS_PRODUCTION_SCHEDULER_ENABLED` default `false`. Independent approval memakai `KEMDIKTISAINTEK_PRODUCTION_APPROVED_CODE_SHA` yang wajib sama dengan GITHUB_SHA dan HEAD master dari API. Approval ini berlaku untuk seluruh paket unified, termasuk BIMA/YouTube. Input dispatch tidak dapat menggantikan approval operator.
 
-The reviewed Stage 3 parser, classifier, monitor, and durable delivery rules are isolated under `kemdiktisaintek_prod_*.py`. Initial inventory is not sent; publication and first-seen windows, trusted detail evidence, healthy unfiltered capture, UUID identity, relevant classification, and a fresh admission are required. Revision candidates remain review-only.
+Planner hanya `contents:read`, tanpa Telegram Secrets atau `actions:write`. Tiga source job hanya bergantung pada planner, menggunakan `contents:write`, timeout BIMA/YouTube 20 menit dan Kemdiktisaintek 15 menit. Checkout selalu SHA hasil gate dengan `persist-credentials:false`. Setiap job mengulang SHA gate setelah memperoleh lock `dikti-production-state` sebelum memanggil runtime. Tidak ada workflow induk memegang lock yang dibutuhkan child; tidak ada child dispatch. `queue:max`, `cancel-in-progress:false` mencegah tiga sibling saling menggantikan sebagai satu pending job; GitHub membatasi antrean hingga 100.
 
-Delivery requires both exact-string repository Variables:
+State tetap tiga file di branch `dikti-production-state`. Shared job lock melindungi pembaruan commit branch; expected blob SHA/CAS tetap melindungi setiap file dan wajib ACK sebelum POST. Konflik CAS menghentikan operasi; tidak ada retry pengiriman atau fallback lokal. Runtime BIMA/YouTube, scraper, eligibility YouTube, formatter, outbox, serta backend CAS mereka tidak diubah. Adapter mempertahankan guard hash referensi historis sebelum/sesudah runtime dan sanitasi exception tanpa mencetak URL credential. Laporan unified menyatakan interval nominal 10800/3600 detik; field interval pada log internal YouTube legacy tetap diagnostik lama dan tidak menentukan giliran sumber.
 
-- `KEMDIKTISAINTEK_PRODUCTION_ENABLED=true`
-- `KEMDIKTISAINTEK_PRODUCTION_AUTO_SEND=true`
+Legacy `main.yml`, `youtube-production.yml`, `kemdiktisaintek-production-scheduler.yml`, dan scheduler eksperimen `kemdiktisaintek-scheduler.yml` kehilangan cron secara atomik dalam commit yang menambahkan unified. Workflow lama tetap manual-only, tetapi jalur produksi/legacy dispatch diblokir selama unified switch aktif. `COLLECT` sumber ketiga tetap dapat dipakai tanpa state write. Eksperimen hanya memakai branch/kredensial eksperimen.
 
-Both default to OFF when unset. The workflow also requires the independent `KEMDIKTISAINTEK_PRODUCTION_APPROVED_CODE_SHA` Variable to match the dispatch SHA on `master`. The production Telegram secrets and allowlist are passed to the runtime only for `POLL` when both delivery switches are true. The runtime uses only `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, and `PRODUCTION_TELEGRAM_CHAT_ID_SHA256`, then runs the existing official-channel `getMe`/`getChat`/`getChatMember` preflight before any reservation. It does not fall back to experiment credentials.
+## Policy sumber ketiga
 
-## Workflow modes
+Policy delivery baru: `kemdiktisaintek-delivery-v3-all-official`. Semua pengumuman resmi, kategori, dan topik diterima tanpa filter audiens. Classifier lama tetap tersimpan sebagai diagnostik historis; bukan syarat admission/delivery. UUID, canonical URL, sumber resmi, body/detail datetime terpercaya, warning artikel, baseline, identity conflict, fence, overlap, waktu, dan receipt tetap diperiksa. Nomor surat/tenggat hanya dari bukti parser; PDF memakai pengamanan dan operasi durable yang sama.
 
-`.github/workflows/kemdiktisaintek-production.yml` is manual-only; this PR adds no schedule. `COLLECT` is read-only and uses `contents:read`. `INITIALIZE` requires an exact confirmation plus the approved master SHA and only creates the source-specific file if it is absent. `POLL` requires the source switch, persists observations via CAS, and can deliver only with both delivery switches enabled. All operations run from `master`, check the reviewed SHA, disable checkout credential persistence, and serialize on `dikti-production-state`.
+| Parameter | Nilai | Alasan |
+|---|---|---|
+| Planned interval | 1 jam | 24 slot workflow per hari |
+| Toleransi keterlambatan | 11 jam | Batas gap total 12 jam; menoleransi satu/dua cron hilang dan jeda beberapa jam |
+| Publication window | 72 jam | Waktu detail sering tengah malam; 24 jam dapat berakhir sebelum bot menangkap berita keesokan hari |
+| First-seen TTL | 24 jam | Identitas tidak menjadi baru kembali setelah restart |
+| Detail/capture evidence + admission | 10 menit | Bukti pengiriman tidak ikut diperbesar menjadi 72 jam |
+| Preflight proof | TTL gateway produksi tetap | Verifikasi ulang tujuan dan hak posting sebelum durable claim/POST |
 
-After review and merge, an operator must separately approve the master SHA, create the one-time source baseline, and authorize monitoring/delivery Variables. No repository Variables or Secrets are changed by this PR. Automatic scheduling requires a separate reviewed activation; it is not enabled here.
+Riwayat run yang dibaca mencakup jeda sekitar 6 jam, 7 jam, dan 14 jam. Angka 12 jam merupakan batas pemulihan konservatif, bukan klaim GitHub tepat waktu: gap 14 jam tetap HOLD. Capture sukses memperbarui `last_successful_poll_at`; capture yang bebas warning kontinuitas juga memperbarui `last_healthy_poll_at`. Status API HEALTHY sendiri tidak membuktikan overlap/gap sehat.
 
-## Validation
+POLL minimal dua halaman, lanjut hingga halaman penuh berisi 10 UUID dikenal atau akhir daftar. Batas absolut 10 halaman/100 listing; maksimal 100 detail, memprioritaskan seluruh UUID baru, lalu hingga tiga known detail bergilir. Tidak ada category filter, parameter `search` selalu kosong. Total record harus konsisten, setiap halaman lengkap, urutan `created_at` diverifikasi dari sumber (tidak disortir lokal), dan halaman pertama diambil ulang untuk mendeteksi pergeseran. `created_at` hanya bukti traversal; `published_at` dari detail tetap penentu usia berita.
 
-The new offline tests use a memory CAS backend, fixture HTTP responses, and a mock Telegram gateway. They cover single delivery across restart, switch-off behavior, CAS blocking before POST, ambiguous timeout handling, and strict production credential mapping. No real Telegram or GitHub state calls are made by tests.
+Cap tanpa boundary, urutan tak terbukti, UUID duplikat, overlap hilang, atau gap lebih dari 12 jam menyebabkan HOLD. Recheck yang berubah atau partial page menggagalkan capture tanpa checkpoint observasi sukses. Tidak ada klaim archive complete. Snapshot/bounded prefix tidak membuktikan perubahan arbitrer jauh di arsip; kasus tersebut memerlukan review editorial.
+
+## Migrasi eksplisit dan recovery
+
+State envelope tetap schema v2 dan operation schema tetap v1. Pada POLL pertama dengan kode baru, `migrate_official_policy()` memvalidasi state v2, menambah `official_policy_migration` dengan `from`, `to`, `at`, dan SHA-256 seluruh state sebelumnya, lalu menambah generation satu melalui checkpoint CAS tersendiri. Validator lineage mensyaratkan checkpoint migrasi identik selain policy, marker, dan generation. Seluruh baseline, fence, observations, first_seen, lima revisi eksperimen bila ada, admissions, TEST, outbox, dan receipts dipertahankan. Setelah itu observasi membuat checkpoint berikutnya. Migrasi v1 ke independen v2 yang lebih lama tetap didukung sebelum transisi v3.
+
+Admission lama tetap immutable tetapi tidak menjadi izin baru: eligibility baru hanya menerima admission v3 yang masih segar. Semua HOLD/NEEDS_REVIEW lama tetap ditahan, termasuk setelah gap pulih atau topik kini diterima. KNOWN, baseline, legacy UUID, dan event DELIVERED tidak dapat dipromosikan. Revisi tidak dikirim otomatis. Observation-only tetap mencatat admission sah, tetapi polling berikutnya tidak mempromosikan UUID yang sudah diamati menjadi kandidat baru.
+
+Jika checkpoint migrasi sukses tetapi capture/observasi berikutnya gagal, baca kembali state; jangan migrasi ulang, rollback state, atau reinitialize. Jika scan cap terlampaui, gap berlebih, atau detail tidak terpercaya, periksa laporan HOLD/NEEDS_REVIEW dan gunakan keputusan editorial terpisah. Tidak ada backfill umum untuk artikel yang sudah HOLD atau melewati 72 jam.
+
+`RESERVED → SENDING → DELIVERED` dan receipt per summary/PDF tetap berlaku. Timeout/receipt write tidak pasti berarti AMBIGUOUS atau klaim SENDING yang memerlukan rekonsiliasi; jangan retry. PARTIAL tidak boleh mengulang summary yang sudah delivered. Switch berubah tidak menghentikan environment run lama; selalu audit/drain run aktif.
+
+## Kasus Bridging Course: bukti read-only
+
+Pada 27 Oktober 2026, API total 930 dan memuat **Tawaran Mengikuti Program Bridging Course Tahun 2026**, UUID `2407f6f4-1e06-452b-a053-864426e9a183`, publikasi `2026-10-27T00:00:00+07:00`. Detail menyatakan **paling lambat 06 November 2026** dan memuat satu PDF resmi `Tawaran_Pendaftaran_Program_BRIDGING_2026.pdf` serta tautan Google Docs format izin. Tidak ada nomor surat yang berhasil diekstrak dari teks HTML; tidak diada-adakan.
+
+Sumber: https://kemdiktisaintek.go.id/announcement/article/tawaran-mengikuti-program-bridging-course-tahun-2026
+
+Snapshot produksi dibaca pada blob `c9fe9c5ecef6ded35b269ad772256f6f81404b69`, generation 14, baseline 20, fence `2026-10-25T08:58:01.786965+00:00`, last capture `2026-10-27T05:33:48.844753+00:00`. UUID Bridging belum ada di observations/admissions/outbox; belum ada bukti pengiriman untuk UUID ini pada snapshot tersebut. Artikel baru terlihat pada API dengan created_at 16.00 WIB, sesudah capture terakhir 12.33 WIB, sehingga belum diamati pada snapshot itu, bukan terbukti terlewat parser. Produksi tetap dapat bergerak secara independen sesudah audit. Artikel Perkuat Kesiapan Dosen dan Tendik yang sudah dikenal tetap HOLD; snapshot menyimpan alasan HISTORICAL_OUTSIDE_NEW_WINDOW dan UNHEALTHY_POLL_GAP. Window baru tidak mempromosikannya.
+
+Rehearsal read-only langsung pada 2026-10-27 10:21:08 UTC / 17:21:08 WIB menggunakan snapshot tersebut: 2 halaman, 20 listing, 4 detail (1 baru + 3 known), total API 930, known boundary tercapai, urutan valid, recheck head stabil, dan warnings kosong. Transisi policy/monitor hanya dihitung di memori; Bridging menjadi NEW_CANDIDATE. Baseline dan fence identik; remote PUT dan Telegram POST sama-sama 0. Ini bukan checkpoint produksi atau bukti pengiriman.
+
+Fixture nyata `tests/fixtures/kemdiktisaintek_bridging_2026.json` mencatat waktu pengambilan UTC dan data parser. Simulasi offline: UUID baru + gap 4 jam + detail valid → NEW_CANDIDATE; UUID sudah HOLD → tetap HOLD; publikasi berumur 73 jam → HOLD. Simulasi bukan izin pengiriman. Jika saat cutover UUID telah HOLD/KNOWN atau di luar window, gunakan preview/editorial berlabel dengan persetujuan terpisah; jangan menghapus histori.
+
+## Cutover setelah PR disetujui — belum dijalankan
+
+1. Catat master/reviewed merge SHA, Variables, state blob/generation, baseline/fence, serta receipt setiap sumber. Periksa AMBIGUOUS/SENDING/PARTIAL. Jadwalkan jeda singkat dan otorisasi operator.
+2. Matikan scheduler legacy Kemdiktisaintek dan eksperimen; matikan source switches BIMA/YouTube/Kemdiktisaintek serta AUTO_SEND saat drain. Ini prosedur operator terpisah, tidak dikerjakan oleh PR. Tunggu semua run aktif/pending selesai; jangan membatalkan job setelah POST dan jangan mengasumsikan perubahan Variable membatalkan run lama.
+3. Merge satu commit yang sekaligus menghapus empat cron lama dan menambahkan unified. Verifikasi hanya `dikti-news-production.yml` mempunyai schedule. Master switch unified harus tetap unset/false. Jangan mendaftarkan scheduler kedua.
+4. Baca HEAD master dari API dan review diff hasil squash. Rollover `KEMDIKTISAINTEK_PRODUCTION_APPROVED_CODE_SHA` ke SHA penuh master baru, lalu read-back. Pastikan SHA scheduler/run/checkout/master sama. Gate tidak boleh dilewati ketika mismatched.
+5. Pulihkan source switches yang disetujui, pertahankan semua AUTO_SEND false untuk rehearsal awal. Set unified switch true setelah review. Jalankan satu dispatch unified `observation_only=true`; ketiga job harus lulus, checkpoint CAS dan policy migration valid, baseline/fence/receipts utuh, serta tidak ada POST. Cron yang bertumpang tindih dengan rehearsal tetap mengantre dalam lock yang sama dan tidak mengirim selama AUTO_SEND false.
+6. Periksa capture/poll gap/overlap setiap sumber. HOLD lama tidak boleh dipromosikan. Buktikan cron lewat event=schedule, jangan memakai dispatch sebagai bukti cron. Aktifkan AUTO_SEND per sumber hanya setelah otorisasi operator atas perubahan konfigurasi produksi. Tidak perlu INITIALIZE, SEND_TEST, atau backfill.
+
+## Rollback
+
+Matikan `DIKTI_NEWS_PRODUCTION_SCHEDULER_ENABLED` dan AUTO_SEND sumber yang bermasalah; drain run aktif/pending dan pertahankan seluruh state/receipt. Workflow lama manual-only dapat dipakai untuk observation/recovery ketika unified OFF. Jangan menyalakan scheduler lama bersamaan dengan unified.
+
+Setelah state bermigrasi ke v3, **jangan wholesale revert ke validator v2**: kode lama akan menolak state baru. Rollback orchestration harus mempertahankan validator/migrasi v3 dan perlindungan HOLD; pemulihan cron lama memerlukan PR/review terpisah. Jangan mengembalikan state ke snapshot sebelum delivery, karena receipt terbaru bisa hilang. Rollover approved SHA wajib mengikuti reviewed master hasil rollback. Restore baseline/fence bukan langkah rollback rutin.
+
+## Validasi
+
+`python -m pytest -q` menjalankan regression BIMA, YouTube, Kemdiktisaintek, formatter/PDF, CAS, timeout, dan mock Telegram. `tests/test_unified_dikti_news.py` mencakup rehearsal dua slot cron, sumber gagal secara independen, snapshot master berubah setelah antre, semua topik, usia publikasi, gap, HOLD lama, scan adaptif, partial capture, pagination shift, dua artikel/restart/revisi, dan migrasi receipt TEST. Network publik dan Telegram asli diblokir oleh fixtures tes.
+
+YAML diperiksa dengan PyYAML dan actionlint v1.7.12. actionlint versi ini belum mengenali properti concurrency `queue`; satu diagnostik sintaks `queue` dikecualikan secara spesifik, sementara tests memastikan `queue:max` dan `cancel-in-progress:false` sesuai dokumentasi GitHub terkini. Tidak ada pengecualian security/expression lain.
+
+```powershell
+python -m pytest -q
+go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -shellcheck= -pyflakes= -ignore 'unexpected key "queue" for "concurrency" section' .github/workflows/dikti-news-production.yml
+```
+
+Referensi: https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#onschedule dan https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#concurrency

@@ -1,0 +1,49 @@
+{
+  "observed_at_utc": "2026-10-27T10:10:12.829956+00:00",
+  "listing_api": "https://kemdiktisaintek.go.id/api/announcement?page=1&size=10&search=",
+  "item": {
+    "source": "kemdiktisaintek",
+    "id": "2407f6f4-1e06-452b-a053-864426e9a183",
+    "identity": "kemdiktisaintek:2407f6f4-1e06-452b-a053-864426e9a183",
+    "identity_basis": "uuid",
+    "slug": "tawaran-mengikuti-program-bridging-course-tahun-2026",
+    "title": "Tawaran Mengikuti Program Bridging Course Tahun 2026",
+    "category": "Umum",
+    "url": "https://kemdiktisaintek.go.id/announcement/article/tawaran-mengikuti-program-bridging-course-tahun-2026",
+    "created_at": "2026-10-27T16:00:16.258000+07:00",
+    "published_at": "2026-10-27T00:00:00+07:00",
+    "updated_at": "2026-10-27T16:00:16.258000+07:00",
+    "warnings": [],
+    "publication_basis": "detail_datetime",
+    "body_text": "Yth. 1. Pimpinan Perguruan Tinggi Negeri 2. Kepala Lembaga Layanan Pendidikan Tinggi Wilayah I s.d. XVII di lingkungan Kementerian Pendidikan Tinggi, Sains, dan Teknologi Sebagai upaya meningkatkan kualifikasi dosen perguruan tinggi Indonesia, Direktorat Jenderal Pendidikan Tinggi membuka kesempatan bagi alumni Program Peningkatan Kualitas Bahasa Inggris (PKBI) dan Talent Scouting untuk mengikuti Program Bridging Course Tahun 2026. Bridging Course merupakan program pendidikan non-gelar untuk meningkatkan kesiapan akademik dan kemampuan riset dosen menuju studi jenjang doktor di perguruan tinggi luar negeri. Materi program meliputi penguatan kemampuan bahasa Inggris akademik, penyusunan proposal penelitian, keterampilan penelitian, penyiapan dokumen aplikasi studi, dan berkomunikasi dengan calon dosen pembimbing atau perguruan tinggi tujuan luar negeri untuk mendapatkan Letter of Acceptance (LoA). Sehubungan dengan hal tersebut, kami mengundang alumni Program PKBI atau Talent Scouting dari institusi Saudara yang memenuhi persyaratan sebagaimana tercantum pada Lampiran I untuk mendaftar Program Bridging Course Tahun 2026. Program akan dilaksanakan secara luring selama satu minggu di Universitas Negeri Yogyakarta pada Desember 2026. Pendaftaran dilakukan secara daring melalui laman https://kualifikasidikti.kemdiktisaintek.go.id, dengan memilih menu beasiswa Bridging Course paling lambat 06 November 2026. Apabila terdapat pertanyaan lebih lanjut, silakan menghubungi administrator beasiswa luar negeri Direktorat Sumber Daya melalui email: bln.dikti@kemdiktisaintek.go.id. Atas perhatian dan kerja sama yang baik, kami ucapkan terima kasih. Format surat izin: https://docs.google.com/document/d/1cIK1MaCUrXUIRqf-MF-GW99lP0iZggW1/edit?usp=sharing&ouid=101117200902449276410&rtpof=true&sd=true",
+    "letter_number": null,
+    "deadline_evidence": [
+      "paling lambat 06 November 2026"
+    ],
+    "attachments": [
+      {
+        "url": "https://docs.google.com/document/d/1cIK1MaCUrXUIRqf-MF-GW99lP0iZggW1/edit?usp=sharing&ouid=101117200902449276410&rtpof=true&sd=true",
+        "label": "https://docs.google.com/document/d/1cIK1MaCUrXUIRqf-MF-GW99lP0iZggW1/edit?usp=sharing&ouid=101117200902449276410&rtpof=true&sd=true",
+        "kind": "external_document",
+        "verification": "link_only"
+      },
+      {
+        "url": "https://kemdiktisaintek.go.id/api/file/humas-production/announcements/2026/10/files/2407f6f4-1e06-452b-a053-864426e9a183/Tawaran_Pendaftaran_Program_BRIDGING_2026.pdf",
+        "label": "Lihat Pengumuman Selengkapnya",
+        "kind": "pdf",
+        "verification": "link_only"
+      }
+    ],
+    "external_links": [],
+    "method": "html_embedded_json_and_dom",
+    "content_sha256": "c9b11ec9695ab73a1bfb6da3fa89ae67800bbf732aff0530938a4d3894526731"
+  },
+  "production_snapshot": {
+    "blob_sha": "c9fe9c5ecef6ded35b269ad772256f6f81404b69",
+    "generation": 14,
+    "uuid_observed": false,
+    "admission_present": false,
+    "outbox_present": false
+  },
+  "note": "Read-only evidence; no Telegram request and no production state write."
+}

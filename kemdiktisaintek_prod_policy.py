@@ -1,4 +1,8 @@
-"""Explainable relevance and conservative cross-source matching; pure functions."""
+"""Legacy relevance diagnostics only; official-source delivery has no topic filter.
+
+Keep the diagnostic version stable so historic observation records remain valid.
+Admission/eligibility is versioned separately by the explicit delivery migration.
+"""
 from datetime import datetime
 import re
 import unicodedata
