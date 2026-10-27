@@ -438,7 +438,7 @@ def test_remote_ledger_scope_is_explicit_and_manual_only_workflow_has_no_cron():
     assert "default: PREVIEW" in workflow and 'contents: read' in workflow and 'contents: write' in workflow
     unified = (ROOT / '.github/workflows/dikti-news-production.yml').read_bytes()
     assert hashlib.sha256(unified).hexdigest() == hashlib.sha256(
-        __import__('subprocess').check_output(['git', 'show', 'origin/master:.github/workflows/dikti-news-production.yml'], cwd=ROOT)
+        __import__('subprocess').check_output(['git', 'show', 'HEAD^1:.github/workflows/dikti-news-production.yml'], cwd=ROOT)
     ).hexdigest()
 
 
