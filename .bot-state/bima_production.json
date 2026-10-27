@@ -220,9 +220,18 @@
       "chunks": [
         "<b>📢 PENGUMUMAN BARU BIMA KEMDIKTISAINTEK</b>\n\n📅 27/10/2026 15:54 WIB\n🔢 Jumlah: 1 item baru\n🏛️ BIMA: 1\n\n<b>1. Undangan Peserta Workshop Penulisan Artikel Ilmiah Mahasiswa Pascasarjana Tahun 2026</b>\n   📜 1031/DST/C2/PP.01.07/2026\n   📆 27 Oktober 2026\n   📦 Dokumen: 1 file\n   📎 Undangan Peserta Workshop Penulisan Artikel Ilmiah Mahasiswa Pascasarjana Tahun 2026.pdf\n   🔗 https://bima.kemdiktisaintek.go.id/pengumuman\n\n━━━━━━━━━━━━━━━━━━━━\n<i>Bot Dikti News</i>"
       ],
-      "sent_chunks": [],
+      "sent_chunks": [
+        1
+      ],
       "sent_documents": [],
-      "receipts": [],
+      "receipts": [
+        {
+          "method": "sendMessage",
+          "http_status": 200,
+          "ok": true,
+          "message_id": 277
+        }
+      ],
       "send_files": true,
       "attempted_at": "2026-10-27T08:54:54.470360+00:00"
     }
