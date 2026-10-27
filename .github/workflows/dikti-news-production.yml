@@ -13,7 +13,7 @@ on:
       observation_only:
         type: boolean
         default: true
-        description: Force delivery OFF for this manual run
+        description: Read-only snapshot rehearsal; no production state changes or processing
 
 permissions:
   contents: read
@@ -52,6 +52,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Install snapshot validators for read-only rehearsal
+        if: github.event_name == 'workflow_dispatch' && inputs.observation_only
+        run: pip install -r requirements.txt
       - name: Verify independent approval and select nominal cycle
         id: plan
         env:

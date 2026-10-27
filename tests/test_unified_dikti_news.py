@@ -77,23 +77,19 @@ def test_queue_delay_master_change_rejected_before_runtime():
 
 
 @pytest.mark.parametrize('source', scheduler.PREFIX)
-def test_observation_manual_overrides_auto_send_without_mutating_input(source):
+def test_observation_manual_cannot_enter_any_stateful_runtime(source):
     values = env(GITHUB_EVENT_NAME='workflow_dispatch', MANUAL_SOURCES='all', OBSERVATION_ONLY='true')
     for prefix in scheduler.PREFIX.values():
         values[prefix + '_AUTO_SEND'] = 'true'
-    before = deepcopy(values)
-    original_process = dict(os.environ)
-    seen = []
-    def legacy(name, mode):
-        assert mode == 'run' and name == source
-        seen.append(os.environ['PRODUCTION_AUTO_SEND'])
-        return 0
-    def kemdikti(mode, mapped):
-        assert mode == 'POLL'
-        seen.append(mapped['KEMDIKTISAINTEK_PRODUCTION_AUTO_SEND'])
-        return {'api_health': 'HEALTHY'}
-    scheduler.run_source(source, values, read_head=HEAD, bima_youtube=legacy, kemdikti=kemdikti)
-    assert seen == ['false'] and values == before and dict(os.environ) == original_process
+    before, process = deepcopy(values), dict(os.environ)
+    runtime = Mock(side_effect=AssertionError('Stateful runtime forbidden'))
+    selection = scheduler.plan(values, read_head=HEAD)
+    assert not any(selection[s] for s in scheduler.PREFIX)
+    assert not any(selection[s+'_auto_send'] for s in scheduler.PREFIX)
+    with pytest.raises(scheduler.ScheduleError, match='READ_ONLY_REHEARSAL'):
+        scheduler.run_source(source, values, read_head=HEAD, bima_youtube=runtime, kemdikti=runtime)
+    runtime.assert_not_called()
+    assert values == before and dict(os.environ) == process
 
 
 def test_delivery_mode_does_not_change_youtube_runtime_or_eligibility():
@@ -145,6 +141,8 @@ def test_unified_workflow_schedule_locks_and_credentials():
     assert 'concurrency' not in flow  # Parent cannot own a lock awaited by its jobs.
     assert 'actions' not in flow['permissions']
     assert 'secrets.' not in json.dumps(flow['jobs']['plan'])
+    assert flow['permissions'] == {'contents': 'read'}
+    assert 'read-only' in json.dumps(flow['jobs']['plan'])
     for source in scheduler.PREFIX:
         job = flow['jobs'][source]
         assert job['needs'] == 'plan'  # No sibling failure propagation.
@@ -386,3 +384,132 @@ def test_lost_overlap_and_duplicate_uuid_never_admit_new_article():
     _, result = apply_poll(initial, cap)
     assert result['events'][0]['status'] == 'HOLD'
     assert set(result['capture_warnings']) == {'WINDOW_OVERLAP_LOST','PAGINATION_SHIFT_DUPLICATES'}
+
+
+def test_snapshot_rehearsal_allowed_before_scheduler_activation():
+    values = env(GITHUB_EVENT_NAME='workflow_dispatch', OBSERVATION_ONLY='true',
+                 DIKTI_NEWS_PRODUCTION_SCHEDULER_ENABLED='false',
+                 BIMA_PRODUCTION_ENABLED='false')
+    result = scheduler.plan(values, read_head=HEAD)
+    assert result['rehearsal_sources'] == 'bima,youtube,kemdiktisaintek'
+    assert not any(result[source] for source in scheduler.PREFIX)
+    with pytest.raises(scheduler.ScheduleError, match='APPROVED_MASTER_SHA_MISMATCH'):
+        scheduler.plan(dict(values,KEMDIKTISAINTEK_PRODUCTION_APPROVED_CODE_SHA='b'*40),read_head=HEAD)
+
+
+def test_snapshot_reader_only_gets_allowlisted_file_with_valid_blob(monkeypatch):
+    import base64
+    from kemdiktisaintek_prod_remote_state import blob_sha
+    from kemdiktisaintek_prod_state import canonical
+    state = new_state()
+    raw = canonical(state)
+    response = Mock(status=200)
+    response.__enter__ = Mock(return_value=response)
+    response.__exit__ = Mock(return_value=False)
+    response.read.return_value = json.dumps({'path':'.bot-state/kemdiktisaintek_production.json',
+        'encoding':'base64','sha':blob_sha(raw),'content':base64.b64encode(raw).decode()})
+    request = Mock(return_value=response)
+    monkeypatch.setattr(scheduler,'urlopen',request)
+    loaded, sha = scheduler.read_snapshot('kemdiktisaintek',env())
+    assert loaded == state and sha == blob_sha(raw)
+    sent = request.call_args.args[0]
+    assert sent.get_method() == 'GET'
+    assert sent.full_url.endswith('/contents/.bot-state/kemdiktisaintek_production.json?ref=dikti-production-state')
+    response.read.return_value = response.read.return_value.replace(blob_sha(raw),'0'*40)
+    with pytest.raises(scheduler.ScheduleError,match='READ_ONLY_SNAPSHOT_FAILED'):
+        scheduler.read_snapshot('kemdiktisaintek',env())
+    with pytest.raises(scheduler.ScheduleError,match='SNAPSHOT_SCOPE'):
+        scheduler.read_snapshot('../bima',env())
+
+
+def test_readonly_bridging_rehearsal_keeps_candidate_for_real_poll_once():
+    fixture = json.loads((ROOT/'tests/fixtures/kemdiktisaintek_bridging_2026.json').read_text(encoding='utf-8'))
+    item, at = fixture['item'], fixture['observed_at_utc']
+    state = new_state()
+    state['observation_state']['last_successful_poll_at'] = (datetime.fromisoformat(at)-timedelta(hours=1)).isoformat()
+    before = deepcopy(state)
+    cap = captured(at=at); cap.items = [deepcopy(item)]
+    for _ in range(2):
+        report = scheduler.rehearse_snapshot('kemdiktisaintek',state,'a'*40,capture=cap)
+        assert report['simulated_events'][0]['status'] == 'NEW_CANDIDATE'
+        assert report['remote_writes'] == report['telegram_posts'] == 0
+        assert state == before and state['admissions'] == state['outbox'] == {}
+        assert state['policy_version'] != OFFICIAL_POLICY  # No production migration.
+    remote, gateway = MemoryRemote(state), FakeGateway()
+    observe(remote,cap)  # First authorized processing still admits original UUID.
+    engine = Delivery(remote,gateway,environment=enabled_env(),clock=lambda: at)
+    proof = gateway.inspect(at=at)
+    key = engine.reserve_initial(item['id'],proof)
+    assert engine.send(key,proof)['status'] == 'DELIVERED'
+    count = len(gateway.posts)
+    assert engine.send(key,proof)['post_attempted'] is False
+    assert len(gateway.posts) == count
+
+
+def test_stateful_observation_would_consume_bridging_but_old_hold_stays_hold():
+    fixture = json.loads((ROOT/'tests/fixtures/kemdiktisaintek_bridging_2026.json').read_text(encoding='utf-8'))
+    item, at = fixture['item'], fixture['observed_at_utc']
+    state = new_state()
+    state['observation_state']['last_successful_poll_at'] = (datetime.fromisoformat(at)-timedelta(hours=1)).isoformat()
+    cap = captured(at=at); cap.items = [deepcopy(item)]
+    remote = MemoryRemote(state)
+    assert observe(remote,cap)['events'][0]['status'] == 'NEW_CANDIDATE'
+    cap.observed_at = (datetime.fromisoformat(at)+timedelta(minutes=5)).isoformat()
+    assert observe(remote,cap)['events'][0]['status'] == 'KNOWN'
+    assert remote.state['outbox'] == {}  # Original cutover procedure could lose opportunity.
+    held = deepcopy(remote.state)
+    held['observation_state']['observations'][item['id']].update(
+        detection_status='HOLD',initial_decision='HOLD',reasons=['UNHEALTHY_POLL_GAP'])
+    before = deepcopy(held)
+    cap.observed_at = (datetime.fromisoformat(at)+timedelta(minutes=6)).isoformat()
+    report = scheduler.rehearse_snapshot('kemdiktisaintek',held,'a'*40,capture=cap)
+    assert report['simulated_events'][0]['status'] == 'HOLD'
+    assert held == before
+
+
+def test_bima_snapshot_rehearsal_does_not_start_first_seen_ttl():
+    import production_runtime as prod
+    from test_production_runtime import bima_state, fake_notifier, announcement, NOW as BIMA_NOW
+    state = bima_state(); before = deepcopy(state)
+    scheduler.rehearse_snapshot('bima',state,'a'*40)
+    assert state == before and state['first_seen'] == state['outbox'] == {}
+    notifier = fake_notifier()
+    report = prod.bima_cycle(state,[announcement()],[],notifier,lambda:None,enabled=True,at=BIMA_NOW)
+    assert report['delivered_events'] == 1
+    prod.bima_cycle(state,[announcement()],[],notifier,lambda:None,enabled=True,at=BIMA_NOW)
+    assert notifier.send_notification.call_count == 1
+
+
+def test_youtube_snapshot_rehearsal_preserves_capture_and_delivery_eligibility(tmp_path):
+    import production_runtime as prod
+    from test_production_runtime import yt_setup
+    store, adapter, notifier, _ = yt_setup(tmp_path)
+    before, file_before = deepcopy(store._state), store.path.read_bytes()
+    scheduler.rehearse_snapshot('youtube',store._state,'a'*40)
+    assert store._state == before and store.path.read_bytes() == file_before
+    assert store._state['capture_seq'] == 0 and store._state['observations'] == {}
+    def send(item,ticket):
+        notifier.last_delivery_receipts = [{'http_status':200,'ok':True,'message_id':99}]
+        return True
+    notifier.send_youtube_production_notification.side_effect = send
+    assert prod.youtube_cycle(store,adapter,[],{},notifier,enabled=True,startup=False)['delivered_events'] == 1
+    prod.youtube_cycle(store,adapter,[],{},notifier,enabled=True,startup=False)
+    assert notifier.send_youtube_production_notification.call_count == 1
+
+
+def test_cli_rehearsal_writes_only_false_source_outputs(monkeypatch,tmp_path,capsys):
+    import sys
+    values = env(GITHUB_EVENT_NAME='workflow_dispatch',OBSERVATION_ONLY='true',
+                 GITHUB_OUTPUT=str(tmp_path/'outputs'))
+    monkeypatch.setattr(os,'environ',values)
+    monkeypatch.setattr(sys,'argv',['scheduler','plan'])
+    original = scheduler.plan
+    monkeypatch.setattr(scheduler,'plan',lambda values:original(values,read_head=HEAD))
+    rehearse = Mock(return_value=[{'source':'bima','remote_writes':0,'telegram_posts':0}])
+    monkeypatch.setattr(scheduler,'read_only_rehearsal',rehearse)
+    assert scheduler.main() == 0
+    output = (tmp_path/'outputs').read_text()
+    for source in scheduler.PREFIX:
+        assert source+'=false\n' in output
+    assert 'rehearsal=' not in output  # Nested report is log-only, never shell output.
+    assert 'snapshot' not in output

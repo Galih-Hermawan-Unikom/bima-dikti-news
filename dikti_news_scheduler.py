@@ -1,5 +1,8 @@
 """Pinned unified scheduling and source adapters. No Telegram calls in the planner."""
 import argparse
+import base64
+from copy import deepcopy
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -40,7 +43,9 @@ def plan(env, *, read_head=master_head):
             or env.get('GITHUB_WORKFLOW_REF') != f'{REPO}/{WORKFLOW}@refs/heads/master'
             or env.get('GITHUB_EVENT_NAME') not in {'schedule', 'workflow_dispatch'}):
         raise ScheduleError('UNIFIED_CONTEXT_DENIED')
-    if env.get('DIKTI_NEWS_PRODUCTION_SCHEDULER_ENABLED', 'false') != 'true':
+    rehearsal = (env.get('GITHUB_EVENT_NAME') == 'workflow_dispatch'
+                 and env.get('OBSERVATION_ONLY', 'true') == 'true')
+    if env.get('DIKTI_NEWS_PRODUCTION_SCHEDULER_ENABLED', 'false') != 'true' and not rehearsal:
         return {'status': 'OFF', **{source: False for source in PREFIX}}
     sha = env.get('GITHUB_SHA', '')
     if (not re.fullmatch('[a-f0-9]{40}', sha)
@@ -61,18 +66,84 @@ def plan(env, *, read_head=master_head):
         selected = set(PREFIX) if selection == 'all' else {selection}
         observation = env.get('OBSERVATION_ONLY', 'true') == 'true'
     result = {'status': 'READY', 'sha': sha, 'observation_only': observation}
+    if observation:
+        result['rehearsal_sources'] = ','.join(source for source in PREFIX if source in selected)
     for source, prefix in PREFIX.items():
         enabled, auto = env.get(prefix + '_ENABLED', 'false'), env.get(prefix + '_AUTO_SEND', 'false')
         if enabled not in {'true', 'false'} or auto not in {'true', 'false'}:
             raise ScheduleError('INVALID_SOURCE_SWITCH:' + source)
-        result[source] = source in selected and enabled == 'true'
+        result[source] = source in selected and enabled == 'true' and not observation
         result[source + '_auto_send'] = result[source] and auto == 'true' and not observation
     return result
+
+
+def read_snapshot(source, env):
+    """GET-only, fixed production branch/path. No backend with PUT capability."""
+    if source not in PREFIX or not env.get('GITHUB_TOKEN'):
+        raise ScheduleError('SNAPSHOT_SCOPE_OR_TOKEN_INVALID')
+    path = f'.bot-state/{source}_production.json'
+    request = Request(f'https://api.github.com/repos/{REPO}/contents/{path}?ref=dikti-production-state',
+        headers={'Authorization': 'Bearer ' + env['GITHUB_TOKEN'],
+                 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'})
+    try:
+        with urlopen(request, timeout=30) as response:
+            if response.status != 200:
+                raise ValueError()
+            body = json.load(response)
+        raw = base64.b64decode(''.join(body['content'].split()), validate=True)
+        sha = hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+        if (body.get('path') != path or body.get('encoding') != 'base64'
+                or not 0 < len(raw) <= 900_000 or sha != body.get('sha')):
+            raise ValueError()
+        return json.loads(raw), sha
+    except Exception:
+        raise ScheduleError('READ_ONLY_SNAPSHOT_FAILED:' + source) from None
+
+
+def rehearse_snapshot(source, snapshot, sha, *, capture=None):
+    """Validate a detached snapshot. Optional Kemdikti capture uses pure transitions.
+
+    BIMA/YouTube are snapshot audits, not live collection or readiness proofs.
+    No first-seen/capture, admission, migration, reservation or receipt is persisted.
+    """
+    original = deepcopy(snapshot)
+    if source == 'bima':
+        from production_runtime import validate_bima
+        validate_bima(snapshot)
+    elif source == 'youtube':
+        from youtube_delivery import YouTubeStateStore
+        YouTubeStateStore._validate_state(snapshot)
+    elif source == 'kemdiktisaintek':
+        from kemdiktisaintek_prod_delivery_state import validate_delivery_state
+        validate_delivery_state(snapshot)
+    else:
+        raise ScheduleError('SNAPSHOT_SOURCE_INVALID')
+    report = {'source': source, 'snapshot_blob_sha': sha, 'snapshot_valid': True,
+        'scope': 'snapshot_validation', 'remote_writes': 0, 'telegram_posts': 0}
+    if capture is not None:
+        if source != 'kemdiktisaintek':
+            raise ScheduleError('UNSUPPORTED_CAPTURE_SIMULATION')
+        from kemdiktisaintek_prod_monitor import apply_poll
+        from kemdiktisaintek_prod_delivery_policy import TIMING
+        _, simulation = apply_poll(deepcopy(snapshot['observation_state']), capture,
+                                   max_poll_gap=TIMING.max_gap)
+        report.update(scope='snapshot_capture_simulation',
+                      simulated_events=simulation['events'],
+                      capture_warnings=simulation['capture_warnings'])
+    if snapshot != original:
+        raise ScheduleError('SNAPSHOT_MUTATED')
+    return report
+
+
+def read_only_rehearsal(env, selection, *, reader=read_snapshot):
+    return [rehearse_snapshot(source, *reader(source, env)) for source in selection.split(',')]
 
 
 def run_source(source, env, *, read_head=master_head, bima_youtube=None, kemdikti=None):
     """Recheck pinned HEAD after waiting for the shared job lock, before any runtime."""
     result = plan(env, read_head=read_head)
+    if result.get('observation_only'):
+        raise ScheduleError('READ_ONLY_REHEARSAL_MUST_NOT_RUN_PRODUCTION_RUNTIME')
     if source not in PREFIX or not result.get(source):
         raise ScheduleError('SOURCE_NOT_ADMITTED')
     child = dict(env)
@@ -119,9 +190,13 @@ def main():
     args = parser.parse_args()
     try:
         result = plan(os.environ) if args.mode == 'plan' else run_source(args.mode, os.environ)
+        if args.mode == 'plan' and result.get('observation_only'):
+            result['rehearsal'] = read_only_rehearsal(os.environ, result['rehearsal_sources'])
         if args.mode == 'plan' and os.environ.get('GITHUB_OUTPUT'):
             with Path(os.environ['GITHUB_OUTPUT']).open('a', encoding='utf-8') as stream:
                 for key, value in result.items():
+                    if not isinstance(value, (str, bool, int)):
+                        continue
                     stream.write(f'{key}={str(value).lower() if isinstance(value, bool) else value}\n')
         print('DIKTI_NEWS_PRODUCTION=' + json.dumps(result, sort_keys=True))
         return 0
