@@ -248,9 +248,21 @@ class EditorialRemoteState:
         except Exception:
             raise StateError('EDITORIAL_REMOTE_GET_FAILED') from None
 
+    def _require_never_created(self):
+        try:
+            response = self.session.get(self.base + 'commits',
+                params={'path': PATH, 'sha': BRANCH, 'per_page': 1}, headers=self.headers,
+                timeout=30, allow_redirects=False)
+            history = response.json() if response.status_code == 200 else None
+            if not isinstance(history, list) or history:
+                raise ValueError()
+        except Exception:
+            raise StateError('EDITORIAL_LEDGER_MISSING_OR_HISTORY_UNVERIFIABLE') from None
+
     def load(self):
         response = self._get()
         if response.status_code == 404:
+            self._require_never_created()
             return empty_ledger(), None
         if response.status_code != 200:
             raise StateError('EDITORIAL_LEDGER_UNAVAILABLE')

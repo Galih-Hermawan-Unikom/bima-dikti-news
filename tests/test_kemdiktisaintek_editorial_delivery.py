@@ -13,7 +13,7 @@ import requests
 from kemdiktisaintek_editorial_delivery import (ALLOWED_ACTORS, EditorialDelivery, TARGETS,
     event_key, _official_item)
 from kemdiktisaintek_editorial_state import (empty_ledger, blob_sha, validate_ledger,
-    validate_lineage, PATH as EDITORIAL_PATH, BRANCH as EDITORIAL_BRANCH)
+    validate_lineage, EditorialRemoteState, PATH as EDITORIAL_PATH, BRANCH as EDITORIAL_BRANCH)
 from kemdiktisaintek_prod_delivery_state import (migrate_v1, migrate_official_policy,
     event_key as automatic_event_key, validate_delivery_state)
 from kemdiktisaintek_prod_monitor import Capture, apply_poll, initialize
@@ -439,6 +439,32 @@ def test_remote_ledger_scope_is_explicit_and_manual_only_workflow_has_no_cron():
     unified = (ROOT / '.github/workflows/dikti-news-production.yml').read_bytes()
     base_blob_sha = hashlib.sha1(b'blob ' + str(len(unified)).encode() + b'\0' + unified).hexdigest()
     assert base_blob_sha == '0e9b31ae621d37022eab7a591882ab0dff8a55fd'
+
+
+def test_missing_ledger_is_empty_only_when_github_path_history_proves_never_created():
+    class Response:
+        def __init__(self, status, body=None):
+            self.status_code, self.body = status, body
+        def json(self):
+            return self.body
+    class Session:
+        def __init__(self, history_status, history):
+            self.responses = [Response(404), Response(history_status, history)]
+            self.calls, self.puts = [], []
+        def get(self, url, **kwargs):
+            self.calls.append((url, kwargs))
+            return self.responses.pop(0)
+        def put(self, *args, **kwargs):
+            self.puts.append((args, kwargs))
+    first = Session(200, [])
+    ledger, sha = EditorialRemoteState('test-only-token', session=first).load()
+    assert ledger == empty_ledger() and sha is None
+    assert first.calls[1][1]['params'] == {'path': EDITORIAL_PATH, 'sha': EDITORIAL_BRANCH, 'per_page': 1}
+    for status, history in ((200, [{'sha': 'deleted-previously'}]), (403, None), (404, None)):
+        session = Session(status, history)
+        with pytest.raises(StateError, match='EDITORIAL_LEDGER_MISSING_OR_HISTORY_UNVERIFIABLE'):
+            EditorialRemoteState('test-only-token', session=session).load()
+        assert session.puts == []
 
 
 def test_two_concurrent_sends_share_uuid_claim_and_only_one_wins():
