@@ -69,6 +69,8 @@ def validate_state(state):
             raise StateError('INVALID_STATE_SCHEMA_OR_STAGE2_DELIVERY')
         activation = timestamp(state['activation_at'])
         poll = timestamp(state['last_successful_poll_at'])
+        if state.get('last_healthy_poll_at') is not None and not activation <= timestamp(state['last_healthy_poll_at']) <= poll:
+            raise StateError('INVALID_HEALTHY_POLL_TIME')
         baseline = state['baseline']
         if (poll < activation or not isinstance(baseline, dict) or baseline.get('archive_complete') is not False
                 or not isinstance(baseline.get('ids'), list) or len(set(baseline['ids'])) != len(baseline['ids'])

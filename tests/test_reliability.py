@@ -315,14 +315,15 @@ def test_real_cache_migration_in_temporary_copy_only(tmp_path, fixtures):
     assert repairs > 0
 
 
-def test_independent_production_schedules_and_manual_experiment():
+def test_legacy_production_workflows_are_manual_recovery_only():
     workflows = Path(__file__).resolve().parents[1] / ".github/workflows"
     for name, cron, source in [
         ("main.yml", "13 */3 * * *", "bima"),
         ("youtube-production.yml", "23,53 * * * *", "youtube"),
     ]:
         workflow = yaml.load((workflows / name).read_text(), Loader=yaml.BaseLoader)
-        assert workflow["on"]["schedule"] == [{"cron": cron}]
+        assert "schedule" not in workflow["on"]
+        assert "DIKTI_NEWS_PRODUCTION_SCHEDULER_ENABLED" in workflow["jobs"]["production"]["if"]
         assert "workflow_dispatch" in workflow["on"]
         assert "workflow_run" not in workflow["on"]
         assert workflow["concurrency"] == {

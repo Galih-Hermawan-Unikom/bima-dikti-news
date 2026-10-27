@@ -31,7 +31,8 @@ def run_poll(env, *, backend, clock=lambda: datetime.now(timezone.utc).isoformat
     client = source or AnnouncementClient()
     try:
         try:
-            capture = capture_window(client, prior['observation_state'], at=now_at, pages=2, detail_budget=10)
+            capture = capture_window(client, prior['observation_state'], at=now_at,
+                                     pages=2, detail_budget=100, adaptive=True)
         except Exception as exc:
             observed = timestamp(now_at)
             return {"source": "kemdiktisaintek", "observed_at_utc": observed.isoformat(),
@@ -113,6 +114,8 @@ def run_poll(env, *, backend, clock=lambda: datetime.now(timezone.utc).isoformat
         "lateness_tolerance_seconds": int(TIMING.lateness_tolerance.total_seconds()),
         "recovered_sending_attempts": recovered,
         "capture_warnings": report.get('capture_warnings', []), "reference_error": report.get('reference_error'),
+        "coverage": capture.coverage,
+        "last_healthy_poll_at": report.get('last_healthy_poll_at'),
         "hold_needs_review": attention,
         "delivery_enabled": switches_on, "delivery_authorized": bool(delivery_counts['delivered']),
         "delivery_error": delivery_error}

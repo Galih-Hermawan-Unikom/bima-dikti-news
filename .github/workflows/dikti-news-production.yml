@@ -1,0 +1,147 @@
+name: Dikti News Production
+
+on:
+  schedule:
+    - cron: '17 */3 * * *'
+    - cron: '17 1-23/3,2-23/3 * * *'
+  workflow_dispatch:
+    inputs:
+      sources:
+        type: choice
+        default: all
+        options: [all, bima, youtube, kemdiktisaintek]
+      observation_only:
+        type: boolean
+        default: true
+        description: Read-only snapshot rehearsal; no production state changes or processing
+
+permissions:
+  contents: read
+
+# No parent state lock: each source job acquires the same lock as manual recovery.
+env:
+  DIKTI_NEWS_PRODUCTION_SCHEDULER_ENABLED: ${{ vars.DIKTI_NEWS_PRODUCTION_SCHEDULER_ENABLED || 'false' }}
+  KEMDIKTISAINTEK_PRODUCTION_APPROVED_CODE_SHA: ${{ vars.KEMDIKTISAINTEK_PRODUCTION_APPROVED_CODE_SHA || '' }}
+  SCHEDULE_CRON: ${{ github.event.schedule || '' }}
+  MANUAL_SOURCES: ${{ inputs.sources || 'all' }}
+  OBSERVATION_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.observation_only && 'true' || 'false' }}
+  BIMA_PRODUCTION_ENABLED: ${{ vars.BIMA_PRODUCTION_ENABLED || 'false' }}
+  BIMA_PRODUCTION_AUTO_SEND: ${{ vars.BIMA_PRODUCTION_AUTO_SEND || 'false' }}
+  YOUTUBE_PRODUCTION_ENABLED: ${{ vars.YOUTUBE_PRODUCTION_ENABLED || 'false' }}
+  YOUTUBE_PRODUCTION_AUTO_SEND: ${{ vars.YOUTUBE_PRODUCTION_AUTO_SEND || 'false' }}
+  KEMDIKTISAINTEK_PRODUCTION_ENABLED: ${{ vars.KEMDIKTISAINTEK_PRODUCTION_ENABLED || 'false' }}
+  KEMDIKTISAINTEK_PRODUCTION_AUTO_SEND: ${{ vars.KEMDIKTISAINTEK_PRODUCTION_AUTO_SEND || 'false' }}
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      sha: ${{ steps.plan.outputs.sha }}
+      bima: ${{ steps.plan.outputs.bima }}
+      bima_auto_send: ${{ steps.plan.outputs.bima_auto_send }}
+      youtube: ${{ steps.plan.outputs.youtube }}
+      youtube_auto_send: ${{ steps.plan.outputs.youtube_auto_send }}
+      kemdiktisaintek: ${{ steps.plan.outputs.kemdiktisaintek }}
+      kemdiktisaintek_auto_send: ${{ steps.plan.outputs.kemdiktisaintek_auto_send }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install snapshot validators for read-only rehearsal
+        if: github.event_name == 'workflow_dispatch' && inputs.observation_only
+        run: pip install -r requirements.txt
+      - name: Verify independent approval and select nominal cycle
+        id: plan
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python -B dikti_news_scheduler.py plan
+
+  bima:
+    needs: plan
+    if: needs.plan.outputs.bima == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    concurrency:
+      group: dikti-production-state
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - run: playwright install --with-deps chromium
+      - name: Recheck approval after queue, then run isolated bima
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || '' }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID || '' }}
+          PRODUCTION_TELEGRAM_CHAT_ID_SHA256: ${{ vars.PRODUCTION_TELEGRAM_CHAT_ID_SHA256 || '' }}
+        run: python -B dikti_news_scheduler.py bima
+
+  youtube:
+    needs: plan
+    if: needs.plan.outputs.youtube == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    concurrency:
+      group: dikti-production-state
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - name: Recheck approval after queue, then run isolated youtube
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || '' }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID || '' }}
+          PRODUCTION_TELEGRAM_CHAT_ID_SHA256: ${{ vars.PRODUCTION_TELEGRAM_CHAT_ID_SHA256 || '' }}
+        run: python -B dikti_news_scheduler.py youtube
+
+  kemdiktisaintek:
+    needs: plan
+    if: needs.plan.outputs.kemdiktisaintek == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    concurrency:
+      group: dikti-production-state
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - name: Recheck approval after queue, then run isolated kemdiktisaintek
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TELEGRAM_BOT_TOKEN: ${{ needs.plan.outputs.kemdiktisaintek_auto_send == 'true' && secrets.TELEGRAM_BOT_TOKEN || '' }}
+          TELEGRAM_CHAT_ID: ${{ needs.plan.outputs.kemdiktisaintek_auto_send == 'true' && secrets.TELEGRAM_CHAT_ID || '' }}
+          PRODUCTION_TELEGRAM_CHAT_ID_SHA256: ${{ needs.plan.outputs.kemdiktisaintek_auto_send == 'true' && vars.PRODUCTION_TELEGRAM_CHAT_ID_SHA256 || '' }}
+        run: python -B dikti_news_scheduler.py kemdiktisaintek

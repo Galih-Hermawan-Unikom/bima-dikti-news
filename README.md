@@ -8,50 +8,49 @@ Bot Python yang memantau informasi dari tiga sumber resmi Kementerian Pendidikan
 
 Monitoring berjalan melalui GitHub Actions tanpa memerlukan komputer lokal yang terus menyala. Tiap sumber mempunyai kebijakan kelayakan, baseline, dan state operasional tersendiri untuk mencegah pengiriman ulang konten lama. Pengiriman Telegram bukan arsip lengkap semua konten sumber.
 
-**Status per 25 Oktober 2026:** BIMA dan YouTube telah beroperasi di kanal produksi. Sumber pengumuman situs Kemdiktisaintek telah **ARMED** (scheduler dan AUTO_SEND aktif), tetapi pada pemeriksaan terakhir belum ada pengumuman baru yang layak dikirim; pengiriman berita nyata pertama dari sumber tersebut **belum terkonfirmasi**. Lihat [workflow produksi](#workflow-produksi) dan [catatan sumber ketiga](README_KEMDIKTISAINTEK_PRODUCTION.md).
+**Implementasi pada branch ini:** Unified Production Scheduler siap direview, belum diaktifkan. Merge dan cutover memerlukan persetujuan operator. Nilai Variables dan state remote tidak diubah oleh pengembangan ini. Prosedur cutover/rollback tersedia di [panduan operasi](README_KEMDIKTISAINTEK_PRODUCTION.md).
 
+## Unified Production Scheduler
 
-## Workflow produksi
+Satu workflow [dikti-news-production.yml](.github/workflows/dikti-news-production.yml) mempunyai dua cron UTC yang saling lepas, total **24 pemicu nominal per hari**. Keputusan menjalankan BIMA memakai `github.event.schedule`, sehingga runner yang terlambat tidak mengubah giliran sumber.
 
-| Sumber | Workflow | Cron (UTC) | Waktu WIB | Keluaran |
-|---|---|---|---|---|
-| BIMA | [BIMA Pengumuman Checker](.github/workflows/main.yml) | `13 */3 * * *` | 01.13, 04.13, 07.13, 10.13, 13.13, 16.13, 19.13, 22.13 | Ringkasan serta PDF jika tersedia |
-| YouTube | [YouTube Production](.github/workflows/youtube-production.yml) | `23,53 * * * *` | Menit 23 dan 53 setiap jam | Video/replay yang memenuhi eligibility |
-| Kemdiktisaintek | [Production Scheduler](.github/workflows/kemdiktisaintek-production-scheduler.yml) → [Production (Manual, Gated)](.github/workflows/kemdiktisaintek-production.yml) | `7,37 * * * *` | Menit 07 dan 37 setiap jam | Pengumuman dan dokumen resmi jika memenuhi eligibility |
+| Sumber | Interval | UTC | WIB |
+|---|---|---|---|
+| BIMA | 3 jam | 00.17, 03.17, 06.17, 09.17, 12.17, 15.17, 18.17, 21.17 | 01.17, 04.17, 07.17, 10.17, 13.17, 16.17, 19.17, 22.17 |
+| YouTube | 1 jam | Menit 17 setiap jam | Menit 17 setiap jam |
+| Pengumuman Kemdiktisaintek | 1 jam | Menit 17 setiap jam | Menit 17 setiap jam |
 
-BIMA dan YouTube menjalankan `production_runtime.py`; scheduler Kemdiktisaintek mengirim *workflow dispatch* `POLL` ke workflow produksi tersendiri dengan pemeriksaan approved SHA. Ketiganya menggunakan state terpisah dalam branch `dikti-production-state` dan *concurrency group* bersama saat melakukan operasi produksi terhadap branch state.
+Cron `17 */3 * * *` menjalankan tiga sumber; `17 1-23/3,2-23/3 * * *` menjalankan YouTube dan Kemdiktisaintek. Keduanya tidak beririsan. Sebelumnya tiga workflow produksi menghasilkan 104 pemicu/hari (8 + 48 + 48), di luar 48 pemicu scheduler eksperimen.
 
-Cron GitHub Actions menggunakan UTC. Waktu pada tabel adalah jadwal nominal, **bukan jaminan** eksekusi tepat waktu: run dapat terlambat atau terlewat. Run yang menunggu dalam concurrency group juga bisa tergantikan jika beberapa pemicu bertabrakan. Periksa halaman [Actions](https://github.com/Galih-Hermawan-Unikom/bima-dikti-news/actions) untuk hasil aktual.
+Job `bima`, `youtube`, dan `kemdiktisaintek` independen: kegagalan satu job tidak melewati dependency ke sumber lain. Untuk melindungi commit pada branch state bersama, setiap job memegang concurrency group `dikti-production-state`, `cancel-in-progress: false`, `queue: max`. Job antre dan memproses secara bergantian; tidak ada lock pada workflow induk atau dispatch child workflow. Setiap job memeriksa ulang approved SHA terhadap HEAD master setelah antre, sebelum menjalankan runtime. SHA/CAS tetap wajib di semua checkpoint.
 
-Kemdiktisaintek menggunakan dua saklar sumber/scheduler dan satu saklar pengiriman; detailnya ada di [konfigurasi produksi](#variables-dan-kill-switch). Workflow observasi dan eksperimen tidak boleh disamakan dengan jalur pengiriman produksi.
+Workflow lama `main.yml`, `youtube-production.yml`, dan kedua scheduler Kemdiktisaintek menjadi manual-only dalam perubahan yang sama. Jalur recovery produksi lama diblokir saat unified switch aktif. Scheduler eksperimen menjadi manual-only juga; tujuan dan kredensial eksperimen tetap terpisah. Perubahan YAML belum berlaku di GitHub sampai PR digabung.
 
+GitHub cron dapat terlambat atau terlewat. `queue: max` menampung maksimal 100 job/run pending, bukan jaminan waktu mulai atau eksekusi setiap slot. [Dokumentasi concurrency GitHub](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#concurrency) menjelaskan batas antrean ini.
 
 ## Arsitektur
 
 ```mermaid
 flowchart TD
-    WB["BIMA · main.yml"] --> B["Scraper dan eligibility BIMA"]
-    WY["YouTube · youtube-production.yml"] --> Y["Monitor /videos dan /streams · eligibility"]
-    WK["Kemdiktisaintek · production-scheduler.yml"] --> DK["Dispatch workflow POLL · approved SHA"]
-    DK --> K["Parser pengumuman · eligibility"]
-
-    B --> OB["Outbox BIMA"]
-    Y --> OY["Outbox YouTube"]
-    K --> OK["Outbox Kemdiktisaintek"]
-
-    OB --> T["Telegram produksi · @dikti_news"]
-    OY --> T
-    OK --> T
-
-    S["Branch dikti-production-state · tiga file JSON terpisah"] <-. "checkpoint SHA/CAS" .-> OB
-    S <-. "checkpoint SHA/CAS" .-> OY
-    S <-. "checkpoint SHA/CAS" .-> OK
-    T -. "receipt / message ID" .-> S
+    GH["Satu workflow · 24 slot/hari"] --> G["Master + approved SHA + unified switch"]
+    G --> B["Job bima · setiap 3 jam"]
+    G --> Y["Job youtube · setiap jam"]
+    G --> K["Job kemdiktisaintek · setiap jam"]
+    B --> RB["production_runtime.py bima"]
+    Y --> RY["production_runtime.py youtube"]
+    K --> RK["kemdiktisaintek_prod_runtime.py POLL"]
+    RB --> SB["bima_production.json"]
+    RY --> SY["youtube_production.json"]
+    RK --> SK["kemdiktisaintek_production.json"]
+    L["Shared job lock · dikti-production-state · SHA/CAS"] -.-> SB
+    L -.-> SY
+    L -.-> SK
+    SB --> T["Preflight + durable claim + Telegram @dikti_news + receipt"]
+    SY --> T
+    SK --> T
 ```
 
-Setiap sumber mempunyai identitas event, initial inventory, activation fence, dan kebijakan klasifikasi sendiri. Reservasi serta percobaan pengiriman dicatat secara persisten melalui GitHub Contents API (SHA/CAS) sebelum Telegram POST. Pengiriman yang tidak pasti tidak diulang otomatis; operator perlu melakukan rekonsiliasi. **Diagram ini menunjukkan tiga pipeline terpisah, bukan satu agregator lintas-sumber.**
-
-Branch `master` menyimpan kode dan referensi historis yang dibaca produksi; branch `dikti-production-state` menyimpan state operasional, termasuk receipt. Workflow produksi BIMA, YouTube, dan Kemdiktisaintek memakai group `dikti-production-state` dengan `cancel-in-progress: false`; pengaturan ini tidak menjamin bahwa seluruh run pending akan dieksekusi.
+Ketiga runtime, identitas event, baseline, activation fence, dan outbox tetap terpisah. Tidak ada deduplikasi lintas sumber. Reservasi dan claim wajib tersimpan secara durable sebelum POST. AMBIGUOUS dan hasil parsial memerlukan rekonsiliasi operator.
 
 ## Aturan deteksi dan kelayakan
 
@@ -63,7 +62,7 @@ Branch `master` menyimpan kode dan referensi historis yang dibaca produksi; bran
 - Kandidat yang pertama kali terlihat lebih dari 24 jam lalu ditahan. Tidak ada backfill otomatis.
 - Ringkasan memakai HTML Telegram; dokumen dikirim dengan nama metadata yang aman, bukan nama tempfile.
 
-**PDF produksi ON.** `main.yml` menetapkan `TELEGRAM_SEND_FILES: 'true'`, dan runtime produksi secara eksplisit memakai `telegram_send_files=True`. Nilai `telegram_send_files: false` dalam `config.json` tidak mematikan lampiran pada jalur produksi ini. Jumlah lampiran mengikuti dokumen yang tersedia pada pengumuman.
+**PDF BIMA tetap didukung.** Adapter unified menetapkan `TELEGRAM_SEND_FILES: 'true'`, dan runtime produksi secara eksplisit memakai `telegram_send_files=True`. Nilai `telegram_send_files: false` dalam `config.json` tidak mematikan lampiran pada jalur produksi ini. Jumlah lampiran mengikuti dokumen yang tersedia pada pengumuman.
 
 ### YouTube tabs-only
 
@@ -93,13 +92,26 @@ Pembaca tab dibatasi 30 item per tab; pagination belum ditangani. Video yang tid
 
 Sumber ini memantau [halaman pengumuman resmi](https://kemdiktisaintek.go.id/announcement) secara independen dari BIMA, menggunakan UUID pengumuman sebagai identitas. Pengumuman baru tidak otomatis dikirim hanya karena muncul dalam hasil pengambilan data:
 
-- Kandidat harus melewati pemeriksaan kesehatan sumber, waktu publikasi/observasi, detail terpercaya, relevansi, baseline, dan activation fence.
+- Kandidat harus melewati pemeriksaan kesehatan sumber, waktu publikasi/observasi, detail terpercaya, baseline, dan activation fence. Semua kategori/topik resmi diterima; classifier lama hanya menjadi diagnostik dan tidak menentukan admission maupun delivery.
 - Artikel yang sudah ada saat inisialisasi tidak dikirim ulang. Kandidat revisi memerlukan pemeriksaan; tidak diperlakukan sebagai berita baru secara otomatis.
 - Ringkasan memuat judul, tanggal, nomor surat dan tenggat **jika tersedia**, tautan sumber, serta daftar dokumen. PDF resmi yang memenuhi validasi dapat dikirim lewat `sendDocument`.
 - Outbox dan receipt terpisah dari BIMA/YouTube. `AMBIGUOUS` atau pengiriman parsial perlu rekonsiliasi operator, tanpa retry otomatis.
 - Inventaris baseline hanya meliputi jendela pengamatan terbaru (`archive_complete=false`), **bukan klaim telah mengarsipkan seluruh pengumuman historis**.
 
-Pada pemeriksaan setelah aktivasi 25 Oktober 2026, jalur ini berstatus **ARMED**, tanpa pengiriman artikel baru yang telah dikonfirmasi. Lihat [dokumentasi integrasi awal](README_KEMDIKTISAINTEK_PRODUCTION.md); beberapa petunjuk aktivasi di sana merupakan catatan historis, bukan status operasional terbaru.
+Policy `kemdiktisaintek-delivery-v3-all-official` bermigrasi secara eksplisit dari policy independen v2 melalui checkpoint tersendiri; baseline, fence, first-seen, admission lama, revisi, dan receipt tetap dipertahankan. **HOLD/NEEDS_REVIEW lama tidak dipromosikan** oleh perubahan policy, pemulihan gap, atau restart.
+
+| Waktu/bukti | Batas dan makna |
+|---|---|
+| Interval rencana | 1 jam; bukan waktu aktual polling |
+| Gap antar-capture sukses | Maksimal 12 jam (1 + toleransi 11 jam); gap lebih besar tetap HOLD |
+| Publikasi resmi | Harus setelah activation fence, tidak di masa depan, dan berumur maksimal 72 jam |
+| First-seen | Maksimal 24 jam; dipertahankan saat restart |
+| Bukti detail dan admission | Maksimal 10 menit; diperiksa ulang sebelum reservation dan claim |
+| Preflight Telegram | Tetap mengikuti TTL proof produksi yang ketat |
+
+Jendela publikasi 72 jam menangani tanggal detail yang diberi waktu tengah malam dan keterlambatan beberapa cron. Ini tidak membuka backfill: UUID yang sudah diamati, baseline, revisi, serta admission kedaluwarsa tetap tidak menjadi berita baru. Batas gap 12 jam adalah ambang kontinuitas maksimum, bukan jaminan scheduler. Gap nyata sekitar 14 jam pada audit tetap akan ditahan. `last_successful_poll_at` mencatat capture sukses; `last_healthy_poll_at` hanya diperbarui jika kontinuitas sehat.
+
+POLL memakai API tanpa kategori dan `search=` kosong. Scan minimal dua halaman, dilanjutkan sampai halaman penuh dengan 10 UUID dikenal atau akhir daftar, maksimum **10 halaman/100 item**. Semua UUID baru dalam capture diprioritaskan untuk detail (maksimal 100), ditambah hingga tiga detail dikenal yang berotasi. Urutan `created_at` sumber harus menurun, total stabil, dan halaman pertama dicek ulang; tanggal ini hanya bukti traversal, bukan tanggal publikasi. Kehilangan overlap, pergeseran pagination, urutan tak terbukti, atau batas scan tanpa boundary menahan admission. Cakupan ini terbatas; bukan klaim seluruh arsip sudah diperiksa.
 
 ## State, deduplikasi, dan pemulihan
 
@@ -165,11 +177,12 @@ Atur melalui **Settings → Secrets and variables → Actions**. Jangan menaruh 
 | `YOUTUBE_PRODUCTION_ENABLED` | `true` | Mengizinkan job YouTube terjadwal. |
 | `YOUTUBE_PRODUCTION_AUTO_SEND` | `true` | Mengizinkan pengiriman YouTube. Ubah menjadi `false` untuk menghentikan pengiriman tanpa menghapus state. |
 | `KEMDIKTISAINTEK_PRODUCTION_ENABLED` | `true` | Mengizinkan operasi sumber Kemdiktisaintek. |
-| `KEMDIKTISAINTEK_PRODUCTION_SCHEDULER_ENABLED` | `true` | Mengaktifkan dispatch terjadwal sumber Kemdiktisaintek. |
+| `DIKTI_NEWS_PRODUCTION_SCHEDULER_ENABLED` | `true` hanya setelah cutover disetujui | Master switch unified; default OFF. |
+| `KEMDIKTISAINTEK_PRODUCTION_SCHEDULER_ENABLED` | Legacy | Hanya jalur scheduler lama manual; tidak mengendalikan unified. |
 | `KEMDIKTISAINTEK_PRODUCTION_AUTO_SEND` | `true` | Mengizinkan pengiriman kandidat Kemdiktisaintek yang lolos kriteria; set `false` untuk menghentikan pengiriman. |
-| `KEMDIKTISAINTEK_PRODUCTION_APPROVED_CODE_SHA` | SHA penuh HEAD `master` yang ditinjau | Wajib cocok dengan SHA dispatch; commit baru pada `master` memerlukan rollover approved SHA yang terkendali. |
+| `KEMDIKTISAINTEK_PRODUCTION_APPROVED_CODE_SHA` | SHA penuh HEAD `master` yang ditinjau | Wajib cocok dengan HEAD master dan SHA workflow unified; semua sumber ditahan jika tidak cocok. Commit baru memerlukan rollover terkendali. |
 
-Saklar boolean produksi menggunakan string persis `true`; default adalah **OFF** jika tidak diatur. Pengiriman setiap sumber mensyaratkan saklar source dan auto-send aktif. Kemdiktisaintek memerlukan approved SHA yang cocok dengan `master`, serta scheduler switch untuk polling otomatis. **Jangan menghapus baseline atau mereset state** untuk memaksa pengiriman. Setelah merge apa pun ke `master`, periksa rollover approved SHA sebelum scheduler berikutnya.
+Saklar boolean produksi menggunakan string persis `true`; default adalah **OFF** jika tidak diatur. Pengiriman setiap sumber mensyaratkan saklar source dan auto-send aktif. Unified memerlukan approved SHA yang cocok dengan `master` dan unified switch. Dispatch manual unified default `observation_only=true` hanya membaca dan memvalidasi snapshot tiga file state pada job planner berizin `contents:read`, tanpa Secrets Telegram. Ketiga job produksi dilewati. Rehearsal boleh berjalan saat unified switch OFF, tetapi approved master SHA tetap wajib. Ini bukan capture sumber atau checkpoint produksi; tidak memulai first-seen, admission, migrasi, atau reservation. Untuk menjalankan runtime stateful diperlukan `observation_only=false` dan unified switch aktif. **Jangan menghapus baseline atau mereset state** untuk memaksa pengiriman. Setelah merge apa pun ke `master`, periksa rollover approved SHA sebelum scheduler berikutnya.
 
 Jalur pengiriman produksi melakukan preflight read-only `getMe`, `getChat`, dan `getChatMember` sebelum POST Telegram: identitas kanal harus cocok dengan kanal resmi serta hash allowlist, dan bot harus memiliki hak posting. Tujuan pengiriman dipin ke ID numerik yang telah diverifikasi. Kredensial eksperimen tidak dipakai sebagai fallback. Jika verifikasi gagal, proses berhenti sebelum pengiriman.
 
@@ -181,7 +194,7 @@ Branch `dikti-production-state` harus tersedia dan dapat ditulis oleh workflow. 
 |---|---|
 | Lokal | Pengembangan, regression tests, serta dry-run dengan direktori state terisolasi. `config.json` dan `.env` lokal tidak mengatur runtime produksi Actions. |
 | Eksperimen | Workflow [YouTube Observation Only](.github/workflows/youtube-observation-only.yml) hanya melalui `workflow_dispatch` (manual), tanpa `schedule`; branch `youtube-state` dan kredensial/allowlist eksperimen tersendiri. Auto-send dikendalikan `YOUTUBE_EXPERIMENT_AUTO_SEND`; tetap OFF. |
-| Produksi | Tiga sumber dengan workflow masing-masing; BIMA dan YouTube langsung terjadwal, Kemdiktisaintek melalui scheduler → dispatch POLL; semuanya memakai kredensial kanal resmi dan branch `dikti-production-state`. |
+| Produksi | Satu workflow dengan tiga job dan runtime masing-masing; semuanya memakai kredensial kanal resmi dan branch `dikti-production-state`. |
 
 Eksperimen memakai secrets `YOUTUBE_EXPERIMENT_BOT_TOKEN`, `YOUTUBE_EXPERIMENT_CHAT_ID`, dan `YOUTUBE_EXPERIMENT_CHAT_ID_SHA256`. Jangan menyalin state atau kredensial eksperimen ke produksi.
 
@@ -210,13 +223,15 @@ Perintah dry-run mengevaluasi sumber publik tanpa pengiriman Telegram. Satu capt
 
 ```text
 .github/workflows/
-  main.yml                               # BIMA produksi
-  youtube-production.yml                 # YouTube produksi
-  kemdiktisaintek-production-scheduler.yml  # Cron sumber ketiga
+  dikti-news-production.yml               # Satu scheduler, tiga job produksi
+  main.yml                               # Recovery BIMA manual-only
+  youtube-production.yml                 # Recovery YouTube manual-only
+  kemdiktisaintek-production-scheduler.yml  # Scheduler legacy manual-only
   kemdiktisaintek-production.yml         # POLL/INITIALIZE/COLLECT bergate SHA
   telegram-preflight.yml                 # Preflight kanal produksi
   tests.yml                              # Regression suite
   ...                                    # Workflow eksperimen/manual tambahan
+dikti_news_scheduler.py                   # SHA gate, pemilihan siklus, adapter sumber
 production_runtime.py                    # Runtime BIMA/YouTube
 production_preflight.py                  # Pemeriksaan tujuan Telegram
 scraper.py / notifier.py                 # Data BIMA dan formatter Telegram
@@ -238,7 +253,7 @@ Siklus produksi normal menulis satu baris `PRODUCTION_RUN=` diikuti JSON. Interp
 
 | Field/log | Arti |
 |---|---|
-| `source` | Sumber yang dijalankan: `bima` atau `youtube`; jalur Kemdiktisaintek menggunakan ringkasan `KEMDIKTISAINTEK_PRODUCTION_RUN`. |
+| `source` | Sumber yang dijalankan: `bima` atau `youtube`; jalur Kemdiktisaintek menggunakan ringkasan `DIKTI_NEWS_PRODUCTION` pada unified dan `KEMDIKTISAINTEK_PRODUCTION_RUN` pada jalur manual. |
 | `startup: true` | Capture initial inventory; tidak ada pengiriman startup. |
 | `visible` | Jumlah item terlihat; YouTube memisahkan jumlah per tab. Bukan jumlah video baru. |
 | `eligible` / `hold` | Hasil evaluasi pada siklus itu; bukan jumlah pesan terkirim. |
@@ -256,9 +271,9 @@ Siklus produksi normal menulis satu baris `PRODUCTION_RUN=` diikuti JSON. Interp
 | Gejala | Pemeriksaan aman |
 |---|---|
 | Job terjadwal dilewati | Periksa status workflow, branch `master`, dan variable `*_PRODUCTION_ENABLED`. |
-| Scheduler Kemdiktisaintek tidak mendispatch POLL | Cocokkan `KEMDIKTISAINTEK_PRODUCTION_APPROVED_CODE_SHA` dengan HEAD `master`; periksa scheduler/source switch dan workflow run. Jangan mematikan SHA gate. |
+| Unified tidak menjalankan job sumber | Cocokkan `KEMDIKTISAINTEK_PRODUCTION_APPROVED_CODE_SHA` dengan HEAD `master`; periksa scheduler/source switch dan workflow run. Jangan mematikan SHA gate. |
 | Kemdiktisaintek `UNHEALTHY_POLL_GAP` | Periksa jarak antar-run dan API health; lihat kemungkinan cron terlambat/terlewat. Jangan backfill atau mengirim arsip otomatis. |
-| Run terlambat atau pending tergantikan | Periksa antrean dan log ketiga pipeline produksi pada concurrency group `dikti-production-state`. Cron menggunakan UTC dan tidak menjamin waktu mulai; `cancel-in-progress: false` tidak melindungi run pending dari penggantian oleh run baru. |
+| Run terlambat atau antrean penuh | Periksa antrean dan log ketiga pipeline produksi pada concurrency group `dikti-production-state`. Cron menggunakan UTC dan tidak menjamin waktu mulai; `queue: max` membatasi antrean hingga 100; antrean penuh tetap memerlukan penanganan operator. |
 | Eksperimen tidak berjalan otomatis | Sesuai konfigurasi: `youtube-observation-only.yml` tidak memiliki `schedule` dan hanya tersedia melalui `workflow_dispatch` manual. Auto-send eksperimen tetap OFF. |
 | Job berjalan tetapi tidak mengirim | Periksa auto-send, inventory/histori, fence, hasil eligibility, dan outbox; jangan menghapus histori. |
 | Allowlist atau izin Telegram gagal | Periksa secrets, hash ID numerik resmi, identitas kanal, serta hak admin bot. Jangan mencetak nilai rahasia. |
@@ -276,7 +291,7 @@ Siklus produksi normal menulis satu baris `PRODUCTION_RUN=` diikuti JSON. Interp
 - [Observasi persisten dan durable outbox](docs/youtube-persistent-outbox.md)
 - [Preflight Telegram eksperimen](docs/telegram-preflight.md)
 - [Riwayat audit reliabilitas Fase 1](docs/reliability-phase1.md)
-- [Integrasi Kemdiktisaintek (catatan tahap awal)](README_KEMDIKTISAINTEK_PRODUCTION.md)
+- [Operasi unified, cutover dan rollback](README_KEMDIKTISAINTEK_PRODUCTION.md)
 
 Perubahan dokumentasi ke `master` juga mengubah SHA commit. Ketika Kemdiktisaintek aktif, operator perlu menyelaraskan approved SHA secara terkendali setelah merge.
 

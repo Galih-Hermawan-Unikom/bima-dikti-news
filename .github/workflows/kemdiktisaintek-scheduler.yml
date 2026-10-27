@@ -1,8 +1,5 @@
 name: Kemdiktisaintek Scheduler
 on:
-  schedule:
-    # Kemdiktisaintek monitoring schedule; delivery controlled separately.
-    - cron: '13,43 * * * *'
   workflow_dispatch:
 permissions:
   contents: read
@@ -11,7 +8,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   dispatch-poll:
-    if: github.ref == 'refs/heads/master'
+    if: vars.DIKTI_NEWS_PRODUCTION_SCHEDULER_ENABLED != 'true' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
