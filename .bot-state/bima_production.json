@@ -201,8 +201,8 @@
     },
     "bima:surat:1031/dst/c2/pp.01.07/2026|title:undangan peserta workshop penulisan artikel ilmiah mahasiswa pascasarjana tahun 2026:initial": {
       "event_key": "bima:surat:1031/dst/c2/pp.01.07/2026|title:undangan peserta workshop penulisan artikel ilmiah mahasiswa pascasarjana tahun 2026:initial",
-      "status": "reserved",
-      "attempts": 0,
+      "status": "sending",
+      "attempts": 1,
       "items": [
         {
           "title": "Undangan Peserta Workshop Penulisan Artikel Ilmiah Mahasiswa Pascasarjana Tahun 2026",
@@ -223,7 +223,8 @@
       "sent_chunks": [],
       "sent_documents": [],
       "receipts": [],
-      "send_files": true
+      "send_files": true,
+      "attempted_at": "2026-10-27T08:54:54.470360+00:00"
     }
   }
 }
