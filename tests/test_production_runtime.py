@@ -44,6 +44,46 @@ def test_bima_state_accepts_legacy_poll_timestamp_and_validates_new_value():
         prod.validate_bima(state)
 
 
+def test_failed_bima_cycle_after_initial_checkpoint_does_not_advance_poll_timestamp(monkeypatch):
+    state = bima_state()
+    previous = "2026-10-24T15:00:00+00:00"
+    state["last_successful_poll_at"] = previous
+    persisted = []
+
+    def checkpoint():
+        persisted.append(deepcopy(state))
+
+    def fail_after_initial_checkpoint(*args, **kwargs):
+        checkpoint()
+        raise RuntimeError("simulated cycle failure after initial checkpoint")
+
+    monkeypatch.setattr(prod, "bima_cycle", fail_after_initial_checkpoint)
+    with pytest.raises(RuntimeError, match="after initial checkpoint"):
+        prod.bima_poll(state, [], [], fake_notifier(), checkpoint,
+                       enabled=True, at=NOW)
+    assert persisted[0]["last_successful_poll_at"] == previous
+    assert state["last_successful_poll_at"] == previous
+
+
+def test_successful_bima_cycle_checkpoints_poll_timestamp_after_cycle(monkeypatch):
+    state = bima_state()
+    persisted = []
+
+    def checkpoint():
+        persisted.append(deepcopy(state))
+
+    def successful_cycle(*args, **kwargs):
+        checkpoint()
+        return {"source": "bima", "eligible": 0, "hold": 0}
+
+    monkeypatch.setattr(prod, "bima_cycle", successful_cycle)
+    report = prod.bima_poll(state, [], [], fake_notifier(), checkpoint,
+                            enabled=True, at=NOW)
+    assert persisted[0].get("last_successful_poll_at") is None
+    assert persisted[1]["last_successful_poll_at"] == NOW.isoformat()
+    assert report["poll_gap_seconds"] is None
+
+
 def announcement():
     return {"title": "Pendanaan Riset Baru untuk Perguruan Tinggi", "surat": "123/DST/2026",
         "date": "25 Oktober 2026", "documents": [], "url": "https://example.invalid/bima"}

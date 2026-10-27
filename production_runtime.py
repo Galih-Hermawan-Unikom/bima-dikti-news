@@ -165,6 +165,19 @@ def bima_cycle(state, current, historical, notifier, checkpoint, *, enabled, at)
     return report
 
 
+def bima_poll(state, current, historical, notifier, checkpoint, *, enabled, at):
+    previous_poll = state.get("last_successful_poll_at")
+    report = bima_cycle(state, current, historical, notifier, checkpoint,
+                        enabled=enabled, at=at)
+    state["last_successful_poll_at"] = at.isoformat()
+    checkpoint()
+    report.update(poll_gap_seconds=poll_gap_seconds(previous_poll, at),
+        planned_interval_seconds=10800)
+    report["poll_gap_warning"] = poll_gap_warning(
+        report["poll_gap_seconds"], report["planned_interval_seconds"])
+    return report
+
+
 def youtube_cycle(store, adapter, cache, journal, notifier, *, enabled, startup):
     evaluation = adapter.evaluate(cache, journal)
     if evaluation.errors or any(row.get("health") != "HEALTHY" for row in evaluation.health.values()) or set(evaluation.health) != {"videos", "streams"}:
@@ -255,14 +268,8 @@ def run(source, mode):
                 report = perform(state, current, read("announcements_cache.json"), journal,
                                  notifier, checkpoint, at=at)
             else:
-                previous_poll = state.get("last_successful_poll_at")
-                state["last_successful_poll_at"] = poll_at.isoformat()
-                report = bima_cycle(state, current, history, notifier, checkpoint,
+                report = bima_poll(state, current, history, notifier, checkpoint,
                     enabled=enabled and mode != "initialize", at=poll_at)
-                report.update(poll_gap_seconds=poll_gap_seconds(previous_poll, poll_at),
-                    planned_interval_seconds=10800)
-                report["poll_gap_warning"] = poll_gap_warning(
-                    report["poll_gap_seconds"], report["planned_interval_seconds"])
             report["activation_at"] = state["activation_at"]
         else:
             if loaded:
