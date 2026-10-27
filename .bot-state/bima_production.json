@@ -243,5 +243,6 @@
       "send_files": true,
       "attempted_at": "2026-10-27T08:54:54.470360+00:00"
     }
-  }
+  },
+  "last_successful_poll_at": "2026-10-27T08:54:54.470360+00:00"
 }
