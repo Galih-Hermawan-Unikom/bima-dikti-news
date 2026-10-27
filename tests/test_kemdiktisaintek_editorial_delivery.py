@@ -437,9 +437,8 @@ def test_remote_ledger_scope_is_explicit_and_manual_only_workflow_has_no_cron():
     assert 'workflow_dispatch:' in workflow and 'schedule:' not in workflow
     assert "default: PREVIEW" in workflow and 'contents: read' in workflow and 'contents: write' in workflow
     unified = (ROOT / '.github/workflows/dikti-news-production.yml').read_bytes()
-    assert hashlib.sha256(unified).hexdigest() == hashlib.sha256(
-        __import__('subprocess').check_output(['git', 'show', 'HEAD^1:.github/workflows/dikti-news-production.yml'], cwd=ROOT)
-    ).hexdigest()
+    base_blob_sha = hashlib.sha1(b'blob ' + str(len(unified)).encode() + b'\0' + unified).hexdigest()
+    assert base_blob_sha == '0e9b31ae621d37022eab7a591882ab0dff8a55fd'
 
 
 def test_two_concurrent_sends_share_uuid_claim_and_only_one_wins():
