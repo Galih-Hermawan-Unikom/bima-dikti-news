@@ -1,0 +1,87 @@
+name: Kemdiktisaintek Editorial Recovery (Manual Only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Preview, record one UUID-bound authorization, or send that authorization once
+        type: choice
+        required: true
+        default: PREVIEW
+        options: [PREVIEW, AUTHORIZE, SEND]
+      uuid:
+        description: One of the two reviewed HOLD announcements
+        type: choice
+        required: true
+        default: 2407f6f4-1e06-452b-a053-864426e9a183
+        options:
+          - 2407f6f4-1e06-452b-a053-864426e9a183
+          - b7abee5c-39d8-48fa-a2ac-93fe07ec7ed2
+      reviewed_code_sha:
+        description: Full current master SHA, also independently approved in the repository variable
+        type: string
+        required: true
+      confirmation:
+        description: Exact confirmation AUTHORIZE <UUID> or SEND <UUID>; ignored for PREVIEW
+        type: string
+        required: false
+        default: ''
+
+jobs:
+  preview:
+    if: inputs.mode == 'PREVIEW'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - name: Preview one official held article (read only)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EDITORIAL_MODE: ${{ inputs.mode }}
+          EDITORIAL_UUID: ${{ inputs.uuid }}
+          EDITORIAL_CONFIRMATION: ${{ inputs.confirmation }}
+          KEMDIKTISAINTEK_PRODUCTION_REVIEWED_SHA: ${{ inputs.reviewed_code_sha }}
+          KEMDIKTISAINTEK_PRODUCTION_APPROVED_SHA: ${{ vars.KEMDIKTISAINTEK_PRODUCTION_APPROVED_CODE_SHA || '' }}
+        run: python -B kemdiktisaintek_editorial_runtime.py
+
+  editorial:
+    if: inputs.mode == 'AUTHORIZE' || inputs.mode == 'SEND'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    concurrency:
+      group: dikti-production-state
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - name: Authorize or send one editorial UUID through durable CAS
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EDITORIAL_MODE: ${{ inputs.mode }}
+          EDITORIAL_UUID: ${{ inputs.uuid }}
+          EDITORIAL_CONFIRMATION: ${{ inputs.confirmation }}
+          KEMDIKTISAINTEK_PRODUCTION_REVIEWED_SHA: ${{ inputs.reviewed_code_sha }}
+          KEMDIKTISAINTEK_PRODUCTION_APPROVED_SHA: ${{ vars.KEMDIKTISAINTEK_PRODUCTION_APPROVED_CODE_SHA || '' }}
+          KEMDIKTISAINTEK_PRODUCTION_ENABLED: ${{ vars.KEMDIKTISAINTEK_PRODUCTION_ENABLED || 'false' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || '' }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID || '' }}
+          PRODUCTION_TELEGRAM_CHAT_ID_SHA256: ${{ vars.PRODUCTION_TELEGRAM_CHAT_ID_SHA256 || '' }}
+        run: python -B kemdiktisaintek_editorial_runtime.py

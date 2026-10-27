@@ -1,0 +1,40 @@
+{
+  "articles": [
+    {
+      "id": "2407f6f4-1e06-452b-a053-864426e9a183",
+      "slug": "tawaran-mengikuti-program-bridging-course-tahun-2026",
+      "title": "Tawaran Mengikuti Program Bridging Course Tahun 2026",
+      "category": "Umum",
+      "created_at": "2026-10-27T00:00:00+07:00",
+      "updated_at": "2026-10-27T00:00:00+07:00",
+      "datetime": "2026-10-27T00:00:00+07:00",
+      "body": "Pendaftaran Program Bridging Course Tahun 2026. Calon peserta dapat mengirimkan dokumen sesuai petunjuk pada tautan resmi. Berkas pendaftaran diterima paling lambat 06 November 2026.",
+      "attachments": [
+        {
+          "url": "https://docs.google.com/document/d/1cIK1MaCUrXUIRqf-MF-GW99lP0iZggW1/edit?usp=sharing",
+          "label": "Formulir pendaftaran"
+        },
+        {
+          "url": "https://kemdiktisaintek.go.id/api/file/humas-production/announcements/2026/10/files/2407f6f4-1e06-452b-a053-864426e9a183/Tawaran_Pendaftaran_Program_BRIDGING_2026.pdf",
+          "label": "Pengumuman Bridging Course 2026.pdf"
+        }
+      ]
+    },
+    {
+      "id": "b7abee5c-39d8-48fa-a2ac-93fe07ec7ed2",
+      "slug": "kemdiktisaintek-perkuat-kesiapan-dosen-dan-tendik-untuk-studi-doktor-di-luar-negeri",
+      "title": "Kemdiktisaintek Perkuat Kesiapan Dosen dan Tendik untuk Studi Doktor di Luar Negeri",
+      "category": "Umum",
+      "created_at": "2026-10-26T00:00:00+07:00",
+      "updated_at": "2026-10-26T00:00:00+07:00",
+      "datetime": "2026-10-26T00:00:00+07:00",
+      "body": "Kemdiktisaintek memperkuat kesiapan dosen dan tenaga kependidikan untuk menempuh studi doktor di luar negeri melalui pembekalan informasi dan pengembangan kompetensi.",
+      "attachments": [
+        {
+          "url": "https://kemdiktisaintek.go.id/api/file/humas-production/announcements/2026/10/files/b7abee5c-39d8-48fa-a2ac-93fe07ec7ed2/talent_scoutinh.pdf",
+          "label": "Panduan studi doktor.pdf"
+        }
+      ]
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 # Operasi Unified Dikti News Production
 
+Pemulihan satu artikel yang HOLD dilakukan melalui [Controlled Editorial Delivery](README_KEMDIKTISAINTEK_EDITORIAL_DELIVERY.md), bukan dengan mengubah status monitoring atau melakukan backfill otomatis.
+
 Implementasi ini masih menunggu review dan cutover. Pengembangan tidak mengubah Variables, Secrets, baseline, atau state remote, dan tidak melakukan Telegram POST. Master audit: `089e29856a2062a810ae7b5f52348c17f5830cb6`.
 
 ## Scheduler, izin, dan isolasi
