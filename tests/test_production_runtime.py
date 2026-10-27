@@ -25,6 +25,25 @@ def bima_state(initialized=True):
         "initialized": initialized, "inventory": [], "first_seen": {}, "outbox": {}}
 
 
+def test_poll_gap_observability_reports_elapsed_seconds_and_missing_baseline():
+    previous = "2026-10-26T15:00:00+00:00"
+    current = "2026-10-26T18:30:00+00:00"
+    assert prod.poll_gap_seconds(previous, current) == 12600
+    assert prod.poll_gap_seconds(None, current) is None
+    assert prod.poll_gap_warning(3601, 1800) == "UNHEALTHY_POLL_GAP"
+    assert prod.poll_gap_warning(3600, 1800) is None
+
+
+def test_bima_state_accepts_legacy_poll_timestamp_and_validates_new_value():
+    state = bima_state()
+    prod.validate_bima(state)
+    state["last_successful_poll_at"] = NOW.isoformat()
+    prod.validate_bima(state)
+    state["last_successful_poll_at"] = "invalid"
+    with pytest.raises(ValueError, match="successful poll timestamp"):
+        prod.validate_bima(state)
+
+
 def announcement():
     return {"title": "Pendanaan Riset Baru untuk Perguruan Tinggi", "surat": "123/DST/2026",
         "date": "25 Oktober 2026", "documents": [], "url": "https://example.invalid/bima"}

@@ -326,9 +326,15 @@ def test_independent_production_schedules_and_manual_experiment():
         assert "workflow_dispatch" in workflow["on"]
         assert "workflow_run" not in workflow["on"]
         assert workflow["concurrency"] == {
-            "group": "dikti-production-state", "cancel-in-progress": "false"}
+            "group": "dikti-production-state", "cancel-in-progress": "false",
+            "queue": "max"}
         assert any(f"production_runtime.py {source}" in step.get("run", "")
                    for step in workflow["jobs"]["production"]["steps"])
+    manual = yaml.load((workflows / "kemdiktisaintek-production.yml").read_text(),
+                       Loader=yaml.BaseLoader)
+    assert manual["concurrency"] == {
+        "group": "dikti-production-state", "cancel-in-progress": "false",
+        "queue": "max"}
     experiment = yaml.load((workflows / "youtube-observation-only.yml").read_text(),
                            Loader=yaml.BaseLoader)
     assert set(experiment["on"]) == {"workflow_dispatch"}
