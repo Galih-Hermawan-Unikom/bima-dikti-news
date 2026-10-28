@@ -246,7 +246,7 @@
     },
     "bima:surat:1501/dst/c3/dt.05.00/2026|title:penyampaian laporan kemajuan program pui-pt baru 2026:initial": {
       "event_key": "bima:surat:1501/dst/c3/dt.05.00/2026|title:penyampaian laporan kemajuan program pui-pt baru 2026:initial",
-      "status": "sending",
+      "status": "delivered",
       "attempts": 1,
       "items": [
         {
