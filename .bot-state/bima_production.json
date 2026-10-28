@@ -265,9 +265,18 @@
       "chunks": [
         "<b>📢 PENGUMUMAN BARU BIMA KEMDIKTISAINTEK</b>\n\n📅 28/10/2026 12:53 WIB\n🔢 Jumlah: 1 item baru\n🏛️ BIMA: 1\n\n<b>1. Penyampaian Laporan Kemajuan Program PUI-PT Baru 2026</b>\n   📜 1501/DST/C3/DT.05.00/2026\n   📆 27 Oktober 2026\n   📦 Dokumen: 1 file\n   📎 Surat Penyampaian Laporan Kemajuan Program PUI-PT Baru 2026.pdf\n   🔗 https://bima.kemdiktisaintek.go.id/pengumuman\n\n━━━━━━━━━━━━━━━━━━━━\n<i>Bot Dikti News</i>"
       ],
-      "sent_chunks": [],
+      "sent_chunks": [
+        1
+      ],
       "sent_documents": [],
-      "receipts": [],
+      "receipts": [
+        {
+          "method": "sendMessage",
+          "http_status": 200,
+          "ok": true,
+          "message_id": 281
+        }
+      ],
       "send_files": true,
       "attempted_at": "2026-10-28T05:53:12.500881+00:00"
     }
