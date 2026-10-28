@@ -136,7 +136,8 @@
   ],
   "first_seen": {
     "bima:surat:1465/dst/c3/dt.06.01/2026|title:pemutakhiran capaian luaran program pengabdian kepada masyarakat tahun pelaksanaan 2023-2025:initial": "2026-10-24T15:52:32.411079+00:00",
-    "bima:surat:1031/dst/c2/pp.01.07/2026|title:undangan peserta workshop penulisan artikel ilmiah mahasiswa pascasarjana tahun 2026:initial": "2026-10-27T08:54:54.470360+00:00"
+    "bima:surat:1031/dst/c2/pp.01.07/2026|title:undangan peserta workshop penulisan artikel ilmiah mahasiswa pascasarjana tahun 2026:initial": "2026-10-27T08:54:54.470360+00:00",
+    "bima:surat:1501/dst/c3/dt.05.00/2026|title:penyampaian laporan kemajuan program pui-pt baru 2026:initial": "2026-10-28T05:53:12.500881+00:00"
   },
   "outbox": {
     "bima:surat:1454/dst/c3/dt.06.01/2026|title:pemberitahuan jadwal pelaporan dan monitoring dan evaluasi internal program pengabdian kepada masyarakat tahun anggaran 2026:initial": {
@@ -242,6 +243,32 @@
       ],
       "send_files": true,
       "attempted_at": "2026-10-27T08:54:54.470360+00:00"
+    },
+    "bima:surat:1501/dst/c3/dt.05.00/2026|title:penyampaian laporan kemajuan program pui-pt baru 2026:initial": {
+      "event_key": "bima:surat:1501/dst/c3/dt.05.00/2026|title:penyampaian laporan kemajuan program pui-pt baru 2026:initial",
+      "status": "reserved",
+      "attempts": 0,
+      "items": [
+        {
+          "title": "Penyampaian Laporan Kemajuan Program PUI-PT Baru 2026",
+          "surat": "1501/DST/C3/DT.05.00/2026",
+          "date": "27 Oktober 2026",
+          "documents": [
+            {
+              "name": "Surat Penyampaian Laporan Kemajuan Program PUI-PT Baru 2026.pdf"
+            }
+          ],
+          "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+          "scraped_at": "2026-10-28T05:52:34.925781"
+        }
+      ],
+      "chunks": [
+        "<b>📢 PENGUMUMAN BARU BIMA KEMDIKTISAINTEK</b>\n\n📅 28/10/2026 12:53 WIB\n🔢 Jumlah: 1 item baru\n🏛️ BIMA: 1\n\n<b>1. Penyampaian Laporan Kemajuan Program PUI-PT Baru 2026</b>\n   📜 1501/DST/C3/DT.05.00/2026\n   📆 27 Oktober 2026\n   📦 Dokumen: 1 file\n   📎 Surat Penyampaian Laporan Kemajuan Program PUI-PT Baru 2026.pdf\n   🔗 https://bima.kemdiktisaintek.go.id/pengumuman\n\n━━━━━━━━━━━━━━━━━━━━\n<i>Bot Dikti News</i>"
+      ],
+      "sent_chunks": [],
+      "sent_documents": [],
+      "receipts": [],
+      "send_files": true
     }
   },
   "last_successful_poll_at": "2026-10-27T22:23:29.362356+00:00"
