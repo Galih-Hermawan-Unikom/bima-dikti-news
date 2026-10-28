@@ -268,13 +268,21 @@
       "sent_chunks": [
         1
       ],
-      "sent_documents": [],
+      "sent_documents": [
+        "0:0"
+      ],
       "receipts": [
         {
           "method": "sendMessage",
           "http_status": 200,
           "ok": true,
           "message_id": 281
+        },
+        {
+          "method": "sendDocument",
+          "http_status": 200,
+          "ok": true,
+          "message_id": 282
         }
       ],
       "send_files": true,
