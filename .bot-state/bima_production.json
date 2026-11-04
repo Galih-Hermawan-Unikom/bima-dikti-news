@@ -291,8 +291,8 @@
     },
     "bima:surat:1065/dst/c2/pp.01.07/2026|title:undangan peserta workshop penulisan artikel ilmiah mahasiswa pascasarjana tahun 2026 kota surabaya:initial": {
       "event_key": "bima:surat:1065/dst/c2/pp.01.07/2026|title:undangan peserta workshop penulisan artikel ilmiah mahasiswa pascasarjana tahun 2026 kota surabaya:initial",
-      "status": "reserved",
-      "attempts": 0,
+      "status": "sending",
+      "attempts": 1,
       "items": [
         {
           "title": "Undangan peserta Workshop Penulisan Artikel Ilmiah Mahasiswa Pascasarjana Tahun 2026 Kota Surabaya",
@@ -313,7 +313,8 @@
       "sent_chunks": [],
       "sent_documents": [],
       "receipts": [],
-      "send_files": true
+      "send_files": true,
+      "attempted_at": "2026-11-04T11:06:54.220230+00:00"
     }
   },
   "last_successful_poll_at": "2026-11-04T01:29:15.617113+00:00"
