@@ -137,7 +137,8 @@
   "first_seen": {
     "bima:surat:1465/dst/c3/dt.06.01/2026|title:pemutakhiran capaian luaran program pengabdian kepada masyarakat tahun pelaksanaan 2023-2025:initial": "2026-10-24T15:52:32.411079+00:00",
     "bima:surat:1031/dst/c2/pp.01.07/2026|title:undangan peserta workshop penulisan artikel ilmiah mahasiswa pascasarjana tahun 2026:initial": "2026-10-27T08:54:54.470360+00:00",
-    "bima:surat:1501/dst/c3/dt.05.00/2026|title:penyampaian laporan kemajuan program pui-pt baru 2026:initial": "2026-10-28T05:53:12.500881+00:00"
+    "bima:surat:1501/dst/c3/dt.05.00/2026|title:penyampaian laporan kemajuan program pui-pt baru 2026:initial": "2026-10-28T05:53:12.500881+00:00",
+    "bima:surat:1065/dst/c2/pp.01.07/2026|title:undangan peserta workshop penulisan artikel ilmiah mahasiswa pascasarjana tahun 2026 kota surabaya:initial": "2026-11-04T11:06:54.220230+00:00"
   },
   "outbox": {
     "bima:surat:1454/dst/c3/dt.06.01/2026|title:pemberitahuan jadwal pelaporan dan monitoring dan evaluasi internal program pengabdian kepada masyarakat tahun anggaran 2026:initial": {
@@ -287,6 +288,32 @@
       ],
       "send_files": true,
       "attempted_at": "2026-10-28T05:53:12.500881+00:00"
+    },
+    "bima:surat:1065/dst/c2/pp.01.07/2026|title:undangan peserta workshop penulisan artikel ilmiah mahasiswa pascasarjana tahun 2026 kota surabaya:initial": {
+      "event_key": "bima:surat:1065/dst/c2/pp.01.07/2026|title:undangan peserta workshop penulisan artikel ilmiah mahasiswa pascasarjana tahun 2026 kota surabaya:initial",
+      "status": "reserved",
+      "attempts": 0,
+      "items": [
+        {
+          "title": "Undangan peserta Workshop Penulisan Artikel Ilmiah Mahasiswa Pascasarjana Tahun 2026 Kota Surabaya",
+          "surat": "1065/DST/C2/PP.01.07/2026",
+          "date": "04 November 2026",
+          "documents": [
+            {
+              "name": "Undangan peserta Workshop Penulisan Artikel Ilmiah Mahasiswa Pascasarjana Tahun 2026 Kota Surabaya.pdf"
+            }
+          ],
+          "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+          "scraped_at": "2026-11-04T11:06:22.806628"
+        }
+      ],
+      "chunks": [
+        "<b>📢 PENGUMUMAN BARU BIMA KEMDIKTISAINTEK</b>\n\n📅 04/11/2026 18:06 WIB\n🔢 Jumlah: 1 item baru\n🏛️ BIMA: 1\n\n<b>1. Undangan peserta Workshop Penulisan Artikel Ilmiah Mahasiswa Pascasarjana Tahun 2026 Kota Surabaya</b>\n   📜 1065/DST/C2/PP.01.07/2026\n   📆 04 November 2026\n   📦 Dokumen: 1 file\n   📎 Undangan peserta Workshop Penulisan Artikel Ilmiah Mahasiswa Pascasarjana Tahun 2026 Kota Surabaya.pdf\n   🔗 https://bima.kemdiktisaintek.go.id/pengumuman\n\n━━━━━━━━━━━━━━━━━━━━\n<i>Bot Dikti News</i>"
+      ],
+      "sent_chunks": [],
+      "sent_documents": [],
+      "receipts": [],
+      "send_files": true
     }
   },
   "last_successful_poll_at": "2026-11-04T01:29:15.617113+00:00"
