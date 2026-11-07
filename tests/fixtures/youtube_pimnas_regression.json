@@ -1,0 +1,72 @@
+{
+  "activation_at": "2026-10-23T03:04:50.949602+00:00",
+  "capture_seq": 103,
+  "captures": [
+    {
+      "healthy": true,
+      "observations": {
+        "rPKcKDj0oa8": {
+          "metadata_by_tab": {
+            "streams": {
+              "badges": [
+                "6.04.24"
+              ],
+              "relative_text": [
+                "28 rb",
+                "Streaming 16 jam lalu"
+              ],
+              "schedule_timezone": null
+            }
+          },
+          "tabs": [
+            "streams"
+          ],
+          "title": "Penutupan Pekan Ilmiah Mahasiswa Nasional (PIMNAS) ke-39 Tahun 2026",
+          "title_conflict": false,
+          "url": "https://www.youtube.com/watch?v=rPKcKDj0oa8"
+        }
+      },
+      "observed_at": "2026-11-07T10:22:44.746830+00:00",
+      "seq": 102
+    },
+    {
+      "healthy": true,
+      "observations": {
+        "rPKcKDj0oa8": {
+          "metadata_by_tab": {
+            "streams": {
+              "badges": [
+                "6.04.24"
+              ],
+              "relative_text": [
+                "28 rb",
+                "Streaming 20 jam lalu"
+              ],
+              "schedule_timezone": null
+            }
+          },
+          "tabs": [
+            "streams"
+          ],
+          "title": "Penutupan Pekan Ilmiah Mahasiswa Nasional (PIMNAS) ke-39 Tahun 2026",
+          "title_conflict": false,
+          "url": "https://www.youtube.com/watch?v=rPKcKDj0oa8"
+        }
+      },
+      "observed_at": "2026-11-07T14:00:09.685342+00:00",
+      "seq": 103
+    }
+  ],
+  "initialized": true,
+  "last_capture_at": "2026-11-07T14:00:09.685342+00:00",
+  "needs_inventory": false,
+  "observations": {
+    "rPKcKDj0oa8": {
+      "first_seen_at": "2026-11-02T09:28:56.716699+00:00",
+      "initial_inventory": false
+    }
+  },
+  "outbox": {},
+  "policy_version": "tabs-only-v1",
+  "schema_version": 1
+}
