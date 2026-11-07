@@ -66,14 +66,14 @@ Ketiga runtime, identitas event, baseline, activation fence, dan outbox tetap te
 
 ### YouTube tabs-only
 
-Kebijakan dasar `tabs-only-v1` memakai `first_seen_at` persisten untuk video reguler. Nilai ini adalah waktu observasi pertama, **bukan `published_at`**. Stream produksi memakai ekstensi [lifecycle LIVE/replay](docs/youtube-lifecycle.md), dengan jendela fase tersendiri. Default fence kosong: stream HOLD sampai aktivasi terpisah.
+Kebijakan dasar `tabs-only-v1` memakai `first_seen_at` persisten. Nilai ini adalah waktu observasi pertama, **bukan `published_at`**. Default fence kosong dan state belum bermigrasi: video reguler serta replay yang memenuhi kebijakan lama tetap tersedia melalui event `:initial`; LIVE tetap HOLD. Ekstensi [lifecycle LIVE/replay](docs/youtube-lifecycle.md) memakai jendela fase tersendiri setelah aktivasi terpisah.
 
 Video hanya dapat dikirim jika seluruh syarat terpenuhi:
 
 1. Identitas belum dikenal cache/baseline/jurnal, bukan initial inventory, dan pertama kali teramati setelah activation fence produksi.
 2. Kedua tab `/videos` dan `/streams` sehat, dengan dua capture yang stabil dan berjarak minimal **10 menit**.
 3. Identitas kanal, provenance observasi, kategori, dan readiness tervalidasi. Keanggotaan tab dapat menjadi bukti kategori sesuai kebijakan, tetapi tidak menggantikan pemeriksaan kondisi lain.
-4. `/videos`: video reguler yang telah publik dan terverifikasi. `/streams`: LIVE atau completed replay memerlukan bukti player publik, dua capture berkesinambungan, dan lifecycle fence. **Tab `/streams` sendiri tidak membuktikan LIVE.**
+4. `/videos`: video reguler yang telah publik dan terverifikasi. Dengan lifecycle OFF, `/streams` tetap memakai verifikasi completed replay legacy. Dengan lifecycle ON, LIVE atau completed replay memerlukan bukti player publik, dua capture berkesinambungan, dan lifecycle fence. **Tab `/streams` sendiri tidak membuktikan LIVE.**
 5. Bukti masih segar, tidak bertentangan, dan event belum pernah dikirim atau memiliki status pengiriman ambigu.
 
 Shorts ditolak. UPCOMING, kategori UNKNOWN, replay yang belum terbukti siap, capture parsial/gagal, atau bukti tidak cukup tetap **HOLD**. LIVE diperiksa ulang sebelum reservation dan sesudah durable claim. UNKNOWN adalah status pengetahuan identitas, bukan izin pengiriman; hanya **ELIGIBLE** dapat masuk jalur pengiriman. ID yang sudah ada saat cutover dan event legacy `:initial` tetap ditekan, termasuk kasus PIMNAS `rPKcKDj0oa8`.

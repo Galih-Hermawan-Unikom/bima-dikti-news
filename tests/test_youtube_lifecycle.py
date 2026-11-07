@@ -294,7 +294,7 @@ def test_conflicting_card_or_shorts_never_admitted(badges, phase):
     assert not card_consistent({"metadata_by_tab": {"streams": {"badges": badges}}}, phase)
 
 
-def test_no_activation_fence_never_sends_stream(tmp_path, monkeypatch):
+def test_no_activation_fence_never_enables_live(tmp_path, monkeypatch):
     h = Harness(tmp_path, monkeypatch, fence=None)
     h.tick(hours=0)
     h.tick("LIVE")
@@ -334,9 +334,8 @@ def test_phase_reservation_rejects_stale_proof(h):
     assert h.store._state["outbox"] == {}
 
 
-@pytest.mark.parametrize("active", [False, True])
-def test_stream_moving_to_videos_never_becomes_regular_initial(tmp_path, monkeypatch, active):
-    h = Harness(tmp_path, monkeypatch, fence=AT if active else None)
+def test_stream_moving_to_videos_never_becomes_regular_initial(tmp_path, monkeypatch):
+    h = Harness(tmp_path, monkeypatch)
     h.tick(hours=0)
     h.tick("LIVE")
     original = h.snapshot
@@ -497,3 +496,110 @@ def test_migration_never_requeues_any_legacy_outbox_status(tmp_path, status):
     before = deepcopy(store._state)
     migrate(store, AT, AT)
     assert {k: v for k, v in store._state.items() if k != "lifecycle"} == before
+
+
+@pytest.mark.parametrize("tab,badges,eligible", [
+    ("videos", [], True), ("streams", ["replay"], True),
+    ("streams", ["LIVE"], False), ("streams", ["upcoming"], False),
+    ("videos", ["Shorts"], False)])
+def test_flag_off_matches_legacy_adapter_and_delivery(tmp_path, monkeypatch, tab, badges, eligible):
+    h = Harness(tmp_path, monkeypatch, fence=None)
+    h.tick(hours=0)
+    original = h.snapshot
+    def snapshot():
+        result = original()
+        if result["observations"]:
+            item = result["observations"][0]
+            item["source_tabs"] = [tab]
+            item["metadata_by_tab"] = {tab: {"badges": badges, "relative_text": [], "schedule_timezone": None}}
+        return result
+    h.snapshot = snapshot
+    h.visible = True
+    for _ in range(2):
+        h.at += timedelta(hours=1)
+        reference_path = tmp_path / "legacy-reference.json"
+        reference_path.write_bytes(h.path.read_bytes())
+        reference_store = YouTubeStateStore(reference_path, activation_at=h.policy.activation_at, policy_version=h.policy.version)
+        reference = monitor.ChannelTabsAdapter(policy=h.policy, observation_store=reference_store, clock=lambda: h.at)
+        expected = reference.evaluate([], JOURNAL)
+        h.open()
+        actual = h.adapter.evaluate([], JOURNAL)
+        assert actual == expected
+    assert (actual.decisions[0].eligibility is e.Eligibility.ELIGIBLE) is eligible
+    h.tick()
+    h.tick()  # restart and duplicate candidate must not create another send
+    assert h.posts == ([f"youtube:video:{VID}:initial"] if eligible else [])
+    assert "lifecycle" not in h.store._state
+    h.reader.fetch.assert_not_called()
+
+
+@pytest.mark.parametrize("reason", ["expired", "inventory", "history"])
+def test_flag_off_keeps_legacy_no_backfill_fences(tmp_path, monkeypatch, reason):
+    h = Harness(tmp_path, monkeypatch, fence=None)
+    h.tick(hours=0)
+    original = h.snapshot
+    def replay():
+        result = original()
+        if result["observations"]:
+            result["observations"][0]["metadata_by_tab"]["streams"]["badges"] = ["replay"]
+        return result
+    h.snapshot = replay
+    h.tick("COMPLETED_REPLAY", send=False)
+    if reason == "expired":
+        h.at += timedelta(days=2)
+    elif reason == "inventory":
+        h.store._commit(lambda s: s["observations"][VID].update(initial_inventory=True))
+    else:
+        monkeypatch.setitem(JOURNAL["youtube_rss_cutover"], "baseline_ids", [VID])
+    h.tick()
+    assert h.posts == []
+    h.reader.fetch.assert_not_called()
+
+
+def test_flag_off_after_activation_never_falls_back_to_legacy_initial(h):
+    h.tick("LIVE")
+    h.tick("LIVE")
+    h.fence = None
+    h.tick("COMPLETED_REPLAY")
+    h.tick("COMPLETED_REPLAY")
+    assert h.posts == [f"youtube:video:{VID}:live"]
+    assert f"youtube:video:{VID}:initial" not in h.store._state["outbox"]
+
+
+@pytest.mark.parametrize("formats", ["changed", {}, [None], [{}], ["changed"]])
+def test_malformed_player_media_format_is_unknown(formats):
+    p = player("LIVE", AT)
+    p["streamingData"]["formats"] = formats
+    assert player_evidence(p, VID, AT)["phase"] == "UNKNOWN"
+
+
+def test_missing_streams_and_permanent_replay_holds_do_not_recheckpoint(h):
+    h.end = False
+    h.tick("COMPLETED_REPLAY")  # no prior phase/end, permanently quarantined
+    row = deepcopy(h.store._state["lifecycle"]["records"][VID])
+    calls = h.reader.fetch.call_count
+    for visible in (True, False, False, True):
+        h.visible = visible
+        checkpoints = len(h.checkpoints)
+        h.tick()
+        assert len(h.checkpoints) - checkpoints == 1  # source capture only
+    assert h.reader.fetch.call_count == calls
+    assert h.store._state["lifecycle"]["records"][VID] == row
+    assert h.posts == []
+
+
+def test_many_cutover_streams_add_no_player_requests_or_per_video_checkpoints(h):
+    ids = [f"hist{i:07d}" for i in range(100)]
+    def seed(state):
+        for vid in ids:
+            state["observations"][vid] = {"first_seen_at": AT.isoformat(), "initial_inventory": False}
+        state["lifecycle"]["suppressed_ids"] = ids
+        state["lifecycle"]["stream_ids"] = ids
+    h.store._commit(seed)
+    observations = deepcopy(h.store._state["observations"])
+    checkpoints = len(h.checkpoints)
+    h.tick()
+    assert len(h.checkpoints) - checkpoints == 1
+    h.reader.fetch.assert_not_called()
+    assert h.store._state["lifecycle"]["records"] == {}
+    assert h.store._state["observations"] == observations

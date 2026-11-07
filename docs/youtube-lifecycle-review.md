@@ -56,7 +56,7 @@ Tidak ada hardcoded send/backfill exception untuk ID ini.
 | `youtube_lifecycle.py` | Publisher JSON extraction, explicit phases, monotonic completion, continuity, immutable origin/end evidence, additive migration, quarantine, revalidation. |
 | `youtube_delivery.py` | JSON schema 1 kompatibel; ekstensi tervalidasi; marker monotonic seen-on-streams; phase reservations dan payload provenance. Lock, atomic replacement, CAS hook, send lease, receipt dan ambiguity tetap. |
 | `youtube_state_backend.py` | GET fixed branch/path, validator, blob SHA expected pada Contents PUT, konflik 409/422 menghentikan sebelum send. Tidak berubah. |
-| `production_runtime.py` | Lifecycle adapter, default empty fence HOLD stream, pemeriksaan sebelum reserve dan sesudah claim. Reserved lifecycle lintas restart perlu operator. Report interval YouTube disesuaikan dengan cron unified satu jam. |
+| `production_runtime.py` | Lifecycle adapter; fence kosong sebelum migrasi mempertahankan regular/replay legacy dan tetap menolak LIVE. Pemeriksaan sebelum reserve dan sesudah claim. Reserved lifecycle lintas restart perlu operator. Report interval YouTube disesuaikan dengan cron unified satu jam. |
 | `dikti_news_scheduler.py` | Pinned master/approved SHA, recheck setelah queue, independent source switches; tidak berubah. |
 | `.github/workflows/dikti-news-production.yml` | Hanya satu environment variable tambahan di job YouTube. Cron, BIMA/Kemdikti jobs, lock group, queue, permissions dan credential gates tidak berubah. |
 | `.github/workflows/youtube-production.yml` | Recovery manual mendapat variabel fence yang sama. Tidak ditambah schedule/dispatch baru. |
@@ -105,7 +105,7 @@ menyebabkan kegagalan tertutup.
 
 Suite penuh: `python -X utf8 -m pytest -q`, dengan JUnit tersimpan di temporary
 directory. Semua tes menggunakan fixture/mock; autouse fixture menolak network
-dan akses secret file. Hasil final: **1.072 passed, 26 subtests passed, 0 failed,
+dan akses secret file. Validasi implementasi awal: **1.072 passed, 26 subtests passed, 0 failed,
 0 skipped**, 42,76 detik pada Python 3.11/Windows. `git diff --check` bersih.
 
 | Persyaratan | Bukti tes otomatis |
@@ -150,3 +150,50 @@ dipulihkan, termasuk UPCOMING lama.
 representatif, meninjau CI/PR, dan menyetujui fence. PR dibuat untuk review tanpa
 merge/deployment. Implementasi default-off dapat dinilai terpisah dari persetujuan
 aktivasi. Tidak ada klaim Telegram production success dari tes offline ini.
+
+## Review lanjutan: kompatibilitas feature OFF (8 November 2026)
+
+Blocker merge karena perilaku OFF telah diperbaiki: sebelum state pernah
+bermigrasi, fence kosong langsung memakai keputusan dan preview adapter legacy.
+Regular dan replay yang lolos policy lama tetap memakai `:initial`; LIVE tidak
+diaktifkan. Tidak ada request player, migrasi, atau checkpoint lifecycle tambahan.
+Window first-seen, TTL, inventory, history, Shorts, reservation, CAS dan outbox
+legacy tetap berlaku. Replay kedaluwarsa, termasuk kasus PIMNAS, tidak dibuka.
+Jika state sudah memiliki ekstensi lifecycle, OFF tetap menahan stream; rollback
+tidak boleh menciptakan initial event setelah histori `:live` / `:replay`.
+
+Audit tiga risiko menghasilkan perbaikan terbatas berikut:
+
+- Metadata: format media wajib berupa list berisi object nonempty; perubahan
+  tipe seperti string, dict, null entry atau object kosong menghasilkan UNKNOWN.
+  Tidak ada fallback dari player rusak menjadi bukti LIVE.
+- Biaya/state: stream hilang, startup inventory, replay yang permanen tidak
+  admitted, serta histori cutover tidak membutuhkan GET/per-video checkpoint
+  berulang. Tes 100 stream historis membatasi pekerjaan ke satu checkpoint source
+  capture dan mempertahankan seluruh observasi. Record menyimpan latest evidence
+  dan origin tetap, bukan daftar tak terbatas setiap poll. Limit state 900.000 byte
+  tetap fail-closed; histori/outbox tidak dipangkas.
+- Actions terlambat: record yang melewati capture hilang tidak diperlakukan
+  seperti first detection baru ketika replay muncul kembali. Origin tidak
+  digeser; continuity, freshness, CAS, dan aturan tanpa retry ambigu dipertahankan.
+  Dengan OFF, temporal policy legacy berlaku persis seperti sebelum fitur ini.
+
+Migrasi offline diulang terhadap snapshot state
+`07b61cbe125210882e162a7e83720936d212125e`: **47.238 byte, 78 observasi,
+capture_seq 107, tiga outbox delivered**. Seluruh field legacy, termasuk outbox,
+receipt, inventory dan first-seen, identik sebelum/sesudah ekstensi ditambahkan.
+PIMNAS masuk suppression; tidak ada remote PUT atau Telegram.
+
+Keputusan review: **GO untuk merge dengan lifecycle tetap OFF setelah CI PASS**.
+Status NO-GO di bagian sebelumnya berlaku untuk aktivasi lifecycle, bukan merge
+kode dengan OFF yang kompatibel. Risiko parser watch, biaya banyak stream baru
+yang belum dikenal, fixture LIVE produksi yang belum tersedia, dan race terakhir
+YouTube/Telegram tetap harus ditinjau sebelum aktivasi terpisah. Tidak ada Variables,
+Secrets, baseline atau state produksi yang diubah dalam review ini.
+
+Validasi lanjutan: **1.087 passed, 26 subtests passed, 0 failed, 0 skipped**
+(Python 3.11/Windows, 190,18 detik); `git diff --check` bersih. Termasuk parity
+keputusan/preview dengan adapter legacy pada OFF, mock delivery `:initial` satu
+kali lintas restart, inventory/history/window fences, rollback pasca-aktivasi,
+format player rusak dan biaya checkpoint 100 stream historis. CI pada head PR
+menjadi syarat terakhir sebelum merge; tidak ada merge atau aktivasi dalam tugas ini.

@@ -5,6 +5,14 @@ Implementasi stream produksi memakai `LifecycleTabsAdapter` di atas discovery
 Adapter eksperimen lama tetap memakai kontrak `:initial`; lifecycle hanya dapat
 dikirim melalui notifier produksi dengan destination/credential checks yang sama.
 
+**Feature OFF sebelum migrasi:** fence kosong mengembalikan hasil adapter legacy
+secara langsung. Regular dan completed replay yang memenuhi policy lama tetap
+dapat memakai `:initial`; LIVE tetap ditolak. Tidak ada player GET, migrasi, atau
+checkpoint lifecycle. Window first-seen 24 jam, TTL, inventory, history, Shorts,
+CAS dan outbox legacy tetap berlaku. Ini tidak memperbaiki replay historis yang
+sudah kedaluwarsa dan tidak membuka backfill. Setelah state pernah bermigrasi,
+mengosongkan fence menahan stream lifecycle agar tidak jatuh ke `:initial` baru.
+
 ```mermaid
 stateDiagram-v2
     [*] --> UNKNOWN
@@ -103,8 +111,8 @@ record fase. Migrasi hanya menambahkan ekstensi, tanpa mengubah observasi,
 first-seen, captures, inventory, outbox, ataupun receipt lama.
 
 Variabel **`YOUTUBE_LIFECYCLE_ACTIVATION_AT`** diteruskan hanya ke job YouTube
-(unified dan recovery manual). Default kosong: semua stream HOLD, regular video
-tetap melalui kebijakan lama. Tidak ada aktivasi otomatis berdasarkan waktu merge.
+(unified dan recovery manual). Default kosong sebelum migrasi: regular dan replay
+legacy tetap tersedia, LIVE HOLD. Tidak ada aktivasi otomatis berdasarkan merge.
 Fence wajib timezone-aware, tidak sebelum activation produksi lama, dan harus
 sudah tercapai. Setelah ekstensi ada, fence berbeda menyebabkan fail-closed.
 
@@ -122,7 +130,7 @@ initialize, mereset baseline, mengubah approved SHA, atau memajukan fence untuk
 membuka histori. PR ini tidak mengubah Variables/Secrets, mengaktifkan fence,
 dispatch, mengirim Telegram, ataupun menulis state produksi.
 
-Untuk rollback operasional, kosongkan fence hanya melalui prosedur otorisasi
+Untuk rollback setelah migrasi, kosongkan fence hanya melalui prosedur otorisasi
 operator: stream kembali HOLD, ekstensi/outbox tetap tersimpan. Penggunaan ulang
 harus memakai fence tersimpan yang sama. Jangan kembali ke sender lama yang hanya
 mengenal `:initial` tanpa review compatibility atas state yang sudah memiliki fase.
@@ -158,8 +166,9 @@ yang sama, bukan rekonstruksi yang diklaim sebagai fakta produksi.
 
 `rPKcKDj0oa8` masuk suppression saat migrasi; tidak ada pengecualian auto-backfill.
 Observasi baru menyimpan marker monotonic `seen_on_streams`, sehingga pergantian
-tab tidak dapat membuat stream menjadi kandidat regular `:initial`, termasuk
-ketika fence belum diaktifkan. Marker ini tidak mengubah first-seen atau inventory.
+tab tidak dapat membuat stream menjadi kandidat regular `:initial` ketika lifecycle
+aktif atau state sudah pernah bermigrasi. Sebelum migrasi dengan feature OFF,
+klasifikasi tetap mengikuti adapter legacy. Marker tidak mengubah first-seen atau inventory.
 Durasi kartu tidak dipakai menghitung actual end. Parser player dapat berhenti
 bekerja jika YouTube mengubah format, menolak akses, atau memberi respons berbeda
 per wilayah. `OK` dan format playback membuktikan assertion player saat pemeriksaan,

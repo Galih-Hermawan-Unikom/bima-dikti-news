@@ -52,6 +52,10 @@ def player_evidence(player, video_id, at):
                 result["phase"] = "UPCOMING"
             return result
         streaming = player.get("streamingData", {})
+        for name in ("formats", "adaptiveFormats"):
+            formats = streaming.get(name, [])
+            if not isinstance(formats, list) or any(not isinstance(f, dict) or not f for f in formats):
+                return result
         playable = status == "OK" and bool(streaming.get("formats") or streaming.get("adaptiveFormats"))
         if not playable or start is None or start > at:
             return result
@@ -178,7 +182,7 @@ def advance(store, vid, evidence, *, healthy, interval):
             end = parse_timestamp(evidence["actual_end_at"])
             fence = parse_timestamp(current["lifecycle"]["activation_at"])
             transition = prior and prior["phase"] in {"UPCOMING", "LIVE"}
-            recent_end = (end is not None and (prior is None or prior["phase"] in {"UPCOMING", "LIVE"})
+            recent_end = (end is not None and (previous is None or (prior and prior["phase"] in {"UPCOMING", "LIVE"}))
                 and max(fence, parse_timestamp(captures[0]["observed_at"])) < end <= at)
             row["replay_admitted"] = bool(continuous and (recent_end or transition)
                 and (end is None or end > fence))
@@ -212,6 +216,10 @@ class LifecycleTabsAdapter(ChannelTabsAdapter):
         base = super().evaluate(cache, journal)
         if base.errors:
             return base
+        if self.fence is None and "lifecycle" not in store._state:
+            # Feature OFF preserves legacy regular/replay eligibility and :initial
+            # deduplication. No migration, player GET or lifecycle checkpoint.
+            return base
         history = self._history(cache, journal)
         decisions, previews, evidence_rows = list(base.decisions), list(base.preview_items), list(base.evidence)
         for index, decision in enumerate(decisions):
@@ -244,6 +252,11 @@ class LifecycleTabsAdapter(ChannelTabsAdapter):
                         delivery_state=e.DeliveryState.DELIVERED if delivered else e.DeliveryState.PENDING,
                         reason_codes=("CONFIRMED_REPLAY_EVENT" if delivered else "REPLAY_REQUIRES_OPERATOR_RECONCILIATION",))
                     continue
+                row = lifecycle["records"].get(vid, {})
+                if (not captures[-1]["tabs"] or persistent["initial_inventory"]
+                        or (row.get("first_verified_replay_at") is not None and not row["replay_admitted"])):
+                    decisions[index] = replace(d, reason_codes=("LIFECYCLE_QUARANTINED_OR_NOT_VISIBLE",))
+                    continue  # historical holds need no repeated player GET / per-video PUT
                 latest = self._player(vid) if captures[-1]["tabs"] == ["streams"] else player_evidence({}, vid, self.clock())
                 previous_record = lifecycle["records"].get(vid, {})
                 reversed_completion = (previous_record.get("first_verified_replay_at") is not None
