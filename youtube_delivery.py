@@ -39,6 +39,14 @@ def _canonical(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
+def valid_event_payload(event_key, item):
+    phase = item.get("lifecycle_phase")
+    suffix = phase if phase in {"live", "replay"} else "initial"
+    return (phase in {None, "live", "replay"}
+        and event_key == f"youtube:video:{item.get('video_id')}:{suffix}"
+        and (phase is None or _parse(item.get("lifecycle_activation_at")) is not None))
+
+
 @dataclass(frozen=True)
 class SendConfirmation:
     http_status: int
@@ -113,6 +121,14 @@ class YouTubeStateStore:
                 or len(state["captures"]) > 2
                 or not isinstance(state.get("outbox"), dict)):
             raise ValueError("Invalid YouTube JSON state schema")
+        if "lifecycle" in state:
+            from youtube_lifecycle import validate_lifecycle
+            validate_lifecycle(state["lifecycle"])
+            if (set(state["lifecycle"]["records"]) - set(state["observations"])
+                    or set(state["lifecycle"]["suppressed_ids"]) - set(state["observations"])
+                    or any(row["capture_seq"] > state["capture_seq"] for row in state["lifecycle"]["records"].values())
+                    or _parse(state["lifecycle"]["activation_at"]) < _parse(state["activation_at"])):
+                raise ValueError("Lifecycle provenance conflicts with observations")
         evaluation = state.get("last_evaluation")
         if evaluation is not None:
             if (not isinstance(evaluation, dict) or evaluation.get("version") != 1
@@ -150,7 +166,8 @@ class YouTubeStateStore:
         for video_id, record in state["observations"].items():
             if (not isinstance(video_id, str) or not _VIDEO_ID.fullmatch(video_id)
                     or not isinstance(record, dict) or _parse(record.get("first_seen_at")) is None
-                    or type(record.get("initial_inventory")) is not bool):
+                    or type(record.get("initial_inventory")) is not bool
+                    or ("seen_on_streams" in record and type(record["seen_on_streams"]) is not bool)):
                 raise ValueError("Invalid YouTube observation state")
         last_seq, last_at = 0, None
         for capture in state["captures"]:
@@ -192,6 +209,18 @@ class YouTubeStateStore:
                     or not _VIDEO_ID.fullmatch(record["video_id"])
                     or not isinstance(record.get("item"), dict)):
                 raise ValueError("Invalid YouTube outbox state")
+            if event_key.endswith((":live", ":replay")):
+                item = record["item"]
+                payload = _canonical(item)
+                if ("lifecycle" not in state or not valid_event_payload(event_key, item)
+                        or item.get("lifecycle_phase") != event_key.rsplit(":", 1)[1]
+                        or item.get("video_id") != record["video_id"]
+                        or item.get("lifecycle_activation_at") != state["lifecycle"]["activation_at"]
+                        or record.get("payload_json") != payload
+                        or record.get("payload_sha256") != hashlib.sha256(payload.encode("utf-8")).hexdigest()
+                        or type(record.get("attempts")) is not int
+                        or record["attempts"] != (0 if record["status"] == "reserved" else 1)):
+                    raise ValueError("Invalid lifecycle outbox provenance")
 
     def set_commit_hook(self, hook):
         if hook is not None and not callable(hook):
@@ -274,6 +303,8 @@ class YouTubeStateStore:
                 for video_id in normalized:
                     state["observations"].setdefault(video_id,
                         {"first_seen_at": stamp, "initial_inventory": bool(frontier)})
+                    if "streams" in normalized[video_id]["tabs"]:
+                        state["observations"][video_id]["seen_on_streams"] = True
                 state["initialized"] = True
                 state["needs_inventory"] = False
             else:
@@ -310,6 +341,7 @@ class YouTubeStateStore:
                 "title_conflict": item.get("title_conflict", False) if item else False})
         last_visible = next((capture for capture in reversed(captures) if capture["tabs"]), None)
         return {"first_seen_at": record["first_seen_at"],
+                "seen_on_streams": record.get("seen_on_streams", False),
                 "initial_inventory": record["initial_inventory"], "captures": captures,
                 "video": ({"title": last_visible["title"], "url": last_visible["url"]}
                           if last_visible else None)}
@@ -324,8 +356,8 @@ class YouTubeStateStore:
         if (getattr(decision, "eligibility", None) is not e.Eligibility.ELIGIBLE
                 or getattr(decision, "requires_atomic_reservation", False) is not True
                 or not isinstance(video_id, str) or not _VIDEO_ID.fullmatch(video_id)
-                or event_key != f"youtube:video:{video_id}:initial"
                 or not isinstance(item, dict) or item.get("source") != "youtube"
+                or not valid_event_payload(event_key, item)
                 or item.get("video_id") != video_id
                 or item.get("url") != "https://www.youtube.com/watch?v=" + video_id
                 or item.get("documents") or item.get("delivery_format") != "youtube-tabs-preview-v1"):
@@ -339,6 +371,25 @@ class YouTubeStateStore:
                   "message_id": None, "last_error": None}
         result = {}
         def mutation(state):
+            phase = item.get("lifecycle_phase")
+            if phase is not None:
+                from youtube_lifecycle import FRESHNESS, WINDOW
+                lifecycle = state.get("lifecycle", {})
+                row = lifecycle.get("records", {}).get(video_id, {})
+                latest = row.get("latest", {})
+                phase_name = {"live": "LIVE", "replay": "COMPLETED_REPLAY"}[phase]
+                observed = _parse(latest.get("observed_at"))
+                origin = _parse(row.get("origins", {}).get(phase_name))
+                if (lifecycle.get("activation_at") != item.get("lifecycle_activation_at")
+                        or video_id in lifecycle.get("suppressed_ids", [])
+                        or f"youtube:video:{video_id}:initial" in state["outbox"]
+                        or row.get("capture_seq") != state["capture_seq"]
+                        or latest.get("phase") != phase_name or latest.get("public_playable") is not True
+                        or observed is None or not timedelta(0) <= now - observed <= FRESHNESS
+                        or origin is None or not timedelta(0) <= now - origin <= WINDOW
+                        or origin <= _parse(lifecycle["activation_at"])
+                        or (phase == "replay" and row.get("replay_admitted") is not True)):
+                    raise ValueError("Lifecycle reservation evidence invalid")
             existing = state["outbox"].get(event_key)
             if existing is not None:
                 if existing["payload_json"] != payload:

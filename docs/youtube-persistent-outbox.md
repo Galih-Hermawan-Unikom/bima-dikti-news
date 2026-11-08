@@ -1,5 +1,10 @@
 # YouTube persistent observations and outbox
 
+Production stream lifecycle now has separate `:live` / `:replay` events and an
+explicit opt-in fence. See [production lifecycle](youtube-lifecycle.md) for its
+additive state migration, continuity checks and legacy suppression. The original
+experiment `:initial` protocol below remains unchanged.
+
 This feature adds an optional tabs-only delivery path. It is deliberately
 separate from `youtube_cache.json`, the historical 133-ID baseline, and
 `delivery_state.json`. GitHub Actions loads a versioned JSON snapshot from the

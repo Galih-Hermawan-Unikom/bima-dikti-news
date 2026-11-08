@@ -23,7 +23,7 @@ from youtube_delivery import YouTubeStateStore, SendConfirmation
 from youtube_eligibility import Policy, Eligibility, Knowledge
 from youtube_history import parse_timestamp
 from youtube_state_backend import GitHubStateBranch
-from youtube_tabs_monitor import ChannelTabsAdapter
+from youtube_lifecycle import LifecycleTabsAdapter
 from youtube_experiment_preflight import PreflightError
 
 
@@ -197,10 +197,17 @@ def youtube_cycle(store, adapter, cache, journal, notifier, *, enabled, startup)
             continue
         if len(notifier._build_summary_chunks([item])) != 1:
             continue
+        lifecycle = item.get("lifecycle_phase") is not None
+        if lifecycle and not adapter.revalidate(item):
+            continue
         record = store.reserve(decision, item, now=now())
         if record["status"] != "reserved":
             continue
+        if lifecycle and not record["created"]:
+            continue  # restart of a reserved phase needs operator reconciliation
         def sender(payload, ticket):
+            if lifecycle and not adapter.revalidate(payload):
+                return None  # no POST; retain at-most-once claim for reconciliation
             ok = notifier.send_youtube_production_notification(payload, ticket)
             receipts = notifier.last_delivery_receipts
             if ok is True and len(receipts) == 1:
@@ -290,12 +297,17 @@ def run(source, mode):
             policy = Policy(CHANNEL_ID, POLICY, scope="production", activation_at=activation,
                 window=timedelta(hours=24), ttl=timedelta(hours=4), skew=timedelta(minutes=5),
                 capture_interval=timedelta(minutes=10), approved=True, automatic_tabs_verification=True)
-            adapter = ChannelTabsAdapter(channel_id=CHANNEL_ID, policy=policy, observation_store=store)
+            raw_fence = os.environ.get("YOUTUBE_LIFECYCLE_ACTIVATION_AT", "")
+            lifecycle_fence = parse_timestamp(raw_fence)
+            if raw_fence and lifecycle_fence is None:
+                raise ValueError("Invalid lifecycle activation fence")
+            adapter = LifecycleTabsAdapter(channel_id=CHANNEL_ID, policy=policy, observation_store=store,
+                lifecycle_fence=lifecycle_fence)
             previous_capture = store._state.get("last_capture_at")
             report = youtube_cycle(store, adapter, cache, journal, notifier,
                                    enabled=enabled, startup=startup)
             report.update(poll_gap_seconds=poll_gap_seconds(previous_capture,
-                    store._state.get("last_capture_at")), planned_interval_seconds=1800)
+                    store._state.get("last_capture_at")), planned_interval_seconds=3600)
             report["poll_gap_warning"] = poll_gap_warning(
                 report["poll_gap_seconds"], report["planned_interval_seconds"])
             report.update(activation_at=store._state["activation_at"], capture_seq=store._state["capture_seq"],

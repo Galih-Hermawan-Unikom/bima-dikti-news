@@ -33,6 +33,7 @@ jobs:
         run: pip install -r requirements.txt
       - name: Official-channel preflight and isolated youtube cycle
         env:
+          YOUTUBE_LIFECYCLE_ACTIVATION_AT: ${{ vars.YOUTUBE_LIFECYCLE_ACTIVATION_AT || '' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

@@ -120,6 +120,7 @@ class ReleaseEvidence:
     proof: Proof | None = None
     ended_at: datetime | None = None
     completion_verified: bool = False
+    lifecycle_verified: bool = False
 
 
 @dataclass(frozen=True)
@@ -128,6 +129,7 @@ class TimeEvidence:
     first_seen_at: datetime
     clock_verified: bool = False
     initial_inventory: bool = True
+    phase_started_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -153,6 +155,7 @@ class Policy:
     capture_interval: timedelta | None = None
     approved: bool = False
     automatic_tabs_verification: bool = False
+    lifecycle_activation_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -215,7 +218,9 @@ def classify(item: EligibilityInput) -> Decision:
 
 def _classify(item):
     h, p, t, j = item.history, item.policy, item.time, item.journal
-    key = f"youtube:video:{item.video_id}:initial"
+    lifecycle = p.lifecycle_activation_at is not None and item.category.category is Category.STREAM
+    phase = {Readiness.LIVE: "live", Readiness.COMPLETED_REPLAY: "replay"}.get(item.release.readiness)
+    key = f"youtube:video:{item.video_id}:{phase if lifecycle and phase else 'initial'}"
     known = item.video_id in h.baseline_ids | h.cache_ids | h.journal_ids or j.state is not DeliveryState.NONE
 
     def result(outcome, reason, unverified=False):
@@ -234,7 +239,7 @@ def _classify(item):
     if j.scope != p.scope or (j.event_key is not None and j.event_key != key):
         return hold("JOURNAL_EVENT_OR_SCOPE_CONFLICT")
     if j.state is DeliveryState.DELIVERED:
-        return result(Eligibility.ALREADY_DELIVERED, "CONFIRMED_INITIAL_EVENT") if j.event_key == key and j.acknowledgement_verified else hold("JOURNAL_ACKNOWLEDGEMENT_UNVERIFIED")
+        return result(Eligibility.ALREADY_DELIVERED, "CONFIRMED_LIFECYCLE_EVENT" if lifecycle else "CONFIRMED_INITIAL_EVENT") if j.event_key == key and j.acknowledgement_verified else hold("JOURNAL_ACKNOWLEDGEMENT_UNVERIFIED")
     if j.ambiguous_outcome:
         return hold("RECOVERY_OUTCOME_AMBIGUOUS")
     if j.state in {DeliveryState.PENDING, DeliveryState.PARTIAL}:
@@ -251,13 +256,18 @@ def _classify(item):
             or any(type(v) is not timedelta or v <= timedelta(0) for v in (p.window, p.ttl, p.capture_interval))
             or type(p.skew) is not timedelta or p.skew < timedelta(0)):
         return hold("POLICY_PARAMETERS_OR_CLOCK_UNVERIFIED")
-    if t.first_seen_at <= p.activation_at:
+    origin = t.phase_started_at if lifecycle else t.first_seen_at
+    fence = p.lifecycle_activation_at if lifecycle else p.activation_at
+    if lifecycle and (not _aware(fence) or fence < p.activation_at or not _aware(origin)
+                      or not item.release.lifecycle_verified or phase is None):
+        return hold("LIFECYCLE_PHASE_UNVERIFIED")
+    if origin <= fence:
         return hold("PRE_ACTIVATION_OBSERVATION_NO_BACKFILL")
     if t.initial_inventory:
         return hold("STARTUP_INVENTORY_NO_AUTOMATIC_BACKFILL")
-    if t.first_seen_at > t.now + p.skew:
+    if origin > t.now + p.skew:
         return hold("FUTURE_OBSERVATION_OR_CLOCK_ERROR")
-    if t.now - t.first_seen_at > p.window:
+    if t.now - origin > p.window:
         return hold("OBSERVATION_WINDOW_EXPIRED")
     if item.reservation is Reservation.OWNED_BY_OTHER:
         return hold("EVENT_RESERVED_BY_OTHER_WRITER")
@@ -311,13 +321,14 @@ def _classify(item):
             return hold(error)
     if item.release.readiness is Readiness.UPCOMING:
         return hold("SCHEDULED_NOT_RELEASED")
-    if item.release.readiness is Readiness.LIVE:
+    if item.release.readiness is Readiness.LIVE and not lifecycle:
         return hold("LIVE_NOT_ALLOWED_REPLAY_ONLY")
     stream = item.category.category is Category.STREAM or "streams" in item.captures[-1].tabs
     if stream:
         if (item.category.category is not Category.STREAM
-                or item.release.readiness is not Readiness.COMPLETED_REPLAY
+                or item.release.readiness not in ({Readiness.LIVE, Readiness.COMPLETED_REPLAY} if lifecycle else {Readiness.COMPLETED_REPLAY})
                 or not (item.release.completion_verified
+                        or (lifecycle and item.release.readiness is Readiness.LIVE)
                         or (_aware(item.release.ended_at) and item.release.ended_at <= t.now))):
             return hold("COMPLETED_PUBLIC_REPLAY_UNVERIFIED")
     elif item.release.readiness is not Readiness.PUBLIC_RELEASED:

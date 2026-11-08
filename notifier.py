@@ -187,14 +187,15 @@ class Notifier:
         """Send one reserved tabs item; generic YouTube delivery remains blocked."""
         self.last_delivery_receipts = []
         try:
-            from youtube_delivery import DeliveryTicket
+            from youtube_delivery import DeliveryTicket, valid_event_payload
             import hashlib
             import json
             payload = json.dumps(item, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
             if (type(ticket) is not DeliveryTicket or ticket.attempt != 1
                     or not re.fullmatch(r"[a-f0-9]{32}", ticket.attempt_token)
                     or ticket.video_id != item.get("video_id")
-                    or ticket.event_key != f"youtube:video:{ticket.video_id}:initial"
+                    or not valid_event_payload(ticket.event_key, item)
+                    or (item.get("lifecycle_phase") is not None and not production)
                     or hashlib.sha256(payload.encode("utf-8")).hexdigest() != ticket.payload_sha256
                     or item.get("source") != "youtube"
                     or item.get("delivery_format") != "youtube-tabs-preview-v1"
@@ -303,6 +304,11 @@ class Notifier:
     def _format_html_item(self, index, ann):
         source = self._item_source(ann)
         if source == "youtube":
+            phase = ann.get("lifecycle_phase")
+            if phase in {"live", "replay"}:
+                label = "🔴 Sedang LIVE" if phase == "live" else "▶️ Rekaman Tersedia"
+                return (f"<b>{label} | Kemdiktisaintek</b>\n\n"
+                        f"{escape(ann['title'])}\n\n{escape(ann['url'])}\n\n")
             channel_title = ann.get("channel_title", "Kemdiktisaintek")
             message = f"<b>{index}. {escape(ann['title'])}</b>\n"
             message += f"   📺 {escape(channel_title)}\n"

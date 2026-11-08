@@ -112,6 +112,7 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Recheck approval after queue, then run isolated youtube
         env:
+          YOUTUBE_LIFECYCLE_ACTIVATION_AT: ${{ vars.YOUTUBE_LIFECYCLE_ACTIVATION_AT || '' }}
           GITHUB_TOKEN: ${{ github.token }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || '' }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID || '' }}

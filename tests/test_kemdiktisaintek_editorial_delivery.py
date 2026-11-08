@@ -436,7 +436,11 @@ def test_remote_ledger_scope_is_explicit_and_manual_only_workflow_has_no_cron():
     workflow = (ROOT / '.github/workflows/kemdiktisaintek-editorial-delivery.yml').read_text(encoding='utf-8')
     assert 'workflow_dispatch:' in workflow and 'schedule:' not in workflow
     assert "default: PREVIEW" in workflow and 'contents: read' in workflow and 'contents: write' in workflow
-    unified = (ROOT / '.github/workflows/dikti-news-production.yml').read_bytes()
+    unified = (ROOT / '.github/workflows/dikti-news-production.yml').read_bytes().replace(b'\r\n', b'\n')
+    # Only the YouTube job gains an opt-in fence; retain the full prior-workflow invariant.
+    fence_line = b"          YOUTUBE_LIFECYCLE_ACTIVATION_AT: ${{ vars.YOUTUBE_LIFECYCLE_ACTIVATION_AT || '' }}\n"
+    assert unified.count(fence_line) == 1
+    unified = unified.replace(fence_line, b'')
     base_blob_sha = hashlib.sha1(b'blob ' + str(len(unified)).encode() + b'\0' + unified).hexdigest()
     assert base_blob_sha == '0e9b31ae621d37022eab7a591882ab0dff8a55fd'
 

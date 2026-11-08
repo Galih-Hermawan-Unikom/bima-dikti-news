@@ -1,5 +1,9 @@
 # YouTube channel-tabs dry-run
 
+This document describes the original dry-run/experiment adapter. Production uses
+[publisher-verified stream lifecycle](youtube-lifecycle.md) with a separate
+activation fence; tab membership alone never proves LIVE.
+
 The runner's only YouTube discovery adapter reads the public channel `/videos`
 and `/streams` tabs. RSS is not imported or consulted by the current runner,
 adapter or eligibility classifier. `youtube_monitor.py` remains only as a legacy

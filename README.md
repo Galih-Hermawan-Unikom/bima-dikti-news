@@ -3,7 +3,7 @@
 Bot Python yang memantau informasi dari tiga sumber resmi Kementerian Pendidikan Tinggi, Sains, dan Teknologi (Kemdiktisaintek) dan mengirim pemberitahuan yang memenuhi kriteria ke kanal Telegram **[@dikti_news](https://t.me/dikti_news)**:
 
 - 🏛️ **[BIMA](https://bima.kemdiktisaintek.go.id/pengumuman)** — pengumuman pendanaan, penelitian, pengabdian, dan program terkait; ringkasan serta lampiran PDF yang tersedia.
-- 📺 **[YouTube Kemdiktisaintek](https://www.youtube.com/@kemdiktisaintek)** — video reguler dan rekaman siaran langsung (replay) yang telah terverifikasi.
+- 📺 **[YouTube Kemdiktisaintek](https://www.youtube.com/@kemdiktisaintek)** — video reguler serta lifecycle LIVE/replay terverifikasi dengan activation fence terpisah.
 - 📢 **[Pengumuman situs Kemdiktisaintek](https://kemdiktisaintek.go.id/announcement)** — pengumuman resmi, tenggat jika ada, dan dokumen PDF yang memenuhi persyaratan.
 
 Monitoring berjalan melalui GitHub Actions tanpa memerlukan komputer lokal yang terus menyala. Tiap sumber mempunyai kebijakan kelayakan, baseline, dan state operasional tersendiri untuk mencegah pengiriman ulang konten lama. Pengiriman Telegram bukan arsip lengkap semua konten sumber.
@@ -66,21 +66,24 @@ Ketiga runtime, identitas event, baseline, activation fence, dan outbox tetap te
 
 ### YouTube tabs-only
 
-Kebijakan produksi `tabs-only-v1` memakai `first_seen_at` persisten. Nilai ini adalah waktu observasi pertama, **bukan `published_at`** dan bukan bukti bahwa video baru diterbitkan.
+Kebijakan dasar `tabs-only-v1` memakai `first_seen_at` persisten. Nilai ini adalah waktu observasi pertama, **bukan `published_at`**. Default fence kosong dan state belum bermigrasi: video reguler serta replay yang memenuhi kebijakan lama tetap tersedia melalui event `:initial`; LIVE tetap HOLD. Ekstensi [lifecycle LIVE/replay](docs/youtube-lifecycle.md) memakai jendela fase tersendiri setelah aktivasi terpisah.
 
 Video hanya dapat dikirim jika seluruh syarat terpenuhi:
 
 1. Identitas belum dikenal cache/baseline/jurnal, bukan initial inventory, dan pertama kali teramati setelah activation fence produksi.
 2. Kedua tab `/videos` dan `/streams` sehat, dengan dua capture yang stabil dan berjarak minimal **10 menit**.
 3. Identitas kanal, provenance observasi, kategori, dan readiness tervalidasi. Keanggotaan tab dapat menjadi bukti kategori sesuai kebijakan, tetapi tidak menggantikan pemeriksaan kondisi lain.
-4. `/videos`: video reguler yang telah publik dan terverifikasi. `/streams`: hanya **completed replay** dengan bukti penyelesaian yang tervalidasi pada observasi stabil.
+4. `/videos`: video reguler yang telah publik dan terverifikasi. Dengan lifecycle OFF, `/streams` tetap memakai verifikasi completed replay legacy. Dengan lifecycle ON, LIVE atau completed replay memerlukan bukti player publik, dua capture berkesinambungan, dan lifecycle fence. **Tab `/streams` sendiri tidak membuktikan LIVE.**
 5. Bukti masih segar, tidak bertentangan, dan event belum pernah dikirim atau memiliki status pengiriman ambigu.
 
-Shorts ditolak. LIVE, upcoming, kategori UNKNOWN, replay yang belum terbukti siap, capture parsial/gagal, atau bukti tidak cukup tetap **HOLD** dan tidak dikirim. UNKNOWN adalah status pengetahuan identitas, bukan izin pengiriman; hanya keputusan **ELIGIBLE** yang dapat masuk jalur pengiriman.
+Shorts ditolak. UPCOMING, kategori UNKNOWN, replay yang belum terbukti siap, capture parsial/gagal, atau bukti tidak cukup tetap **HOLD**. LIVE diperiksa ulang sebelum reservation dan sesudah durable claim. UNKNOWN adalah status pengetahuan identitas, bukan izin pengiriman; hanya **ELIGIBLE** dapat masuk jalur pengiriman. ID yang sudah ada saat cutover dan event legacy `:initial` tetap ditekan, termasuk kasus PIMNAS `rPKcKDj0oa8`.
 
 | Parameter produksi | Nilai |
 |---|---|
-| Window sejak `first_seen_at` | 24 jam |
+| Window regular sejak `first_seen_at` | 24 jam |
+| Window stream sejak origin fase terverifikasi | 24 jam |
+| Jarak maksimum capture stream | 2 jam |
+| Usia maksimum bukti player saat reservation | 2 menit |
 | Evidence TTL | 4 jam |
 | Clock skew | 5 menit |
 | Jarak minimum capture | 10 menit |
@@ -129,7 +132,7 @@ File historis di `master` hanya dibaca oleh runtime produksi; jumlah referensiny
 
 Saat inisialisasi, video/pengumuman yang sudah terlihat dimasukkan ke initial inventory tanpa pengiriman. Fence dan inventory tetap digunakan setelah restart; inisialisasi terhadap state yang sudah diinisialisasi tidak menimpanya. Jangan menghapus state, mengubah fence, atau mereset inventory untuk memaksa pengiriman.
 
-Setiap event memakai kunci idempoten: BIMA berdasarkan identitas pengumuman kanonis, YouTube berdasarkan `video_id` dan event awal, serta Kemdiktisaintek berdasarkan UUID sumber. Sebelum Telegram dipanggil, reservasi dan status percobaan pengiriman harus berhasil tersimpan di remote melalui **GitHub Contents API dengan SHA/CAS**. Konflik SHA atau kegagalan checkpoint menghentikan proses; tidak ada fallback ke salinan lokal yang basi.
+Setiap event memakai kunci idempoten: BIMA berdasarkan identitas pengumuman kanonis, YouTube berdasarkan `video_id` dan fase (`:live`, `:replay`, serta histori legacy `:initial`), serta Kemdiktisaintek berdasarkan UUID sumber. Sebelum Telegram dipanggil, reservasi dan status percobaan pengiriman harus berhasil tersimpan di remote melalui **GitHub Contents API dengan SHA/CAS**. Konflik SHA atau kegagalan checkpoint menghentikan proses; tidak ada fallback ke salinan lokal yang basi.
 
 Status outbox:
 
@@ -176,6 +179,7 @@ Atur melalui **Settings → Secrets and variables → Actions**. Jangan menaruh 
 | `BIMA_PRODUCTION_AUTO_SEND` | `true` | Mengizinkan pengiriman BIMA. Ubah menjadi `false` untuk menghentikan pengiriman tanpa menghapus state. |
 | `YOUTUBE_PRODUCTION_ENABLED` | `true` | Mengizinkan job YouTube terjadwal. |
 | `YOUTUBE_PRODUCTION_AUTO_SEND` | `true` | Mengizinkan pengiriman YouTube. Ubah menjadi `false` untuk menghentikan pengiriman tanpa menghapus state. |
+| `YOUTUBE_LIFECYCLE_ACTIVATION_AT` | kosong secara default | Fence UTC lifecycle stream; setelah migrasi wajib cocok dengan fence tersimpan. Tidak diaktifkan oleh PR; lihat prosedur migrasi dan audit HOLD. |
 | `KEMDIKTISAINTEK_PRODUCTION_ENABLED` | `true` | Mengizinkan operasi sumber Kemdiktisaintek. |
 | `DIKTI_NEWS_PRODUCTION_SCHEDULER_ENABLED` | `true` hanya setelah cutover disetujui | Master switch unified; default OFF. |
 | `KEMDIKTISAINTEK_PRODUCTION_SCHEDULER_ENABLED` | Legacy | Hanya jalur scheduler lama manual; tidak mengendalikan unified. |

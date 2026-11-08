@@ -1,0 +1,47 @@
+{
+  "videoDetails": {
+    "videoId": "rPKcKDj0oa8",
+    "channelId": "UCGo_6l_6kp8H8OHcKcSIeDw",
+    "isPrivate": false,
+    "isLiveContent": true
+  },
+  "microformat": {
+    "playerMicroformatRenderer": {
+      "isUnlisted": false,
+      "liveBroadcastDetails": {
+        "isLiveNow": false,
+        "startTimestamp": "2026-11-06T11:26:57+00:00",
+        "endTimestamp": "2026-11-06T17:31:37+00:00"
+      }
+    }
+  },
+  "playabilityStatus": {
+    "status": "OK"
+  },
+  "streamingData": {
+    "formats": [],
+    "adaptiveFormats": [
+      {
+        "mimeType": "video/mp4; codecs=\"avc1.640028\""
+      },
+      {
+        "mimeType": "video/mp4; codecs=\"avc1.64001F\""
+      },
+      {
+        "mimeType": "video/mp4; codecs=\"avc1.4D401E\""
+      },
+      {
+        "mimeType": "video/webm; codecs=\"vp9\""
+      },
+      {
+        "mimeType": "video/mp4; codecs=\"avc1.4D400C\""
+      },
+      {
+        "mimeType": "audio/mp4; codecs=\"mp4a.40.2\""
+      },
+      {
+        "mimeType": "audio/webm; codecs=\"opus\""
+      }
+    ]
+  }
+}
