@@ -336,7 +336,7 @@
     },
     "bima:surat:1153/dst/c4/al.04.00/2026|title:pemberitahuan batas waktu pengunggahan laporan akhir pelaksanaan program hilirisasi riset prioritas - pengujian model dan prototipe tahun anggaran 2026:initial": {
       "event_key": "bima:surat:1153/dst/c4/al.04.00/2026|title:pemberitahuan batas waktu pengunggahan laporan akhir pelaksanaan program hilirisasi riset prioritas - pengujian model dan prototipe tahun anggaran 2026:initial",
-      "status": "sending",
+      "status": "delivered",
       "attempts": 1,
       "items": [
         {
