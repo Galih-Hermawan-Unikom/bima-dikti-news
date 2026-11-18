@@ -381,8 +381,8 @@
     },
     "bima:surat:1573/dst/c3/dt.05.00/2026|title:surat pengumuman sosialisasi dan pernyataan minat pengusulan program pui-pt 2027:initial": {
       "event_key": "bima:surat:1573/dst/c3/dt.05.00/2026|title:surat pengumuman sosialisasi dan pernyataan minat pengusulan program pui-pt 2027:initial",
-      "status": "reserved",
-      "attempts": 0,
+      "status": "sending",
+      "attempts": 1,
       "items": [
         {
           "title": "Surat Pengumuman Sosialisasi dan Pernyataan Minat Pengusulan Program PUI-PT 2027",
@@ -403,7 +403,8 @@
       "sent_chunks": [],
       "sent_documents": [],
       "receipts": [],
-      "send_files": true
+      "send_files": true,
+      "attempted_at": "2026-11-18T11:54:09.091512+00:00"
     }
   },
   "last_successful_poll_at": "2026-11-18T01:01:44.818522+00:00"
