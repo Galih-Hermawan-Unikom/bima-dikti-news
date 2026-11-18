@@ -355,9 +355,18 @@
       "chunks": [
         "<b>📢 PENGUMUMAN BARU BIMA KEMDIKTISAINTEK</b>\n\n📅 18/11/2026 18:54 WIB\n🔢 Jumlah: 1 item baru\n🏛️ BIMA: 1\n\n<b>1. Pemberitahuan Batas Waktu Pengunggahan Laporan Akhir pelaksanaan Program Hilirisasi Riset Prioritas - Pengujian Model dan Prototipe Tahun Anggaran 2026</b>\n   📜 1153/DST/C4/AL.04.00/2026\n   📆 18 November 2026\n   📦 Dokumen: 1 file\n   📎 Pemberitahuan Batas Waktu Pengunggahan Laporan Akhir Program PHRP tahun 2026.pdf\n   🔗 https://bima.kemdiktisaintek.go.id/pengumuman\n\n━━━━━━━━━━━━━━━━━━━━\n<i>Bot Dikti News</i>"
       ],
-      "sent_chunks": [],
+      "sent_chunks": [
+        1
+      ],
       "sent_documents": [],
-      "receipts": [],
+      "receipts": [
+        {
+          "method": "sendMessage",
+          "http_status": 200,
+          "ok": true,
+          "message_id": 303
+        }
+      ],
       "send_files": true,
       "attempted_at": "2026-11-18T11:54:09.091512+00:00"
     }
