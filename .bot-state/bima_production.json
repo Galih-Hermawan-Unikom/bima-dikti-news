@@ -138,7 +138,8 @@
     "bima:surat:1465/dst/c3/dt.06.01/2026|title:pemutakhiran capaian luaran program pengabdian kepada masyarakat tahun pelaksanaan 2023-2025:initial": "2026-10-24T15:52:32.411079+00:00",
     "bima:surat:1031/dst/c2/pp.01.07/2026|title:undangan peserta workshop penulisan artikel ilmiah mahasiswa pascasarjana tahun 2026:initial": "2026-10-27T08:54:54.470360+00:00",
     "bima:surat:1501/dst/c3/dt.05.00/2026|title:penyampaian laporan kemajuan program pui-pt baru 2026:initial": "2026-10-28T05:53:12.500881+00:00",
-    "bima:surat:1065/dst/c2/pp.01.07/2026|title:undangan peserta workshop penulisan artikel ilmiah mahasiswa pascasarjana tahun 2026 kota surabaya:initial": "2026-11-04T11:06:54.220230+00:00"
+    "bima:surat:1065/dst/c2/pp.01.07/2026|title:undangan peserta workshop penulisan artikel ilmiah mahasiswa pascasarjana tahun 2026 kota surabaya:initial": "2026-11-04T11:06:54.220230+00:00",
+    "bima:surat:1153/dst/c4/al.04.00/2026|title:pemberitahuan batas waktu pengunggahan laporan akhir pelaksanaan program hilirisasi riset prioritas - pengujian model dan prototipe tahun anggaran 2026:initial": "2026-11-18T11:54:09.091512+00:00"
   },
   "outbox": {
     "bima:surat:1454/dst/c3/dt.06.01/2026|title:pemberitahuan jadwal pelaporan dan monitoring dan evaluasi internal program pengabdian kepada masyarakat tahun anggaran 2026:initial": {
@@ -332,6 +333,32 @@
       ],
       "send_files": true,
       "attempted_at": "2026-11-04T11:06:54.220230+00:00"
+    },
+    "bima:surat:1153/dst/c4/al.04.00/2026|title:pemberitahuan batas waktu pengunggahan laporan akhir pelaksanaan program hilirisasi riset prioritas - pengujian model dan prototipe tahun anggaran 2026:initial": {
+      "event_key": "bima:surat:1153/dst/c4/al.04.00/2026|title:pemberitahuan batas waktu pengunggahan laporan akhir pelaksanaan program hilirisasi riset prioritas - pengujian model dan prototipe tahun anggaran 2026:initial",
+      "status": "reserved",
+      "attempts": 0,
+      "items": [
+        {
+          "title": "Pemberitahuan Batas Waktu Pengunggahan Laporan Akhir pelaksanaan Program Hilirisasi Riset Prioritas - Pengujian Model dan Prototipe Tahun Anggaran 2026",
+          "surat": "1153/DST/C4/AL.04.00/2026",
+          "date": "18 November 2026",
+          "documents": [
+            {
+              "name": "Pemberitahuan Batas Waktu Pengunggahan Laporan Akhir Program PHRP tahun 2026.pdf"
+            }
+          ],
+          "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+          "scraped_at": "2026-11-18T11:53:37.914914"
+        }
+      ],
+      "chunks": [
+        "<b>📢 PENGUMUMAN BARU BIMA KEMDIKTISAINTEK</b>\n\n📅 18/11/2026 18:54 WIB\n🔢 Jumlah: 1 item baru\n🏛️ BIMA: 1\n\n<b>1. Pemberitahuan Batas Waktu Pengunggahan Laporan Akhir pelaksanaan Program Hilirisasi Riset Prioritas - Pengujian Model dan Prototipe Tahun Anggaran 2026</b>\n   📜 1153/DST/C4/AL.04.00/2026\n   📆 18 November 2026\n   📦 Dokumen: 1 file\n   📎 Pemberitahuan Batas Waktu Pengunggahan Laporan Akhir Program PHRP tahun 2026.pdf\n   🔗 https://bima.kemdiktisaintek.go.id/pengumuman\n\n━━━━━━━━━━━━━━━━━━━━\n<i>Bot Dikti News</i>"
+      ],
+      "sent_chunks": [],
+      "sent_documents": [],
+      "receipts": [],
+      "send_files": true
     }
   },
   "last_successful_poll_at": "2026-11-18T01:01:44.818522+00:00"
