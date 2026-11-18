@@ -400,9 +400,18 @@
       "chunks": [
         "<b>📢 PENGUMUMAN BARU BIMA KEMDIKTISAINTEK</b>\n\n📅 18/11/2026 18:54 WIB\n🔢 Jumlah: 1 item baru\n🏛️ BIMA: 1\n\n<b>1. Surat Pengumuman Sosialisasi dan Pernyataan Minat Pengusulan Program PUI-PT 2027</b>\n   📜 1573/DST/C3/DT.05.00/2026\n   📆 17 November 2026\n   📦 Dokumen: 1 file\n   📎 Surat Pengumuman Sosialisasi dan Pernyataan Minat Pengusulan Program PUI-PT 2027.pdf\n   🔗 https://bima.kemdiktisaintek.go.id/pengumuman\n\n━━━━━━━━━━━━━━━━━━━━\n<i>Bot Dikti News</i>"
       ],
-      "sent_chunks": [],
+      "sent_chunks": [
+        1
+      ],
       "sent_documents": [],
-      "receipts": [],
+      "receipts": [
+        {
+          "method": "sendMessage",
+          "http_status": 200,
+          "ok": true,
+          "message_id": 305
+        }
+      ],
       "send_files": true,
       "attempted_at": "2026-11-18T11:54:09.091512+00:00"
     }
