@@ -426,8 +426,8 @@
     },
     "bima:surat:1604/dst/c3/dt.06.01/2026|title:pemberitahuan pelaksanaan monitoring dan evaluasi program kosabangsa tahun 2026:initial": {
       "event_key": "bima:surat:1604/dst/c3/dt.06.01/2026|title:pemberitahuan pelaksanaan monitoring dan evaluasi program kosabangsa tahun 2026:initial",
-      "status": "reserved",
-      "attempts": 0,
+      "status": "sending",
+      "attempts": 1,
       "items": [
         {
           "title": "Pemberitahuan Pelaksanaan Monitoring dan Evaluasi Program Kosabangsa Tahun 2026",
@@ -454,7 +454,8 @@
       "sent_chunks": [],
       "sent_documents": [],
       "receipts": [],
-      "send_files": true
+      "send_files": true,
+      "attempted_at": "2026-11-22T11:37:57.905569+00:00"
     }
   },
   "last_successful_poll_at": "2026-11-22T01:26:02.434641+00:00"
