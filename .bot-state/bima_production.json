@@ -456,7 +456,8 @@
       ],
       "sent_documents": [
         "0:0",
-        "0:1"
+        "0:1",
+        "0:2"
       ],
       "receipts": [
         {
@@ -476,6 +477,12 @@
           "http_status": 200,
           "ok": true,
           "message_id": 309
+        },
+        {
+          "method": "sendDocument",
+          "http_status": 200,
+          "ok": true,
+          "message_id": 310
         }
       ],
       "send_files": true,
