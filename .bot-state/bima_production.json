@@ -451,9 +451,18 @@
       "chunks": [
         "<b>📢 PENGUMUMAN BARU BIMA KEMDIKTISAINTEK</b>\n\n📅 22/11/2026 18:37 WIB\n🔢 Jumlah: 1 item baru\n🏛️ BIMA: 1\n\n<b>1. Pemberitahuan Pelaksanaan Monitoring dan Evaluasi Program Kosabangsa Tahun 2026</b>\n   📜 1604/DST/C3/DT.06.01/2026\n   📆 21 November 2026\n   📦 Dokumen: 3 file\n   📎 Pemberitahuan Pelaksanaan Monitoring dan Evaluasi Program Kosabangsa Tahun 2026.pdf\n   📎 Lampiran I - Ketentuan Pelaksanaan Monitoring dan Evaluasi Program Kosabangsa Tahun Anggaran 2026.pdf\n   📎 Lampiran II - Daftar Peserta Monitoring dan Evaluasi Program Kosabangsa Tahun 2026.pdf\n   🔗 https://bima.kemdiktisaintek.go.id/pengumuman\n\n━━━━━━━━━━━━━━━━━━━━\n<i>Bot Dikti News</i>"
       ],
-      "sent_chunks": [],
+      "sent_chunks": [
+        1
+      ],
       "sent_documents": [],
-      "receipts": [],
+      "receipts": [
+        {
+          "method": "sendMessage",
+          "http_status": 200,
+          "ok": true,
+          "message_id": 307
+        }
+      ],
       "send_files": true,
       "attempted_at": "2026-11-22T11:37:57.905569+00:00"
     }
