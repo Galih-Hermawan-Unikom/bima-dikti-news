@@ -140,7 +140,8 @@
     "bima:surat:1501/dst/c3/dt.05.00/2026|title:penyampaian laporan kemajuan program pui-pt baru 2026:initial": "2026-10-28T05:53:12.500881+00:00",
     "bima:surat:1065/dst/c2/pp.01.07/2026|title:undangan peserta workshop penulisan artikel ilmiah mahasiswa pascasarjana tahun 2026 kota surabaya:initial": "2026-11-04T11:06:54.220230+00:00",
     "bima:surat:1153/dst/c4/al.04.00/2026|title:pemberitahuan batas waktu pengunggahan laporan akhir pelaksanaan program hilirisasi riset prioritas - pengujian model dan prototipe tahun anggaran 2026:initial": "2026-11-18T11:54:09.091512+00:00",
-    "bima:surat:1573/dst/c3/dt.05.00/2026|title:surat pengumuman sosialisasi dan pernyataan minat pengusulan program pui-pt 2027:initial": "2026-11-18T11:54:09.091512+00:00"
+    "bima:surat:1573/dst/c3/dt.05.00/2026|title:surat pengumuman sosialisasi dan pernyataan minat pengusulan program pui-pt 2027:initial": "2026-11-18T11:54:09.091512+00:00",
+    "bima:surat:1604/dst/c3/dt.06.01/2026|title:pemberitahuan pelaksanaan monitoring dan evaluasi program kosabangsa tahun 2026:initial": "2026-11-22T11:37:57.905569+00:00"
   },
   "outbox": {
     "bima:surat:1454/dst/c3/dt.06.01/2026|title:pemberitahuan jadwal pelaporan dan monitoring dan evaluasi internal program pengabdian kepada masyarakat tahun anggaran 2026:initial": {
@@ -422,6 +423,38 @@
       ],
       "send_files": true,
       "attempted_at": "2026-11-18T11:54:09.091512+00:00"
+    },
+    "bima:surat:1604/dst/c3/dt.06.01/2026|title:pemberitahuan pelaksanaan monitoring dan evaluasi program kosabangsa tahun 2026:initial": {
+      "event_key": "bima:surat:1604/dst/c3/dt.06.01/2026|title:pemberitahuan pelaksanaan monitoring dan evaluasi program kosabangsa tahun 2026:initial",
+      "status": "reserved",
+      "attempts": 0,
+      "items": [
+        {
+          "title": "Pemberitahuan Pelaksanaan Monitoring dan Evaluasi Program Kosabangsa Tahun 2026",
+          "surat": "1604/DST/C3/DT.06.01/2026",
+          "date": "21 November 2026",
+          "documents": [
+            {
+              "name": "Pemberitahuan Pelaksanaan Monitoring dan Evaluasi Program Kosabangsa Tahun 2026.pdf"
+            },
+            {
+              "name": "Lampiran I - Ketentuan Pelaksanaan Monitoring dan Evaluasi Program Kosabangsa Tahun Anggaran 2026.pdf"
+            },
+            {
+              "name": "Lampiran II - Daftar Peserta Monitoring dan Evaluasi Program Kosabangsa Tahun 2026.pdf"
+            }
+          ],
+          "url": "https://bima.kemdiktisaintek.go.id/pengumuman",
+          "scraped_at": "2026-11-22T11:37:26.864665"
+        }
+      ],
+      "chunks": [
+        "<b>📢 PENGUMUMAN BARU BIMA KEMDIKTISAINTEK</b>\n\n📅 22/11/2026 18:37 WIB\n🔢 Jumlah: 1 item baru\n🏛️ BIMA: 1\n\n<b>1. Pemberitahuan Pelaksanaan Monitoring dan Evaluasi Program Kosabangsa Tahun 2026</b>\n   📜 1604/DST/C3/DT.06.01/2026\n   📆 21 November 2026\n   📦 Dokumen: 3 file\n   📎 Pemberitahuan Pelaksanaan Monitoring dan Evaluasi Program Kosabangsa Tahun 2026.pdf\n   📎 Lampiran I - Ketentuan Pelaksanaan Monitoring dan Evaluasi Program Kosabangsa Tahun Anggaran 2026.pdf\n   📎 Lampiran II - Daftar Peserta Monitoring dan Evaluasi Program Kosabangsa Tahun 2026.pdf\n   🔗 https://bima.kemdiktisaintek.go.id/pengumuman\n\n━━━━━━━━━━━━━━━━━━━━\n<i>Bot Dikti News</i>"
+      ],
+      "sent_chunks": [],
+      "sent_documents": [],
+      "receipts": [],
+      "send_files": true
     }
   },
   "last_successful_poll_at": "2026-11-22T01:26:02.434641+00:00"
