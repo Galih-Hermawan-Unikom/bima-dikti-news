@@ -491,7 +491,7 @@
     },
     "bima:surat:1638/dst/c3/dt.05.00/2026|title:pemberitahuan penutupan sementara fasilitas pengkinian capaian luaran program rikub:initial": {
       "event_key": "bima:surat:1638/dst/c3/dt.05.00/2026|title:pemberitahuan penutupan sementara fasilitas pengkinian capaian luaran program rikub:initial",
-      "status": "sending",
+      "status": "delivered",
       "attempts": 1,
       "items": [
         {
