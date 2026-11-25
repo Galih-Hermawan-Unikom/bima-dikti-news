@@ -510,9 +510,18 @@
       "chunks": [
         "<b>📢 PENGUMUMAN BARU BIMA KEMDIKTISAINTEK</b>\n\n📅 26/11/2026 02:23 WIB\n🔢 Jumlah: 1 item baru\n🏛️ BIMA: 1\n\n<b>1. Pemberitahuan Penutupan Sementara Fasilitas Pengkinian Capaian Luaran Program RIKUB</b>\n   📜 1638/DST/C3/DT.05.00/2026\n   📆 25 November 2026\n   📦 Dokumen: 1 file\n   📎 20261125141546Pemberitahuan Penutupan Sementara Fasilitas Pengkinian Capaian Luaran RIKUB.pdf\n   🔗 https://bima.kemdiktisaintek.go.id/pengumuman\n\n━━━━━━━━━━━━━━━━━━━━\n<i>Bot Dikti News</i>"
       ],
-      "sent_chunks": [],
+      "sent_chunks": [
+        1
+      ],
       "sent_documents": [],
-      "receipts": [],
+      "receipts": [
+        {
+          "method": "sendMessage",
+          "http_status": 200,
+          "ok": true,
+          "message_id": 311
+        }
+      ],
       "send_files": true,
       "attempted_at": "2026-11-25T19:23:47.558149+00:00"
     }
